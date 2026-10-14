@@ -1,18 +1,20 @@
 # Sound Lab: instructions for agents
 
-You make game audio with a local Stable Audio 3 Medium (SA3) model. The user listens and decides in the web app; you generate, organise and ship. You can't hear, so never claim a take sounds good. Report what you measured (silence, loudness, tempo, beat lock) and let the user's votes decide.
+You make game audio with local models: Stable Audio 3 Medium (SA3) by default, and `tuning.json` says which model makes what. The user listens and decides in the web app; you generate, organise and ship. You can't hear, so never claim a take sounds good. Report what you measured (silence, loudness, tempo, beat lock) and let the user's votes decide.
 
 ## Setup and health
 
 - Install: `./install.sh` (Linux) or `install.cmd` (Windows). It's idempotent. `--hf-home PATH` reuses an existing model cache.
 - Check: `./soundlab.sh doctor`, or `doctor --generate` to also make one second of real audio. Fix anything marked `!!` before generating.
 - Every command takes `--project PATH`: a game folder containing `soundlab_project.py`, or the file itself. `SOUNDLAB_PROJECT` sets a default.
-- Start with `./soundlab.sh --project P status` (or `status --json`). It lists the sounds, takes, decisions, the user's notes, alert sets, music sets and what has shipped.
+- Start with `./soundlab.sh --project P status` (or `status --json`). It lists the sounds, takes, decisions, the user's notes, alert sets, music sets, what has shipped and which model makes what.
+- Before writing any prompt, run `./soundlab.sh --project P tuning --task T` and start from it (see "Prompt tuning: start here").
 
 ## Commands
 
 | command | does | time |
 |---|---|---|
+| `tuning [--task T] [--json]` | the prompt tuning for the model each task uses, with this project's evidence: read it before writing prompts | – |
 | `serve [--port 7870]` | the web app (run it in the background; it reads files on every request, and the open page offers new takes as they're generated) | – |
 | `sounds generate [--seeds N] [--only NAME..] [--variants V..]` | takes for every (or some) sound, prompt variant and seed; existing takes are skipped | ~0.7 s per take |
 | `sounds promote [--apply] [--only NAME..]` | ship the picks into the game (dry run without `--apply`) | seconds |
@@ -24,7 +26,7 @@ You make game audio with a local Stable Audio 3 Medium (SA3) model. The user lis
 
 Run long jobs in the background, with output to a log. Only one generator at a time: the model needs about 12 GB of VRAM and two copies don't fit.
 
-**Generate generously.** Generation is local and free, and the user prefers many options to a careful few. When a sound needs work, add several new prompt ideas to `prompts.json` and 6 or more seeds each. More `--seeds` only adds takes, and the takes already voted on stay as they are.
+**Generate generously.** Generation is local and free, and the user prefers many options to a careful few. When a sound needs work, add several new prompt ideas to `prompts.json`, written from the tuning, and 6 or more seeds each. More `--seeds` only adds takes, and the takes already voted on stay as they are.
 
 ## The user's decisions (data/votes.json)
 
@@ -44,19 +46,15 @@ Rules:
 - Instrument pool: an instrument is in when one of its audition takes is picked or it is net 👍, and out when net 👎. Each music take draws one instrument per role from the pool, seeded.
 - Music shipping: liked takes (`mesh_<set>.<take>.<profile>` = 1) ship as tracks. A set with none liked ships all takes not 👎.
 
-## Writing prompts for SA3 (what worked)
+## Prompt tuning: start here
 
-SA3 was trained on Freesound and AudioSparx clips and their metadata, and runs at cfg 1.0, so:
+`tuning.json`, at the root of this repo, says how to write prompts for each model, which model makes which task, and what the user likes. It's shared by every project: what a model can do, and the user's taste, carry over from game to game. The Tuning page edits it, and `soundlab/tuning.py` documents its shape. It replaces the prompt advice that used to live here.
 
-- **Be explicit and concrete; one idea per prompt.** Name the physical source, the action, and how it was recorded: `TrackType: SFX, an axe striking a pine log, one crisp chop, close mic, outdoors.`
-- **Use the training data's tags.** For sound effects: `TrackType: SFX`. For music: `TrackType: Music, VocalType: Instrumental, Genre: Folk, Instruments: Lyre, Frame Drum`. For one instrument alone: `TrackType: Instrument`.
-- **No negations.** "no music" or "without hiss" only adds the word. Phrase it positively ("dry, close, clean").
-- **No game lore.** "draugr", "Mist-Walker" and the like mean nothing to the model. Say what physically makes the sound.
-- **No mixing-engineer adjective lists** ("warm rounded attack, soft organic timbre…"). Mastering handles tone; prompts describe sound.
-- **Split multi-part sounds.** "a body falls and a man groans" is two generations mixed, not one prompt.
-- **Short wins.** In Emberhold's vote, the plain description (about 18 words) won 26% of sounds and tag-style captions 21%. 40-word "vivid" prompts won 15%, and creative re-imaginings 10%. The Stats page shows the live numbers.
-- **Music** needs tempo, mode or key, the instruments, and one mood word. For a set that must mesh, use one tempo and key everywhere.
-- **Pitch and rhythm can't be prompted exactly.** For motifs (alerts), SA3 makes single notes, and `alerts.py` retunes and sequences them, checking pitch with pyin and YIN. Natural recordings (animals, crowds) should be used whole: chopping and retuning them sounds artificial.
+- **Read it before writing or changing any prompt.** Run `./soundlab.sh --project P tuning --task T`, where T is `sfx`, `alerts`, `instruments` or `music`. It prints the model the task uses; that model's rules (pinned first), prompt shape and examples; the user's taste; and the evidence: what this project's picks and votes say. Treat it as the starting point. Write the first variants to its rules and shape, then vary from there.
+- **The user's rules and taste are instructions** (`"by": "user"`, shown as "Yours"). Follow them, and never edit or remove them, exactly as with votes and notes. Your own rules (`"by": "agent"`) are hypotheses: put the evidence in `why` (numbers, take ids, the date) and revise them when the votes turn.
+- **Keep it learning.** After the user votes on a round, read the evidence and record what it taught you as an agent rule, scoped to its `tasks`. Add good and bad examples, with their take ids, once a winner or a clear loser shows. Write to `tuning.json` directly, keeping its shape: the page reloads when the file changes, and it never overwrites your edit.
+- **Prompt styles differ by model.** Each model has its own guide, and one model's style doesn't carry over to another. MOSS-SoundEffect, fed prompts written for SA3, won 1 of 7 sounds. To try a new model for a task, give it a guide, assign it the task, and start its rules from its own documentation and its first votes.
+- **Which model makes what** is in `tasks`. SoundLab's generators run only Stable Audio 3 (`"engine": "sa3"`). A model with `"engine": "external"` makes its takes elsewhere, and they're imported into the index with their `model` field. The generators refuse a task assigned to a model they can't run, so check the assignment before you generate.
 
 ## The project file
 

@@ -57,7 +57,7 @@ A project is a game folder containing `soundlab_project.py`, which describes the
 | **Instruments** | Solo auditions of the music's candidate instruments. Picked ones form the pool every track draws from. |
 | **Music** | A track's intensity levels playing in sync. Crossfade them live, stack them to hear clashes, switch takes on the bar, and click the timeline to jump to a bar. Liked takes ship as tracks. |
 | **Balance** | Every sound and music level at its in-game loudness. Trim it, A/B it against a reference, and save to the game's mix file, which the running game reloads live. |
-| **Stats** | Which prompt styles win. |
+| **Tuning** | How each model wants its prompts, which model makes what, and your taste, with the evidence from your votes (which prompt styles win, per model). Agents start every prompt from it. |
 
 Across the pages:
 
@@ -65,6 +65,7 @@ Across the pages:
 - **Jump to anything** with `Ctrl K` (or `/`): any sound, music set, instrument or page.
 - **Undo** the last vote or pick with `Ctrl Z`, or from the toast that confirms it.
 - **Live**: while a generator runs, the top bar offers the new takes (nothing moves until you click); votes written elsewhere appear on their own.
+- **Prompt tuning** (`tuning.json`, shared by every project) holds a guide per model: its rules, the shape of a prompt for each task, good and bad examples. Agents read it with `./soundlab.sh tuning` before writing a prompt and add what your votes teach them. Rules and taste you write (or mark as yours) are instructions they never change; theirs carry their evidence. Assign a different model to a task and it gets its own prompt style.
 - Everything is keyboard-driven: `?` lists the keys for the page you're on, `Alt 1–6` switches pages, `M` mutes.
 
 Generating and shipping happen on the command line:
@@ -77,6 +78,7 @@ Generating and shipping happen on the command line:
 ./soundlab.sh --project P music generate --contexts day night --biomes any fjords
 ./soundlab.sh --project P music promote --apply
 ./soundlab.sh --project P balance measure
+./soundlab.sh --project P tuning --task sfx                 # how to prompt the model that makes sound effects
 ```
 
 Rough speeds on a 4070 Ti SUPER:
@@ -87,11 +89,33 @@ Rough speeds on a 4070 Ti SUPER:
 | one music set (a spine plus derived levels, several takes) | 1–3 min |
 | a whole game's sound list at 3 seeds | about 20 min |
 
+## Working with an agent
+
+SoundLab is made to be driven by a coding agent: the agent writes prompts, generates and ships, and you listen and decide in the app. [AGENTS.md](AGENTS.md) tells it how.
+
+**Point the agent at it.** An agent started in this folder reads AGENTS.md on its own. If you start it in your game's folder, add a line to the game's agent instructions (its AGENTS.md or CLAUDE.md), for example: *"Game audio is made with SoundLab (`path/to/sound-lab`): read its AGENTS.md before working on audio."*
+
+**The loop.** Ask for a round, vote on it in the app, then ask the agent to learn from it:
+
+1. *"The feast takes still aren't working, see my note. Do a new round from the tuning: 4–5 new prompt variants, 6 seeds each."*
+2. Listen and vote in the app: thumbs on the near-misses as well as a pick, plus a note on what's wrong.
+3. *"I've voted on the feast round. Read the evidence and update the tuning with what it taught you."*
+
+Step 3 is the one people skip, and it's the one that makes the agent better with your models: the votes go into the tuning as rules, so the next round starts from what worked. Thumbs say more than picks alone, because a pick only shows which take won and a thumbs down shows what lost.
+
+Other useful asks:
+
+- *"Add to my taste: I prefer dry, close recordings over big cinematic reverb."* (Or type it on the Tuning page.)
+- *"I want to try another model for footsteps. Write it a guide from its documentation and assign it the task."*
+- *"Review the tuning: drop agent rules the evidence no longer supports, and tell me which ones my votes contradict."*
+- *"Show me what will change if we ship, then ship the picks."* (Shipping overwrites the game's files, so agents only do it when you ask.)
+
 ## Layout
 
 ```
 install.py, install.sh, install.cmd    the installer
 soundlab.sh, soundlab.cmd              run the tool with the installed runtime
 soundlab/                              the tool: engine, generators, server, web app (soundlab/web)
+tuning.json                            prompt tuning: a guide per model, which model makes what, your taste
 runtime/                               installed (gitignored): Python env, Stable Audio 3, the model cache
 ```

@@ -25,7 +25,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import dsp, project as P
+from . import dsp, project as P, tuning
 from .dsp import SR
 from .store import Store
 
@@ -134,6 +134,7 @@ def compose(proj: P.Project, st: Store, meta: dict, score: dict, channels: int) 
 def build(proj: P.Project) -> int:
     if not proj.alerts:
         raise SystemExit("this project has no alerts design (Project.alerts)")
+    tuning.require("alerts")
     A, st = proj.alerts, Store(proj)
     kits = _make_kits(proj, st)
     sounds = {s.name: s for s in proj.sounds()}

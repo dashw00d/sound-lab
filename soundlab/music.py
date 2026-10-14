@@ -35,7 +35,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import dsp, project as P
+from . import dsp, project as P, tuning
 from .dsp import SR
 from .store import Store
 
@@ -48,6 +48,7 @@ def key_of(context: str, biome: str) -> str:
 
 def auditions(proj: P.Project, seeds: int = 4) -> int:
     """A solo take of every candidate instrument (sounds pool_<id>), level-matched, for the Instruments page."""
+    tuning.require("instruments")
     M, st = proj.music, Store(proj)
     idx = st.index()
     if all(f"pool_{pid}.pool.s{k}" in idx["clips"] for pid in M["instruments"] for k in range(seeds)):
@@ -99,6 +100,7 @@ def take_roles(pool: dict[str, list[str]], key: str, seed: int) -> dict[str, str
 # --------------------------------------------------------------------------- generating sets
 
 def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int = 3, tries: int = 14) -> int:
+    tuning.require("music")
     M, st = proj.music, Store(proj)
     bpm, bar_beats, bars = M["bpm"], M["bar_beats"], M["bars"]
     bar = 60.0 / bpm * bar_beats

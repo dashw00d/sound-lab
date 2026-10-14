@@ -28,7 +28,8 @@ Lab.ICONS = {
   keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M7.5 14h9"/>',
   undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
   copy: '<rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 8.5V6a2.5 2.5 0 0 0-2.5-2.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/>',
-  check: '<path d="M20 6.5L9.5 17 4 11.5"/>', x: '<path d="M18 6L6 18M6 6l12 12"/>',
+  check: '<path d="M20 6.5L9.5 17 4 11.5"/>', plus: '<path d="M12 5v14M5 12h14"/>',
+  fork: '<path d="M8 2.5v7.5a4 4 0 0 0 8 0V2.5"/><path d="M12 14v7.5"/>', x: '<path d="M18 6L6 18M6 6l12 12"/>',
   left: '<path d="M15 18l-6-6 6-6"/>', right: '<path d="M9 18l6-6-6-6"/>', arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   bell: '<path d="M6 9a6 6 0 0 1 12 0c0 6.5 2.5 8.5 2.5 8.5h-17S6 15.5 6 9z"/><path d="M10.2 20.5a2 2 0 0 0 3.6 0"/>',
   note: '<path d="M9 18V5.5l11-2v12.5"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
@@ -143,6 +144,7 @@ Lab.poll = async function () {
         b.innerHTML = `${Lab.icon("refresh")}${n > 0 ? `${n} new take${n === 1 ? "" : "s"}` : "Takes updated"}`;
         b.hidden = false;
       } else if (s.index !== was.index) { s.index = was.index; }  // (counted again on a later poll)
+      if (s.tuning !== was.tuning && Lab.tab === "tuning" && Lab.tabs.tuning.reload) Lab.tabs.tuning.reload();  // (an agent wrote it)
       const voted = s.votes !== was.votes, shipped = s.promoted !== was.promoted;
       if ((voted || shipped) && (!document.activeElement || !/TEXTAREA|INPUT/.test(document.activeElement.tagName))) {
         const r = await (await fetch("/api/state")).json();
@@ -378,7 +380,11 @@ document.addEventListener("keydown", e => {
   const t = e.target, typing = t.tagName === "TEXTAREA" || (t.tagName === "INPUT" && t.type !== "range");
   const mod = e.ctrlKey || e.metaKey, k = e.key;
   if (mod && k.toLowerCase() === "k") { e.preventDefault(); Lab.palette.open(); return; }
-  if (typing) { if (k === "Escape") t.blur(); return; }
+  if (typing) {
+    if (k === "Escape") t.blur();
+    else if (mod && k.toLowerCase() === "s") { const p = Lab.tabs[Lab.tab]; if (p && p.onKey) p.onKey(e); }  // (save, from inside a field)
+    return;
+  }
   if (t.tagName === "INPUT" && t.type === "range") t.blur();  // (a slider keeps focus after dragging; keys go to the page)
   if (mod && k.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); Lab.undo(); return; }
   if (e.altKey && /^[1-9]$/.test(k)) { e.preventDefault(); const p = Lab.order.filter(Lab.enabled)[+k - 1]; if (p) Lab.go(p); return; }

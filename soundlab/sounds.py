@@ -20,7 +20,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import project as P
+from . import project as P, tuning
 from .store import Store
 
 MODEL = "stable-audio-3-medium"
@@ -68,6 +68,7 @@ def _master_one(project_path: str, name: str, raw: np.ndarray, path: str) -> dic
 
 def generate(proj: P.Project, seeds: int = 3, only: list[str] | None = None, only_variants: list[str] | None = None,
              workers: int = 8) -> int:
+    tuning.require("sfx")
     st = Store(proj)
     sounds = {s.name: s for s in proj.sounds()}
     names = only or list(sounds)

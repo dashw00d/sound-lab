@@ -3,7 +3,9 @@
   GET  /                    the app (soundlab/web)
   GET  /api/state           {project, index, votes, shipped}: every take, prompt, set and vote, and the take each
                             sound last shipped from (promoted.json)
-  GET  /api/stamp           {index, votes, promoted}: when those files last changed (the app polls it for news)
+  GET  /api/stamp           {index, votes, promoted, tuning}: when those files last changed (the app polls it for news)
+  GET  /api/tuning          {tuning, base, evidence, ...}: the prompt tuning (tuning.json) and what this project's votes say
+  POST /api/tuning          {base, tuning}: save it; 409 with the current one if it changed since `base` (an agent wrote it)
   POST /api/vote            {clip, value: 1|-1|0} | {sound, pick: id|"shipped"|null} | {picks: {sound: id|null}}
                             | {sound, note}
   GET  /api/balance         {balance (work/balance.json), mix (the game's mix file)}
@@ -23,7 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from . import paths, project as P
+from . import paths, project as P, tuning
 from .store import Store
 
 mimetypes.add_type("audio/ogg", ".ogg")
@@ -107,8 +109,12 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                     shipped = {n: p.get("clip") for n, p in Store.read(st.promoted_path, {}).items()}
                     self.send_json(dict(project=info, index=st.index(), votes=st.votes(), shipped=shipped))
             elif url == "/api/stamp":
-                self.send_json({k: p.stat().st_mtime_ns if p.exists() else 0
-                                for k, p in (("index", st.index_path), ("votes", st.votes_path), ("promoted", st.promoted_path))})
+                self.send_json({k: str(p.stat().st_mtime_ns) if p.exists() else "0"  # (strings: exact in JavaScript)
+                                for k, p in (("index", st.index_path), ("votes", st.votes_path), ("promoted", st.promoted_path), ("tuning", tuning.PATH))})
+            elif url == "/api/tuning":
+                with LOCK:
+                    self.send_json(dict(tuning=tuning.load(), base=tuning.stamp(), path=str(tuning.PATH), evidence=tuning.evidence(proj),
+                                        tasks=tuning.TASKS, commands=tuning.COMMANDS, engines=tuning.ENGINES))
             elif url == "/favicon.ico":
                 self.send_file(paths.WEB / "img" / "favicon.png")
             elif url == "/api/balance":
@@ -133,6 +139,15 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                 with LOCK:
                     Store.write(mix_path, clean)
                 self.send_json(clean)
+                return
+            if url == "/api/tuning":
+                msg = self.body()
+                with LOCK:
+                    if str(msg.get("base")) != tuning.stamp():
+                        self.send_json(dict(tuning=tuning.load(), base=tuning.stamp()), 409)
+                        return
+                    t = tuning.save(msg.get("tuning") or {})
+                    self.send_json(dict(tuning=t, base=tuning.stamp()))
                 return
             if url != "/api/vote":
                 self.send_error(404)

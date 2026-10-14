@@ -2,6 +2,7 @@
 
   soundlab [--project PATH] serve [--port 7870]          the web app
   soundlab [--project PATH] status [--json]              what the project has: sounds, takes, decisions, music
+  soundlab [--project PATH] tuning [--task T] [--json]   how to write prompts for the model each task uses (read first)
   soundlab doctor [--generate]                           check the install (and make one second of audio)
   soundlab [--project PATH] sounds generate [--seeds 3] [--only NAME ...] [--variants V ...]
   soundlab [--project PATH] sounds promote [--apply] [--only NAME ...]
@@ -109,6 +110,10 @@ def status(proj, as_json: bool) -> int:
     print(f"  takes: {out['takes']['total']} ({out['takes']['silent']} silent)")
     print(f"  alert sets: {out['alert_sets']}; music sets: {out['music'] or 'none'}")
     print(f"  shipped: {out['promoted']['sounds']} sounds, {out['promoted']['music_tracks']} music tracks")
+    from . import tuning
+
+    if tuning.summary():
+        print(f"  models: {tuning.summary()} (prompt tuning: soundlab tuning)")
     for n, t in votes["notes"].items():
         print(f"  note on {n}: {t}")
     return 0
@@ -122,6 +127,9 @@ def main() -> int:
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=7870)
     p = sub.add_parser("status")
+    p.add_argument("--json", action="store_true")
+    p = sub.add_parser("tuning")
+    p.add_argument("--task", choices=["sfx", "alerts", "instruments", "music"])
     p.add_argument("--json", action="store_true")
     p = sub.add_parser("doctor")
     p.add_argument("--generate", action="store_true")
@@ -151,6 +159,14 @@ def main() -> int:
 
     if a.cmd == "doctor":
         return doctor(a.generate)
+    if a.cmd == "tuning":  # (works without a project too: just no evidence)
+        from . import project as pj, tuning
+
+        try:
+            proj = pj.load(a.project)
+        except SystemExit:
+            proj = None
+        return tuning.show(proj, a.task, a.json)
     from . import project
 
     proj = project.load(a.project)

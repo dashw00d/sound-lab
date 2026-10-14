@@ -1,0 +1,214 @@
+{
+ "about": "Prompt tuning: the starting point for every prompt. soundlab/tuning.py documents the shape; AGENTS.md says how agents use it.",
+ "tasks": {
+  "sfx": {
+   "model": "stable-audio-3-medium",
+   "note": ""
+  },
+  "alerts": {
+   "model": "stable-audio-3-medium",
+   "note": "Earcon kits: the model makes single notes, alerts.py retunes and sequences them. Recordings: whole takes."
+  },
+  "instruments": {
+   "model": "stable-audio-3-medium",
+   "note": "Solo auditions of the music's candidate instruments, one instrument each."
+  },
+  "music": {
+   "model": "stable-audio-3-medium",
+   "note": "A spine from text, then the other levels derived from it with audio-to-audio (music.py)."
+  }
+ },
+ "taste": [
+  {
+   "id": "t1",
+   "text": "Music: the close profile is much better than contrast (levels that keep the spine's chords, with gentler contrast).",
+   "by": "user",
+   "added": "2026-10-14"
+  }
+ ],
+ "models": {
+  "stable-audio-3-medium": {
+   "name": "Stable Audio 3 Medium",
+   "engine": "sa3",
+   "summary": "SoundLab's engine. Trained on Freesound and AudioSparx clips and their metadata, and run at cfg 1.0 with no negative prompt, so it follows literal descriptions and the training data's tags. Under 1 s per sound-effect take; about 12 GB of VRAM.",
+   "rules": [
+    {
+     "id": "r1",
+     "text": "Be explicit and concrete, one idea per prompt: name the physical source, the action, and how it was recorded.",
+     "why": "At cfg 1.0 it takes the words literally; a second idea blurs into the first.",
+     "tasks": [],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": true
+    },
+    {
+     "id": "r2",
+     "text": "Use the training data's tags: TrackType: SFX for sound effects; TrackType: Music, VocalType: Instrumental, Genre: …, Instruments: … for music; TrackType: Instrument for one instrument alone.",
+     "why": "The metadata it was trained on.",
+     "tasks": [],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": false
+    },
+    {
+     "id": "r3",
+     "text": "No negations: \"no music\" or \"without hiss\" only adds the word. Say it positively (dry, close, clean).",
+     "why": "There's no negative prompt at cfg 1.0.",
+     "tasks": [],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": true
+    },
+    {
+     "id": "r4",
+     "text": "No game lore: names like draugr or Mist-Walker mean nothing to it. Say what physically makes the sound.",
+     "why": "",
+     "tasks": [
+      "sfx",
+      "alerts"
+     ],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": false
+    },
+    {
+     "id": "r5",
+     "text": "No mixing-engineer adjective lists (\"warm rounded attack, soft organic timbre…\"): mastering handles tone, the prompt describes the sound.",
+     "why": "Emberhold, 2026-10-14: the project's own prompts with that tail (el) won 14% of sounds; the same descriptions without it (core) won 25%.",
+     "tasks": [],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": false
+    },
+    {
+     "id": "r6",
+     "text": "Split multi-part sounds: \"a body falls and a man groans\" is two generations mixed, not one prompt.",
+     "why": "",
+     "tasks": [
+      "sfx"
+     ],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": false
+    },
+    {
+     "id": "r7",
+     "text": "Short and literal wins: about 18 words.",
+     "why": "Emberhold, 2026-10-14, share of sounds won: core (~18 words) 25%, tags (~17) 20%, vivid (~42) 14%, el (~36) 14%, plain (~18) 13%, alt (a different source, ~29) 9%.",
+     "tasks": [
+      "sfx"
+     ],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": true
+    },
+    {
+     "id": "r8",
+     "text": "Natural recordings (animals, crowds) are used whole: chopping and retuning them sounds artificial.",
+     "why": "",
+     "tasks": [
+      "sfx",
+      "alerts"
+     ],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": false
+    },
+    {
+     "id": "r9",
+     "text": "Pitch and rhythm can't be prompted exactly. For a motif, ask for one single note at a time; alerts.py retunes and sequences them and checks the pitch.",
+     "why": "",
+     "tasks": [
+      "alerts"
+     ],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": false
+    },
+    {
+     "id": "r10",
+     "text": "Give the tempo, the mode or key, the instruments, and one mood word. For a set that must mesh, one tempo and key everywhere.",
+     "why": "",
+     "tasks": [
+      "music",
+      "instruments"
+     ],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": false
+    }
+   ],
+   "templates": {
+    "sfx": "TrackType: SFX, {what physically makes it} {doing what, once}, {one detail of the action}, {close mic / distant}, {indoors / outdoors}.",
+    "alerts": "One single {low | high} note {plucked on | bowed on | struck on} {the instrument, plainly}. One note only. {its tone, in a few words}",
+    "instruments": "TrackType: Instrument, VocalType: Instrumental, Genre: {genre}, Instruments: {instrument}. {what it plays, in one sentence}, {tempo} BPM, {key}, close mic, dry room.",
+    "music": "TrackType: Music, VocalType: Instrumental, Genre: {genre}, Genre: {genre}, Instruments: {instruments}. {mood}, {style}: {who plays what, plainly}, {tempo} BPM, {key or mode}, {meter}."
+   },
+   "examples": [
+    {
+     "id": "e1",
+     "prompt": "TrackType: SFX, an axe striking a pine log, one crisp chop, close mic, outdoors.",
+     "verdict": "good",
+     "why": "The shape to start from: source, action, recording.",
+     "task": "sfx",
+     "take": ""
+    },
+    {
+     "id": "e2",
+     "prompt": "arrow impact, turf, ground, thock, single hit, short, solid, earthy, foley, close, clean, dry",
+     "verdict": "good",
+     "why": "A Freesound-style tag caption; picked for arrow_hit.",
+     "task": "sfx",
+     "take": "arrow_hit.tags.s0"
+    },
+    {
+     "id": "e3",
+     "prompt": "Cold wind howls and moans over bare rock on a high mountain pass at night, gusts whistling through crags and pebbles rattling.",
+     "verdict": "good",
+     "why": "A plain description of what physically makes it; picked for amb_night_highlands.",
+     "task": "sfx",
+     "take": "amb_night_highlands.plain.s1"
+    },
+    {
+     "id": "e4",
+     "prompt": "Two short, low calls on a wooden cow horn from the village, firm but warm and woody, a soft breathy attack, gentle outdoor air. Warm, mellow and rounded, smooth muted highs, gentle swell in and out, restrained dynamics, modest natural reverb, intimate rather than cinematic.",
+     "verdict": "bad",
+     "why": "The second half is a mixing-engineer tail: words, not sound.",
+     "task": "sfx",
+     "take": "horn_alarm.el.s0"
+    }
+   ]
+  },
+  "moss-soundeffect-v2.0": {
+   "name": "MOSS-SoundEffect v2.0",
+   "engine": "external",
+   "summary": "A 1.3B diffusion transformer for sound effects, run outside SoundLab (its own runtime) and imported into the index. It takes a negative prompt beside the prompt. About 24 s per take here, against under 1 s for Stable Audio 3.",
+   "rules": [
+    {
+     "id": "m1",
+     "text": "It takes a negative prompt: put what to avoid there, and keep the prompt itself positive.",
+     "why": "The imported takes carry one, e.g. \"piercing peaks, hiss, metallic ringing, cinematic boom\".",
+     "tasks": [
+      "sfx"
+     ],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": false
+    },
+    {
+     "id": "m2",
+     "text": "Prompts written for Stable Audio 3 don't carry over. Its own style still needs finding: start from short literal captions.",
+     "why": "Emberhold, 2026-10-14: fed the same prompts, moss-core won 1 of 7 sounds, moss-el and moss-vivid 0 of 7; 3 of 84 takes silent.",
+     "tasks": [
+      "sfx"
+     ],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": true
+    }
+   ],
+   "templates": {},
+   "examples": []
+  }
+ }
+}
