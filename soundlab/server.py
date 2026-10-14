@@ -3,13 +3,16 @@
   GET  /                    the app (soundlab/web)
   GET  /api/state           {project, index, votes, shipped}: every take, prompt, set and vote, and the take each
                             sound last shipped from (promoted.json)
-  GET  /api/stamp           {index, votes}: when those files last changed (the app polls it to pick up new takes)
+  GET  /api/stamp           {index, votes, promoted}: when those files last changed (the app polls it for news)
   POST /api/vote            {clip, value: 1|-1|0} | {sound, pick: id|"shipped"|null} | {picks: {sound: id|null}}
                             | {sound, note}
   GET  /api/balance         {balance (work/balance.json), mix (the game's mix file)}
   POST /api/mix             the whole mix; written to the game's mix file (the game re-reads it live)
   GET  /clips/<path>        a take (work/clips)
   GET  /shipped/<path>      a shipped file (the project's assets)
+
+Bound to a loopback address, it answers only requests addressed to one (so a DNS-rebinding page can't reach it),
+and it takes writes only as JSON from its own origin (so another website open in the browser can't post to it).
 """
 from __future__ import annotations
 
@@ -29,6 +32,7 @@ mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("font/woff2", ".woff2")
 mimetypes.add_type("image/svg+xml", ".svg")
 LOCK = threading.Lock()
+LOOPBACK = {"127.0.0.1", "localhost", "[::1]", "::1"}
 
 
 def _inside(base: Path, rel: str) -> Path | None:
@@ -36,12 +40,13 @@ def _inside(base: Path, rel: str) -> Path | None:
     return p if p.is_relative_to(base.resolve()) and p.is_file() else None
 
 
-def make_handler(proj: P.Project):
+def make_handler(proj: P.Project, host: str = "127.0.0.1"):
     st = Store(proj)
     mix_path = Path(proj.balance["mix"]) if proj.balance else None
     info = dict(name=proj.name, root=str(proj.root), features=dict(
         alerts=bool(proj.alerts), music=bool(proj.music), balance=bool(proj.balance)),
-        instruments={k: v["name"] for k, v in (proj.music or {}).get("instruments", {}).items()})
+        instruments={k: v["name"] for k, v in (proj.music or {}).get("instruments", {}).items()},
+        default_profile=(proj.music or {}).get("default_profile"))
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -77,10 +82,21 @@ def make_handler(proj: P.Project):
                 f.seek(start)
                 self.wfile.write(f.read(end - start + 1))
 
+        def foreign(self) -> bool:
+            """A request from another website (its Origin isn't ours), or addressed to a name that isn't loopback."""
+            where = self.headers.get("Host") or ""
+            if host in LOOPBACK and where.rsplit(":", 1)[0] not in LOOPBACK:
+                return True
+            origin = self.headers.get("Origin")
+            return bool(origin) and urlparse(origin).netloc != where
+
         def body(self):
             return json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
 
         def do_GET(self):
+            if self.foreign():
+                self.send_error(403)
+                return
             url = unquote(urlparse(self.path).path)
             if url in ("/", "/index.html"):
                 self.send_file(paths.WEB / "index.html")
@@ -92,7 +108,7 @@ def make_handler(proj: P.Project):
                     self.send_json(dict(project=info, index=st.index(), votes=st.votes(), shipped=shipped))
             elif url == "/api/stamp":
                 self.send_json({k: p.stat().st_mtime_ns if p.exists() else 0
-                                for k, p in (("index", st.index_path), ("votes", st.votes_path))})
+                                for k, p in (("index", st.index_path), ("votes", st.votes_path), ("promoted", st.promoted_path))})
             elif url == "/favicon.ico":
                 self.send_file(paths.WEB / "img" / "favicon.png")
             elif url == "/api/balance":
@@ -106,6 +122,9 @@ def make_handler(proj: P.Project):
                 self.send_error(404)
 
         def do_POST(self):
+            if self.foreign() or self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
+                self.send_error(403)
+                return
             url = urlparse(self.path).path
             if url == "/api/mix" and mix_path:
                 mix = self.body()
@@ -148,6 +167,6 @@ def make_handler(proj: P.Project):
 
 
 def serve(proj: P.Project, host: str = "127.0.0.1", port: int = 7870) -> None:
-    srv = ThreadingHTTPServer((host, port), make_handler(proj))
+    srv = ThreadingHTTPServer((host, port), make_handler(proj, host))
     print(f"SoundLab ({proj.name}): http://{host}:{port}", flush=True)
     srv.serve_forever()

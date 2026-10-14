@@ -87,9 +87,10 @@
   function next() {
     if (!P.seq || !P.seq.length) { P.seq = null; return; }
     P.col = P.seq.shift();
-    const cid = rows()[P.row].clips[set().names[P.col]];
+    const cid = rows()[P.row].clips[set().names[P.col]], u = url(cid);
+    if (!u) { next(); return; }  // (a silent take: skip it)
     paint();
-    Lab.play(url(cid), { id: cid, onEnd: () => setTimeout(() => { if (P.seq) next(); }, 450) });
+    Lab.play(u, { id: cid, onEnd: () => setTimeout(() => { if (P.seq) next(); }, 450) });
   }
   async function pickRow() {
     const r = rows()[P.row];

@@ -7,6 +7,8 @@ The design comes from the project (Project.music):
   levels                         the intensity names, quietest first; the middle one is the spine
   lufs                           {level: integrated loudness}
   profiles                       {name: {level: audio-to-audio strength}} for the non-spine levels
+  default_profile                optional: the profile the Music page opens on, and the one a set with no liked take
+                                 ships at (default: "contrast" if there is one)
   contexts                       {context: [mode, mood word]};  biomes: {biome: word, "any": ""}
   instruments                    {id: {role, tag, sentence, name}}: the candidates (auditions on the Instruments page)
   provisional                    {role: id}: used until the pool has votes
@@ -199,8 +201,8 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
 
 def promote(proj: P.Project, apply: bool = False) -> int:
     """Ship the music: every take liked on the Music page becomes a track in rotation (votes "mesh_<key>.<take>.
-    <profile>" > 0); a set with none liked ships all its takes not voted down, at its first profile that is
-    "contrast" if there is one. Writes out_dir/<track>_<level>.ogg and the manifest, removes tracks no longer chosen,
+    <profile>" > 0); a set with none liked ships all its takes not voted down, at the default profile (else
+    "contrast" if there is one, else the first). Writes out_dir/<track>_<level>.ogg and the manifest, removes tracks no longer chosen,
     records provenance in music_promoted.json, then the project's after_install."""
     M, st = proj.music, Store(proj)
     idx, votes = st.index(), st.votes()["clips"]
@@ -210,7 +212,8 @@ def promote(proj: P.Project, apply: bool = False) -> int:
         if not c["takes"]:
             continue
         liked = [(t, p) for t in c["takes"] for p in t["profiles"] if votes.get(f"mesh_{key}.{t['id']}.{p}", 0) > 0]
-        p0 = "contrast" if "contrast" in c["takes"][0]["profiles"] else next(iter(c["takes"][0]["profiles"]))
+        ps = c["takes"][0]["profiles"]
+        p0 = next(p for p in (M.get("default_profile"), "contrast", next(iter(ps))) if p in ps)
         chosen = liked or [(t, p0) for t in c["takes"] if votes.get(f"mesh_{key}.{t['id']}.{p0}", 0) >= 0]
         for take, prof in chosen:
             tid = f"{c['context']}.{c['biome']}.{take['id']}.{prof}"

@@ -56,9 +56,10 @@
   D.attach = function (on) {
     D.active = on;
     $("dock").hidden = !on;
-    if (!on) { D.item = null; return; }
-    D.show(null);
+    D.item = null; D.s = D.a = D.spec = null;
+    if (on) D.show(null);
   };
+  Lab.onFlush(() => { D.item = null; D.s = D.a = D.spec = null; });
   D.show = function (item) {
     if (!D.active) return;
     const same = D.item && item && D.item.id === item.id && D.item.url === item.url;
@@ -93,7 +94,7 @@
   D.draw = function () {
     if (!cv) return;
     const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
-    if (!D.s) { const g = cv.getContext("2d"); g.clearRect(0, 0, cv.width, cv.height); return; }
+    if (!D.s || !D.item) { const g = cv.getContext("2d"); g.clearRect(0, 0, cv.width, cv.height); return; }
     if (Lab.prefs.view === "spec") {
       D.spec = Lab.spectrogram(D.item.url, D.s);
       if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
@@ -135,7 +136,11 @@
     if (current() && !restart) { Lab.player.el.currentTime = t; return; }
     if (it.play) it.play(t); else Lab.play(it.url, { id: it.id, from: t });
   };
-  D.setRegion = function (a, b) { Lab.player.region = { id: D.item.id, a, b }; Lab.player.el.loop = false; D.showRegion(a, b); };
+  D.setRegion = function (a, b) {
+    Lab.player.region = { id: D.item.id, a, b };
+    if (current()) Lab.player.el.loop = false;  // (the region does the looping)
+    D.showRegion(a, b);
+  };
   D.showRegion = function (a, b) {
     D._reg = [a, b];
     reg.hidden = false; rtag.hidden = false;
@@ -148,7 +153,9 @@
     reg.style.left = `${100 * a / D.s.dur}%`; reg.style.width = `${100 * (b - a) / D.s.dur}%`;
   };
   D.clearRegion = function (quiet) {
-    if (Lab.player.region && (!D.item || Lab.player.region.id === D.item.id || quiet)) Lab.player.region = null;
+    const P = Lab.player;
+    if (P.region && (!D.item || P.region.id === D.item.id || quiet)) P.region = null;
+    if (P.current && !P.region) P.el.loop = P.loopWanted;  // (a loop sound goes back to looping whole)
     D._reg = null;
     if (reg) { reg.hidden = true; rtag.hidden = true; }
   };

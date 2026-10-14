@@ -80,6 +80,7 @@ Lab.fillRange = function (el) {
 // ---- API
 Lab.apply = function (r) { Lab.project = r.project; Lab.S = r.index; Lab.V = r.votes; Lab.shipped = r.shipped || {}; };
 Lab.load = async function () { Lab.apply(await (await fetch("/api/state")).json()); };
+Lab.post = (url, obj) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) });
 Lab.undoStack = [];
 function inverse(msg) {
   const V = Lab.V, inv = {};
@@ -90,30 +91,47 @@ function inverse(msg) {
 }
 async function post(msg) {
   Lab._writing = (Lab._writing || 0) + 1;  // (our own write: the poll doesn't mistake it for someone else's)
-  try { Lab.V = await (await fetch("/api/vote", { method: "POST", body: JSON.stringify(msg) })).json(); await Lab.stampSeen(); }
+  try {
+    const r = await Lab.post("/api/vote", msg);
+    if (!r.ok) throw new Error(`vote refused: ${r.status}`);
+    Lab.V = await r.json();
+    await Lab.stampSeen("votes");
+  }
   finally { Lab._writing--; }
   Lab.status();
   return Lab.V;
 }
 // A vote, pick or note. With `undo` ({label, icon}) it goes on the undo stack and says what it did.
-Lab.vote = async function (msg, undo) {
+// Writes run one at a time, so a quick second press sees the first one's result (and its undo is exact).
+let queue = Promise.resolve();
+const serial = fn => { const p = queue.then(fn, fn); queue = p.catch(() => {}); return p; };
+Lab.vote = (msg, undo) => serial(async () => {
   if (undo) { Lab.undoStack.push({ inv: inverse(msg), label: undo.label }); if (Lab.undoStack.length > 100) Lab.undoStack.shift(); }
-  await post(msg);
+  try { await post(msg); } catch (e) { if (undo) Lab.undoStack.pop(); Lab.toast("Couldn't save that: is the server running?", { icon: "x" }); throw e; }
   if (undo) Lab.toast(undo.label, { undo: true, icon: undo.icon });
   return Lab.V;
-};
-Lab.undo = async function () {
+});
+Lab.undo = () => serial(async () => {
   const u = Lab.undoStack.pop();
   if (!u) { Lab.toast("Nothing to undo"); return; }
   await post(u.inv);
   Lab.refresh();
   Lab.toast(`Undone: ${u.label}`, { icon: "undo" });
+});
+Lab.refresh = function () {
+  const p = Lab.tabs[Lab.tab];
+  if (!p) return;
+  if (p.dock !== false && !Lab.dock.active) Lab.dock.attach(true);  // (hidden while the page was empty)
+  (p.refresh || p.show)();
+  Lab.renderTabs();
 };
-Lab.refresh = function () { const p = Lab.tabs[Lab.tab]; if (p) (p.refresh || p.show)(); Lab.renderTabs(); };
 
 // ---- live refresh: new takes from a running generator (offered, not forced, so nothing moves under you), and
 // votes written elsewhere (applied). A generator rewrites the index often, so its count is re-read at most every 15 s.
-Lab.stampSeen = async function () { try { Lab.stamp = await (await fetch("/api/stamp")).json(); } catch { /* server gone */ } };
+Lab.stampSeen = async function (only) {  // (only: the one file our own write changed, so other news isn't swallowed)
+  try { const s = await (await fetch("/api/stamp")).json(); Lab.stamp = only && Lab.stamp ? { ...Lab.stamp, [only]: s[only] } : s; }
+  catch { /* server gone */ }
+};
 Lab.poll = async function () {
   try {
     const s = await (await fetch("/api/stamp")).json(), was = Lab.stamp;
@@ -125,10 +143,13 @@ Lab.poll = async function () {
         b.innerHTML = `${Lab.icon("refresh")}${n > 0 ? `${n} new take${n === 1 ? "" : "s"}` : "Takes updated"}`;
         b.hidden = false;
       } else if (s.index !== was.index) { s.index = was.index; }  // (counted again on a later poll)
-      if (s.votes !== was.votes && (!document.activeElement || !/TEXTAREA|INPUT/.test(document.activeElement.tagName))) {
+      const voted = s.votes !== was.votes, shipped = s.promoted !== was.promoted;
+      if ((voted || shipped) && (!document.activeElement || !/TEXTAREA|INPUT/.test(document.activeElement.tagName))) {
         const r = await (await fetch("/api/state")).json();
-        Lab.V = r.votes; Lab.shipped = r.shipped || {}; Lab.status(); Lab.refresh();
-      } else if (s.votes !== was.votes) s.votes = was.votes;  // (typing: apply it once the field is left)
+        Lab.V = r.votes; Lab.shipped = r.shipped || {};
+        if (shipped) Lab.flushAudio();  // (a promote replaced shipped files under the same names)
+        Lab.status(); Lab.refresh();
+      } else if (voted || shipped) { s.votes = was.votes; s.promoted = was.promoted; }  // (typing: apply it once the field is left)
     }
     Lab.stamp = s;
   } catch { /* server restarting */ }
@@ -136,6 +157,7 @@ Lab.poll = async function () {
 };
 Lab.applyPending = async function () {
   await Lab.load();  // (fresh: votes made since the pill appeared are kept)
+  Lab.flushAudio();  // (a regenerated set or rebuilt kit reuses file names)
   await Lab.stampSeen();
   Lab._counted = 0;
   document.getElementById("fresh").hidden = true;
@@ -360,6 +382,7 @@ document.addEventListener("keydown", e => {
   if (t.tagName === "INPUT" && t.type === "range") t.blur();  // (a slider keeps focus after dragging; keys go to the page)
   if (mod && k.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); Lab.undo(); return; }
   if (e.altKey && /^[1-9]$/.test(k)) { e.preventDefault(); const p = Lab.order.filter(Lab.enabled)[+k - 1]; if (p) Lab.go(p); return; }
+  if ((mod || e.altKey) && !(mod && k.toLowerCase() === "s")) return;  // (Ctrl + / - / 0 / D… belong to the browser)
   if (!mod && !e.altKey) {
     if (k === "?") { Lab.help.open(); return; }
     if (k === "/") { e.preventDefault(); Lab.palette.open(); return; }
@@ -369,4 +392,6 @@ document.addEventListener("keydown", e => {
   const page = Lab.tabs[Lab.tab];
   if (page && page.onKey) page.onKey(e);
 });
+// A clicked button gives focus back, so Enter or Space afterwards means the page's shortcut, not "click it again".
+document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("button"); if (b && e.detail > 0) b.blur(); });
 ["pointerdown", "keydown"].forEach(ev => document.addEventListener(ev, () => { if (Lab.actx.state === "suspended") Lab.actx.resume(); }, { capture: true }));

@@ -9,6 +9,7 @@
 
   async function show() {
     const r = await (await fetch("/api/balance")).json();
+    if (Lab.tab !== "balance") return;  // (switched away while it loaded)
     if (!r.balance.sounds) { Lab.showEmpty("sliders", "Nothing measured yet", `<p>Run <code>soundlab balance measure</code>.</p>`); return; }
     B.data = r.balance;
     B.mix = { buses: {}, sounds: {}, music: {}, levels: {}, ...r.mix };
@@ -111,7 +112,9 @@
     if (r) Lab.play(r.file, { id: "bal:" + r.name, onEnd: then, from, volume: Math.pow(10, (r.code + r.trim() + busDb(r.bus) + PAD) / 20) });
   }
   async function save() {
-    const clean = await (await fetch("/api/mix", { method: "POST", body: JSON.stringify(B.mix) })).json();
+    const res = await Lab.post("/api/mix", B.mix);
+    if (!res.ok) { Lab.toast("Couldn't save the mix", { icon: "x" }); return; }
+    const clean = await res.json();
     B.mix = { buses: {}, sounds: {}, music: {}, levels: {}, ...clean };
     B.saved = JSON.stringify(B.mix);
     render(); Lab.toast("Mix saved: a running game picks it up within a second", { icon: "check" });

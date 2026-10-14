@@ -238,14 +238,13 @@
   }
   async function rate(v, c = P.tiles[P.focus], advance = true) {
     if (!c || c.id === "shipped") return;
-    const now = Lab.V.clips[c.id] === v ? 0 : v;
+    const now = Lab.V.clips[c.id] === v ? 0 : v, i = P.tiles.indexOf(c), next = advance ? P.tiles[i + 1] : null;
+    const hide = Lab.prefs.hideDown && now === -1;
+    if (next && !hide) { P.focus = i + 1; paint(); play(next); }  // (move on at once: a quick next press rates the next take)
     await Lab.vote({ clip: c.id, value: now }, { label: `${now === 1 ? "Thumbs up" : now === -1 ? "Thumbs down" : "Vote cleared"} · ${takeName(c)}`, icon: now === -1 ? "down" : now ? "up" : "x" });
     renderList();
-    const next = advance ? P.tiles[P.focus + 1] : null;
-    if (Lab.prefs.hideDown && now === -1) { P.keepId = (next || P.tiles[P.focus - 1] || {}).id; renderSound(); }
-    else if (next) { P.focus++; paint(); }
+    if (hide) { P.keepId = (next || P.tiles[i - 1] || {}).id; renderSound(); if (next) play(next); }
     else paint(false);
-    if (next) play(next);
   }
   async function setPick(id) {
     const s = cur(), now = id && Lab.V.picks[s.name] === id ? null : id, c = Lab.S.clips[now];

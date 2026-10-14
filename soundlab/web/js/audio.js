@@ -8,7 +8,8 @@
   Lab.applyVolume();
 
   // ---- the player: seeking, looping, an A-B loop region, a level per play (the Balance page plays at game level)
-  const P = Lab.player = { el: new Audio(), current: null, url: null, onEnd: null, region: null, raf: 0 };
+  // (region: an A-B loop for one take id; it stays while other files play, so A/B-ing back to the take loops again)
+  const P = Lab.player = { el: new Audio(), current: null, url: null, onEnd: null, region: null, loopWanted: false, raf: 0 };
   P.el.preload = "auto";
   P.node = A.createGain();
   A.createMediaElementSource(P.el).connect(P.node).connect(Lab.master);
@@ -19,8 +20,8 @@
     const prev = P.current;
     P.el.pause();
     if (P.url !== url) { P.el.src = url; P.url = url; }
-    if (!(P.region && P.region.id === id)) P.region = null;
-    P.el.loop = loop && !P.region;
+    P.loopWanted = loop;
+    P.el.loop = loop && !(P.region && P.region.id === id);
     P.node.gain.setValueAtTime(volume, A.currentTime);
     P.current = id; P.onEnd = onEnd;
     try { P.el.currentTime = from || 0; } catch { /* (before metadata: becomes the start position) */ }
@@ -43,6 +44,11 @@
     Lab.dock.sync();
     if (cb) cb();
   };
+  P.el.addEventListener("error", () => {  // (a missing file: say so and move on, rather than look as if it plays)
+    if (!P.current) return;
+    Lab.toast("Couldn't play that file", { icon: "x" });
+    Lab.endNow();
+  });
   P.el.addEventListener("ended", () => {
     if (P.region && P.region.id === P.current) { P.el.currentTime = P.region.a; P.el.play().catch(() => {}); return; }
     Lab.endNow();
@@ -106,6 +112,14 @@
       AN.set(url, p); p.catch(() => AN.delete(url));
     } else if (urgent) bump(url);
     return AN.get(url);
+  };
+
+  // Forget decoded audio and drawings (files on disk changed: new takes under old names, a promote, a rebuilt kit).
+  const flushers = [];
+  Lab.onFlush = fn => flushers.push(fn);
+  Lab.flushAudio = function () {
+    AN.clear(); LRU.clear(); SPEC.clear(); P.url = null;
+    for (const fn of flushers) fn();
   };
 
   // ---- waveforms: mirrored peak (outer) and RMS (inner) bars; the played part lights up

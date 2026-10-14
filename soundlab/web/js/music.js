@@ -4,9 +4,9 @@
   const FADES = { cut: ["cut", 0], beat: ["1 beat", 1], bar: ["1 bar", 4], two: ["2 bars", 8] };  // in beats
   const PROFILE_INFO = { close: "levels keep the spine's chords; gentler contrast", contrast: "clearer contrast; chords drift more" };
   const M = { key: null, take: 0, prof: null, level: null, stack: false, fade: "bar", quant: false, enter: "start",
-              deck: null, pendingAt: 0, raf: 0 };
+              deck: null, pendingAt: 0, raf: 0, gen: 0 };  // (gen: bumped by every start, switch and stop; a stale load gives up)
   const { icon, esc } = Lab, $ = id => document.getElementById(id);
-  const bufs = new Map(), shapes = new Map();
+  const bufs = new Map(), shapes = new Map(), MAX_BUFS = 18;  // (a 42 s level decodes to about 16 MB)
   const out = Lab.actx.createGain(), an = Lab.actx.createAnalyser();
   out.gain.value = 0.9; an.fftSize = 4096; an.smoothingTimeConstant = .8;
   out.connect(an); an.connect(Lab.master);
@@ -17,20 +17,37 @@
   const set = (k = M.key) => mesh().contexts[k];
   const keys = () => Object.keys(mesh().contexts).sort((a, b) => a.localeCompare(b));
   const voteId = (k = M.key, t = set().takes[M.take].id, p = M.prof) => `mesh_${k}.${t}.${p}`;
-  const buf = rel => { if (!bufs.has(rel)) bufs.set(rel, fetch("/clips/" + rel).then(r => r.arrayBuffer()).then(b => Lab.actx.decodeAudioData(b))); return bufs.get(rel); };
+  function buf(rel) {
+    if (bufs.has(rel)) { const b = bufs.get(rel); bufs.delete(rel); bufs.set(rel, b); return b; }
+    const b = fetch("/clips/" + rel).then(r => { if (!r.ok) throw new Error(`${r.status} ${rel}`); return r.arrayBuffer(); }).then(x => Lab.actx.decodeAudioData(x));
+    bufs.set(rel, b); b.catch(() => bufs.delete(rel));
+    while (bufs.size > MAX_BUFS) bufs.delete(bufs.keys().next().value);
+    return b;
+  }
+  Lab.onFlush(() => { bufs.clear(); shapes.clear(); M.shape = null; M.shapeFor = null; });
   const gainFor = lv => M.stack ? 0.6 : (lv === M.level ? 1 : 0);
   const files = () => set().takes[M.take].profiles[M.prof].levels;
   const posOf = d => (((Lab.actx.currentTime - d.t0) % loopS()) + loopS()) % loopS();
-  // What ships from a set: its liked takes, or (none liked) every take not thumbed down.
+  // What ships from a set, as `music promote` decides it: its liked takes, or (none liked) every take not thumbed
+  // down, at the project's default profile (else "contrast", else the first).
+  function profile0(k) {
+    const t = set(k).takes[0], ps = t ? Object.keys(t.profiles) : [], d = Lab.project.default_profile;
+    return ps.includes(d) ? d : ps.includes("contrast") ? "contrast" : ps[0];
+  }
   function ships(k) {
-    const all = set(k).takes.flatMap(t => Object.keys(t.profiles).map(p => ({ t: t.id, p, v: Lab.V.clips[voteId(k, t.id, p)] || 0 })));
-    const liked = all.filter(x => x.v === 1);
-    return { liked: liked.length, list: (liked.length ? liked : all.filter(x => x.v !== -1)).map(x => `${x.t} · ${x.p}`) };
+    const takes = set(k).takes, p0 = profile0(k);
+    const liked = takes.flatMap(t => Object.keys(t.profiles).filter(p => (Lab.V.clips[voteId(k, t.id, p)] || 0) > 0).map(p => `${t.id} · ${p}`));
+    return { liked: liked.length, list: liked.length ? liked : takes.filter(t => (Lab.V.clips[voteId(k, t.id, p0)] || 0) >= 0).map(t => `${t.id} · ${p0}`) };
   }
 
+  function hold(param, at) {  // keep the value an automation has reached at `at` (cancelling would jump back)
+    if (param.cancelAndHoldAtTime) { param.cancelAndHoldAtTime(at); return; }
+    const v = param.value;
+    param.cancelScheduledValues(at); param.setValueAtTime(v, at);
+  }
   function ramp(param, target, at, dur) {  // equal power, from the value held at `at`
     const from = param.value;
-    param.cancelScheduledValues(at);
+    hold(param, at);
     if (dur <= 0.02) { param.setValueAtTime(target, at); return; }
     const c = new Float32Array(64);
     for (let i = 0; i < 64; i++) { const x = i / 63; c[i] = Math.sqrt(from * from * (1 - x) + target * target * x); }
@@ -41,9 +58,11 @@
     const at = deck.t0 + Math.ceil((now - deck.t0) / b + 1e-6) * b;
     return at - now < 0.08 ? at + b : at;
   }
-  async function makeDeck(key, take, prof, at, offset) {
-    const fl = set(key).takes[take].profiles[prof].levels;
-    const loaded = Object.fromEntries(await Promise.all(mesh().levels.map(async lv => [lv, await buf(fl[lv])])));
+  function load(key, take, prof) {  // a take's level buffers, decoded
+    const fl = set(key).takes[take].profiles[prof].levels, lv = mesh().levels;
+    return Promise.all(lv.map(l => buf(fl[l]))).then(bs => Object.fromEntries(lv.map((l, i) => [l, bs[i]])));
+  }
+  function makeDeck(loaded, at, offset) {  // (synchronous: `at` is chosen once the audio is ready, so it starts on time)
     const d = { t0: at - offset, src: {}, gain: {}, meter: {}, out: Lab.actx.createGain() };
     d.out.connect(out);
     for (const lv of mesh().levels) {
@@ -51,26 +70,32 @@
       s.buffer = loaded[lv]; s.loop = true; s.loopEnd = loaded[lv].duration;
       g.gain.value = gainFor(lv); m.fftSize = 1024;
       s.connect(g).connect(m).connect(d.out);
-      s.start(Math.max(at, Lab.actx.currentTime), offset);
+      s.start(at, offset);
       d.src[lv] = s; d.gain[lv] = g; d.meter[lv] = m;
     }
     return d;
   }
   function kill(d, at, fade) {
-    d.out.gain.cancelScheduledValues(at);
-    d.out.gain.setValueAtTime(d.out.gain.value, at);
-    d.out.gain.linearRampToValueAtTime(0, at + Math.max(fade, 0.01));
-    for (const s of Object.values(d.src)) s.stop(at + Math.max(fade, 0.01) + 0.02);
+    const end = at + Math.max(fade, 0.01);
+    hold(d.out.gain, at);
+    d.out.gain.linearRampToValueAtTime(0, end);
+    for (const s of Object.values(d.src)) s.stop(end + 0.02);
+    setTimeout(() => d.out.disconnect(), Math.max(0, end - Lab.actx.currentTime + 0.3) * 1000);  // (frees the graph)
   }
   async function play(offset = 0) {
+    const g = ++M.gen;
     if (Lab.actx.state === "suspended") await Lab.actx.resume();
     Lab.stop();
-    const at = Lab.actx.currentTime + 0.06, d = await makeDeck(M.key, M.take, M.prof, at, offset);
+    let loaded;
+    try { loaded = await load(M.key, M.take, M.prof); } catch { if (g === M.gen) Lab.toast("Couldn't load this take's audio", { icon: "x" }); return; }
+    if (g !== M.gen) return;  // (stopped, or something newer started, while it loaded)
+    const at = Lab.actx.currentTime + 0.06, d = makeDeck(loaded, at, offset);
     if (M.deck) kill(M.deck, at, 0.03);
     M.deck = d; M.pendingAt = 0;
     cancelAnimationFrame(M.raf); tick(); paint();
   }
   function stop() {
+    M.gen++;
     if (M.deck) { kill(M.deck, Lab.actx.currentTime, 0.05); M.deck = null; }
     M.pendingAt = 0; cancelAnimationFrame(M.raf); M.raf = 0; paint(); idle();
   }
@@ -89,17 +114,23 @@
   }
   async function switchTo(change) {  // a new take, profile or set enters on the next bar line
     Object.assign(M, change);
+    if (!set() || !set().takes.length) { stop(); render(); return; }
+    M.take = Lab.clamp(M.take, 0, set().takes.length - 1);
     if (!set().takes[M.take].profiles[M.prof]) M.prof = Object.keys(set().takes[M.take].profiles)[0];
     Lab.setHash(M.key);
     if (!M.deck) { render(); return; }
+    const g = ++M.gen;
+    render();
+    let loaded;
+    try { loaded = await load(M.key, M.take, M.prof); } catch { if (g === M.gen) Lab.toast("Couldn't load this take's audio", { icon: "x" }); return; }
+    if (g !== M.gen || !M.deck) return;
     const old = M.deck, at = nextBar(old);
     const offset = M.enter === "start" ? 0 : (((at - old.t0) % loopS()) + loopS()) % loopS();
-    const xf = M.fade === "cut" ? 0 : beatS();
-    M.deck = await makeDeck(M.key, M.take, M.prof, at, offset);
-    if (xf > 0.02) { M.deck.out.gain.setValueAtTime(0, Lab.actx.currentTime); M.deck.out.gain.setValueAtTime(0, at); M.deck.out.gain.linearRampToValueAtTime(1, at + xf); }
+    const xf = M.fade === "cut" ? 0 : beatS(), d = makeDeck(loaded, at, offset);
+    if (xf > 0.02) { d.out.gain.setValueAtTime(0, Lab.actx.currentTime); d.out.gain.setValueAtTime(0, at); d.out.gain.linearRampToValueAtTime(1, at + xf); }
     kill(old, at, xf);
-    M.pendingAt = at;
-    render();
+    M.deck = d; M.pendingAt = at;
+    paint();
   }
 
   // ---- drawing: the clock, the timeline (the shape of the level you hear), meters and a spectrum
@@ -190,17 +221,20 @@
 
   function show(arg) {
     if (!mesh() || !keys().length) { Lab.showEmpty("layers", "No music yet", `<p>Make some with <code>soundlab music generate --contexts …</code>.</p>`); return; }
+    if (arg && mesh().contexts[arg] && arg !== M.key && M.deck && Lab.tab === "music") { switchTo({ key: arg, take: 0 }); return; }  // (playing: enter on the bar)
     if (arg && mesh().contexts[arg]) { if (arg !== M.key) M.take = 0; M.key = arg; }
     if (!M.key || !set()) M.key = keys()[0];
     M.take = Math.min(M.take, set().takes.length - 1);
     M.level = M.level && mesh().levels.includes(M.level) ? M.level : mesh().levels[Math.floor(mesh().levels.length / 2)];
-    M.prof = M.prof && mesh().profiles.includes(M.prof) ? M.prof : mesh().profiles[mesh().profiles.length - 1];
+    const def = mesh().profiles.includes(Lab.project.default_profile) ? Lab.project.default_profile : mesh().profiles[mesh().profiles.length - 1];
+    M.prof = M.prof && mesh().profiles.includes(M.prof) ? M.prof : def;
     Lab.setHash(M.key);
     render();
   }
   function render() {
     const m = mesh(), c = set();
     if (!c.takes.length) { Lab.showEmpty("layers", `No takes passed for ${M.key}`, ""); return; }
+    M.take = Lab.clamp(M.take, 0, c.takes.length - 1);
     if (!c.takes[M.take].profiles[M.prof]) M.prof = Object.keys(c.takes[M.take].profiles)[0];
     const take = c.takes[M.take], info = (take.profiles[M.prof] || {}).info || {}, v = Lab.V.clips[voteId()], sh = ships(M.key);
     const dot = t => { const x = Lab.V.clips[voteId(M.key, t.id)]; return x === 1 ? `<span class="dot"></span>` : x === -1 ? `<span class="dot bad"></span>` : ""; };
@@ -230,7 +264,7 @@
       </section>
       <div class="mtake">
         <div class="field"><label>Take</label>${Lab.seg(c.takes.map((t, i) => [String(i), `${dot(t)}${esc(t.id)}`]), String(M.take), "take")}</div>
-        <div class="field"><label>Profile</label>${Lab.seg(m.profiles.map(p => [p, p, !take.profiles[p], PROFILE_INFO[p]]), M.prof, "prof")}</div>
+        <div class="field"><label>Profile</label>${Lab.seg(m.profiles.map(p => [p, esc(p), !take.profiles[p], PROFILE_INFO[p]]), M.prof, "prof")}</div>
         <div class="field grow"><label>Plays</label><div class="lineup">${Object.entries(take.instruments || {}).map(([r, n]) =>
           `<span class="chip" data-tip="${esc(r.replace(/_/g, " "))}">${esc(n)}</span>`).join("")}</div></div>
         <div class="field"><label>This take</label><div class="row">
@@ -243,8 +277,8 @@
         <div class="field"><label>A switch enters</label>${Lab.seg([["start", "at bar 1"], ["same", "at the same bar"]], M.enter, "enter")}</div>
       </div>
       <div class="facts"><span>tempo <b>${take.measured_bpm} → ${take.corrected_bpm} BPM</b></span>${take.beat_spread_ms != null ? `<span>beat spread <b>${take.beat_spread_ms} ms</b></span>` : ""}
-        <span>beat lock <b>${m.levels.map(lv => info[lv] ? `${lv} ${info[lv].lock}` : "").filter(Boolean).join(", ")}</b></span>
-        <span>ships <b>${sh.list.length ? esc(sh.list.join(", ")) : "nothing"}</b>${sh.liked ? "" : " (none liked: every take not thumbed down)"}</span></div>
+        <span>beat lock <b>${esc(m.levels.map(lv => info[lv] ? `${lv} ${info[lv].lock}` : "").filter(Boolean).join(", "))}</b></span>
+        <span>ships <b>${sh.list.length ? esc(sh.list.join(", ")) : "nothing"}</b>${sh.liked ? "" : " (none liked yet: every take not thumbed down, at its default profile)"}</span></div>
       <div class="notebox ${Lab.V.notes["mesh_" + M.key] ? "has" : ""}">${icon("pen")}<textarea id="mnote" rows="1"
         placeholder="Notes on ${esc(M.key)}: do the levels mesh? Which lineups work?">${esc(Lab.V.notes["mesh_" + M.key] || "")}</textarea><span class="saved">${icon("check")}saved</span></div>
       <details class="prompts"><summary>${icon("right")}Prompts</summary>
@@ -294,7 +328,7 @@
   }
 
   Lab.register("music", {
-    title: "Music", icon: "layers", show, refresh: render, dock: false, enabled: () => Lab.project.features.music, leave: stop,
+    title: "Music", icon: "layers", show, refresh: () => show(), dock: false, enabled: () => Lab.project.features.music, leave: stop,
     keys: [["Space", "play or stop"], ["1 2 3", "quietest … fullest level"], ["S", "stack every level"], ["← →", "jump a bar back / forward"],
            ["[ ]", "previous / next take"], ["P", "next profile"], ["U", "like this take"], ["D", "dislike this take"], ["Esc", "stop"]],
     onKey(e) {
