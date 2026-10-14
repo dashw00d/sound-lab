@@ -1,0 +1,9 @@
+# Installed by install.py: the Python environment, the Stable Audio 3 code and the model weights (~10 GB).
+/runtime/
+# Python
+__pycache__/
+*.pyc
+.venv/
+# Local scratch
+/logs/
+*.tmp
