@@ -1,8 +1,10 @@
 """The lab's web app and API (standard library only).
 
   GET  /                    the app (soundlab/web)
-  GET  /api/state           {project, index, votes}: every take, prompt, set and vote
-  POST /api/vote            {clip, value: 1|-1|0} | {sound, pick: id|"shipped"|null} | {picks: {sound: id}}
+  GET  /api/state           {project, index, votes, shipped}: every take, prompt, set and vote, and the take each
+                            sound last shipped from (promoted.json)
+  GET  /api/stamp           {index, votes}: when those files last changed (the app polls it to pick up new takes)
+  POST /api/vote            {clip, value: 1|-1|0} | {sound, pick: id|"shipped"|null} | {picks: {sound: id|null}}
                             | {sound, note}
   GET  /api/balance         {balance (work/balance.json), mix (the game's mix file)}
   POST /api/mix             the whole mix; written to the game's mix file (the game re-reads it live)
@@ -24,6 +26,8 @@ from .store import Store
 mimetypes.add_type("audio/ogg", ".ogg")
 mimetypes.add_type("audio/wav", ".wav")
 mimetypes.add_type("text/javascript", ".js")
+mimetypes.add_type("font/woff2", ".woff2")
+mimetypes.add_type("image/svg+xml", ".svg")
 LOCK = threading.Lock()
 
 
@@ -84,7 +88,13 @@ def make_handler(proj: P.Project):
                 self.send_file(_inside(paths.WEB, url[5:]))
             elif url == "/api/state":
                 with LOCK:
-                    self.send_json(dict(project=info, index=st.index(), votes=st.votes()))
+                    shipped = {n: p.get("clip") for n, p in Store.read(st.promoted_path, {}).items()}
+                    self.send_json(dict(project=info, index=st.index(), votes=st.votes(), shipped=shipped))
+            elif url == "/api/stamp":
+                self.send_json({k: p.stat().st_mtime_ns if p.exists() else 0
+                                for k, p in (("index", st.index_path), ("votes", st.votes_path))})
+            elif url == "/favicon.ico":
+                self.send_file(paths.WEB / "img" / "favicon.png")
             elif url == "/api/balance":
                 self.send_json(dict(balance=Store.read(st.balance_path, {}),
                                     mix=Store.read(mix_path, {}) if mix_path else {}))
@@ -122,7 +132,10 @@ def make_handler(proj: P.Project):
                     else:
                         v["picks"].pop(msg["sound"], None)
                 for name, pick in msg.get("picks", {}).items():
-                    v["picks"][name] = pick
+                    if pick:
+                        v["picks"][name] = pick
+                    else:
+                        v["picks"].pop(name, None)
                 if "note" in msg:
                     if msg["note"].strip():
                         v["notes"][msg["sound"]] = msg["note"]
@@ -136,5 +149,5 @@ def make_handler(proj: P.Project):
 
 def serve(proj: P.Project, host: str = "127.0.0.1", port: int = 7870) -> None:
     srv = ThreadingHTTPServer((host, port), make_handler(proj))
-    print(f"Sound Lab ({proj.name}): http://{host}:{port}", flush=True)
+    print(f"SoundLab ({proj.name}): http://{host}:{port}", flush=True)
     srv.serve_forever()

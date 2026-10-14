@@ -1,6 +1,8 @@
-# Sound Lab
+<img src="soundlab/web/img/soundlab-mark.png" width="64" alt="">
 
-Make a game's audio with Stable Audio 3, running locally. Sound Lab can:
+# SoundLab
+
+Make a game's audio with Stable Audio 3, running locally. SoundLab can:
 
 - generate many takes of every sound;
 - audition and vote on them in a web app;
@@ -37,7 +39,7 @@ Options:
 
 You also need **ffmpeg** on your PATH, built with the rubberband filter, which the music's tempo correction needs. The full builds for Windows (`winget install Gyan.FFmpeg`) and most Linux packages have it. `./soundlab.sh doctor` checks everything.
 
-The model is licensed under the Stability AI Community License (commercial use has conditions: https://stability.ai/license), and T5Gemma under the Gemma Terms of Use.
+The model is licensed under the Stability AI Community License (commercial use has conditions: https://stability.ai/license), and T5Gemma under the Gemma Terms of Use. The web app bundles the Geist fonts (SIL Open Font License, `soundlab/web/fonts/OFL.txt`).
 
 ## Use
 
@@ -50,12 +52,20 @@ A project is a game folder containing `soundlab_project.py`, which describes the
 
 | page | what it's for |
 |---|---|
-| **Sounds** | Every sound's takes in prompt variants × seeds, next to the file the game ships now. 👍 / 👎 / ★ pick, with notes. Keyboard-driven (press `?`). |
-| **Alerts** | Whole alert families side by side (one kit per row), to judge consistency, not single sounds. |
+| **Sounds** | Every sound's takes in prompt variants × seeds, next to the file the game ships now. 👍 / 👎 / ★ pick, with notes. A/B a take against the shipped file at the same moment. |
+| **Alerts** | Whole alert families side by side (one kit per row, each alert a mini waveform), to judge consistency, not single sounds. |
 | **Instruments** | Solo auditions of the music's candidate instruments. Picked ones form the pool every track draws from. |
-| **Music** | A track's intensity levels playing in sync. Crossfade them live, stack them to hear clashes, and switch takes on the bar. Liked takes ship as tracks. |
+| **Music** | A track's intensity levels playing in sync. Crossfade them live, stack them to hear clashes, switch takes on the bar, and click the timeline to jump to a bar. Liked takes ship as tracks. |
 | **Balance** | Every sound and music level at its in-game loudness. Trim it, A/B it against a reference, and save to the game's mix file, which the running game reloads live. |
 | **Stats** | Which prompt styles win. |
+
+Across the pages:
+
+- **The dock** at the bottom shows the selected take large, as a waveform or a spectrogram (`V`). Hover for the time (and frequency), click to seek, drag to loop a range, double-click to clear it. Thumbs and pick sit beside it.
+- **Jump to anything** with `Ctrl K` (or `/`): any sound, music set, instrument or page.
+- **Undo** the last vote or pick with `Ctrl Z`, or from the toast that confirms it.
+- **Live**: while a generator runs, the top bar offers the new takes (nothing moves until you click); votes written elsewhere appear on their own.
+- Everything is keyboard-driven: `?` lists the keys for the page you're on, `Alt 1–6` switches pages, `M` mutes.
 
 Generating and shipping happen on the command line:
 

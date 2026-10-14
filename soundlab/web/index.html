@@ -3,20 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sound Lab</title>
+<meta name="theme-color" content="#0a0b0f">
+<title>SoundLab</title>
+<link rel="icon" type="image/png" href="/web/img/favicon.png">
+<link rel="preload" href="/web/fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/web/style.css">
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="logo">◆</span> Sound Lab <span class="project" id="projectName"></span></div>
+  <a class="brand" href="#sounds" title="SoundLab"><img src="/web/img/mark.png" alt=""><span class="word">Sound<b>Lab</b></span></a>
+  <span class="project" id="projectName"></span>
   <nav class="tabs" id="tabs"></nav>
-  <div class="status" id="status"></div>
-  <button class="icon" id="helpBtn" title="Keys for this page (?)">?</button>
+  <div class="tools">
+    <button class="fresh" id="fresh" hidden></button>
+    <div class="meter-top" id="meterTop"></div>
+    <button class="searchbtn" id="paletteBtn" title="Jump to a sound, set or page"><span id="searchIcon"></span><span>Jump to…</span><kbd>Ctrl K</kbd></button>
+    <div class="vol"><button class="iconbtn" id="mute" title="Mute (M)"></button><input type="range" id="volume" min="0" max="1" step="0.01" title="Volume"></div>
+    <button class="iconbtn" id="helpBtn" title="Keyboard shortcuts (?)"></button>
+  </div>
 </header>
-<div class="view" id="view"></div>
-<aside class="help" id="help"></aside>
+<main class="view" id="view"></main>
+<footer class="dock" id="dock" hidden></footer>
+<div class="scrim" id="scrim" hidden></div>
+<div class="modal palette" id="palette" hidden></div>
+<div class="modal help" id="help" hidden></div>
 <div class="toast" id="toast"></div>
+<div class="tip" id="tip"></div>
 <script src="/web/js/core.js"></script>
+<script src="/web/js/audio.js"></script>
+<script src="/web/js/dock.js"></script>
 <script src="/web/js/sounds.js"></script>
 <script src="/web/js/alerts.js"></script>
 <script src="/web/js/instruments.js"></script>

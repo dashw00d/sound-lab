@@ -13,7 +13,7 @@ You make game audio with a local Stable Audio 3 Medium (SA3) model. The user lis
 
 | command | does | time |
 |---|---|---|
-| `serve [--port 7870]` | the web app (run it in the background; it reads files on every request, so new takes appear on reload) | – |
+| `serve [--port 7870]` | the web app (run it in the background; it reads files on every request, and the open page offers new takes as they're generated) | – |
 | `sounds generate [--seeds N] [--only NAME..] [--variants V..]` | takes for every (or some) sound, prompt variant and seed; existing takes are skipped | ~0.7 s per take |
 | `sounds promote [--apply] [--only NAME..]` | ship the picks into the game (dry run without `--apply`) | seconds |
 | `alerts build` | the alert family: kits (cached) composed into every alert, one row per kit | ~1 min first time |

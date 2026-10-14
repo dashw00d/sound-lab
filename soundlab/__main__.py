@@ -1,4 +1,4 @@
-"""Sound Lab command line. Run through ./soundlab.sh (Linux) or soundlab.cmd (Windows), which use the installed runtime.
+"""SoundLab command line. Run through ./soundlab.sh (Linux) or soundlab.cmd (Windows), which use the installed runtime.
 
   soundlab [--project PATH] serve [--port 7870]          the web app
   soundlab [--project PATH] status [--json]              what the project has: sounds, takes, decisions, music
@@ -36,7 +36,7 @@ def doctor(generate: bool) -> int:
         ok &= good
         print(f"  [{'ok' if good else '!!'}] {what}" + (f": {detail}" if detail else ""))
 
-    print("Sound Lab doctor")
+    print("SoundLab doctor")
     line(sys.version_info >= (3, 10), "python", sys.version.split()[0])
     ff = shutil.which(paths.ffmpeg())
     line(bool(ff), "ffmpeg", ff or "not found (install it and put it on PATH, or set FFMPEG)")
