@@ -15,10 +15,18 @@
   const decided = s => Lab.V.picks[s.name] != null;
   const unshipped = s => { const p = Lab.V.picks[s.name]; return !!p && p !== "shipped" && Lab.shipped[s.name] !== p; };
   const cur = () => P.sounds[P.cur];
-  const matches = s => (P.status === "all" || (P.status === "todo") === !decided(s)) && (P.kind === "all" || s.kind === P.kind) &&
+  const matches = s => (P.status === "all" || (P.status === "notes" ? noteList(s).length > 0 : (P.status === "todo") === !decided(s))) &&
+    (P.kind === "all" || s.kind === P.kind) &&
     (!P.q || s.name.toLowerCase().includes(P.q.toLowerCase()));
   const visible = () => P.sounds.filter(matches);
   const takeName = c => c.id === "shipped" ? "the shipped file" : `${c.variant} · seed ${c.seed}`;
+  // Notes: on a prompt (stays with that prompt: new variants start clean), or on the whole sound.
+  const pnotes = name => (Lab.V.prompt_notes || {})[name] || {};
+  const promptOf = (name, v) => (Lab.S.prompts[name] || {})[v] || "";
+  const noteList = s => [...(Lab.V.notes[s.name] ? [{ v: null, text: Lab.V.notes[s.name] }] : []),
+                          ...Object.entries(pnotes(s.name)).map(([v, n]) => ({ v, text: n.text }))];
+  const notesOf = s => [...(Lab.V.notes[s.name] ? [`The whole sound: ${Lab.V.notes[s.name]}`] : []),
+                        ...Object.entries(pnotes(s.name)).map(([v, n]) => `${v}: ${n.text}`)];
 
   function show(arg) {
     build();
@@ -47,7 +55,8 @@
   }
   function renderFilters() {
     const el = $("sf");
-    el.innerHTML = Lab.seg([["todo", "To do"], ["done", "Done"], ["all", "All"]], P.status, "st") +
+    const noted = P.sounds.filter(x => noteList(x).length).length;
+    el.innerHTML = Lab.seg([["todo", "To do"], ["done", "Done"], ["notes", `Notes${noted ? ` <small>${noted}</small>` : ""}`, false, "Every sound with an open note, and what it says"], ["all", "All"]], P.status, "st") +
                    Lab.seg([["all", "Every kind"], ["oneshot", "One-shots"], ["loop", "Loops"]], P.kind, "kd");
     el.querySelectorAll("[data-st]").forEach(b => b.onclick = () => { P.status = b.dataset.st; renderFilters(); renderList(); });
     el.querySelectorAll("[data-kd]").forEach(b => b.onclick = () => { P.kind = b.dataset.kd; renderFilters(); renderList(); });
@@ -64,15 +73,20 @@
         html += `<div class="group"><span>${s.kind === "loop" ? "Loops" : "One-shots"}</span><span>${vis.filter(x => x.kind === s.kind).length}</span></div>`;
         last = s.kind;
       }
-      const pick = Lab.V.picks[s.name], ups = s.clips.filter(c => Lab.V.clips[c.id] === 1).length, note = Lab.V.notes[s.name];
+      const pick = Lab.V.picks[s.name], ups = s.clips.filter(c => Lab.V.clips[c.id] === 1).length, notes = notesOf(s);
       html += `<div class="item ${s === s0 ? "cur" : ""} ${pick === "shipped" ? "keep" : pick ? "picked" : ""}" data-n="${esc(s.name)}">
         <span class="st">${pick === "shipped" ? icon("keep") : pick ? icon("starFill") : `<span class="ring0"></span>`}</span>
         <span class="nm">${esc(s.name)}</span><span class="meta">
-        ${note ? `<span class="note" data-tip="${esc(note)}">${icon("pen")}</span>` : ""}${ups ? `<span class="up" data-tip="${ups} thumbs up">${ups}</span>` : ""}
-        ${unshipped(s) ? `<span class="unshipped" data-tip="Picked, not shipped into the game yet"></span>` : ""}</span></div>`;
+        ${notes.length ? `<span class="note" data-tip="${esc(notes.join("\n"))}">${icon("pen")}${notes.length > 1 ? notes.length : ""}</span>` : ""}${ups ? `<span class="up" data-tip="${ups} thumbs up">${ups}</span>` : ""}
+        ${unshipped(s) ? `<span class="unshipped" data-tip="Picked, not shipped into the game yet"></span>` : ""}</span>
+        ${P.status === "notes" ? `<span class="nlist">${noteList(s).map(n => `<span class="nl" data-v="${esc(n.v || "")}"><b>${esc(n.v || "whole sound")}</b>${esc(n.text)}</span>`).join("")}</span>` : ""}</div>`;
     }
     el.innerHTML = html || `<div class="none">No sounds match.</div>`;
-    el.querySelectorAll(".item").forEach(d => d.onclick = () => go(P.sounds.findIndex(s => s.name === d.dataset.n)));
+    el.querySelectorAll(".item").forEach(d => d.onclick = e => {
+      const nl = e.target.closest(".nl"), i = P.sounds.findIndex(s => s.name === d.dataset.n);
+      if (i !== P.cur || !$("sd").childElementCount) go(i);
+      if (nl) showRow(nl.dataset.v);  // (a note in the list: to the prompt it's about)
+    });
     const c = el.querySelector(".item.cur");
     if (c) c.scrollIntoView({ block: "nearest" });
   }
@@ -83,6 +97,13 @@
     Lab.setHash(cur().name);
     renderList(); renderSound();
     $("sd").scrollTop = 0;
+  }
+  function showRow(v) {
+    const el = v ? [...document.querySelectorAll("#sd .variant")].find(r => r.querySelector(".vname").textContent === v) : document.querySelector("#sd .pnote.sound");
+    if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    const n = el.classList.contains("pnote") ? el : el.querySelector(".pnote");
+    if (n) { n.classList.remove("flash"); void n.offsetWidth; n.classList.add("flash"); }
   }
   function step(dir) {  // the next or previous sound in the list as filtered
     const vis = visible();
@@ -107,16 +128,18 @@
       <div class="actions">${decision}
         <button class="btn" id="keep" data-tip="Keep the file the game has now (0)">${icon("keep")}Keep shipped</button>
         ${pick ? `<button class="btn ghost" id="clear" data-tip="Clear the decision">Clear</button>` : ""}
+        ${Lab.V.notes[s.name] ? "" : `<button class="btn ghost" id="snote" data-tip="A note on the whole sound. A note on a prompt (C) stays with that prompt, so it's usually clearer.">${icon("pen")}Note</button>`}
         <span class="nav"><button class="iconbtn" id="prev" data-tip="Previous sound (B)">${icon("left")}</button>
           <button class="iconbtn" id="next" data-tip="Next sound (N) · next undecided (Shift N)">${icon("right")}</button></span></div></div>
-      <div class="notebox ${Lab.V.notes[s.name] ? "has" : ""}">${icon("pen")}<textarea id="note" rows="1"
-        placeholder="Notes for the next round: what's wrong, what to try…">${esc(Lab.V.notes[s.name] || "")}</textarea><span class="saved">${icon("check")}saved</span></div>
+      ${Lab.V.notes[s.name] ? callout(Lab.V.notes[s.name], "On the whole sound", "", "sound") : ""}
       <div class="toolbar"><span class="count" id="tcount"></span>
         <button class="btn ${P.audition ? "on" : ""}" id="aud" data-tip="Play every take in order, from the selected one (A)">${icon("headphones")}Audition all</button>
         ${s.kind !== "oneshot" ? `<button class="btn ${P.loopLong ? "on" : ""}" id="lp" data-tip="Loop the loops (L)">${icon("loop")}Loop</button>` : ""}
         <button class="btn ${Lab.prefs.hideDown ? "on" : ""}" id="hd" data-tip="Hide thumbed-down takes (H)">${icon(Lab.prefs.hideDown ? "eyeoff" : "eye")}Hide ${icon("down")}</button></div>
       <div id="rows"></div>`;
-    Lab.wireNote($("note"), s.name, renderList);
+    if ($("snote")) $("snote").onclick = () => editSoundNote($("snote"));
+    const sn = el.querySelector(".pnote.sound");
+    if (sn) wireCallout(sn, () => editSoundNote(sn), () => saveSoundNote(""));
     $("keep").onclick = () => setPick("shipped");
     if ($("clear")) $("clear").onclick = () => setPick(null);
     $("prev").onclick = () => step(-1); $("next").onclick = () => step(1);
@@ -143,16 +166,22 @@
     const sec = document.createElement("section");
     sec.className = "variant";
     const ups = clips.filter(c => Lab.V.clips[c.id] === 1).length, downs = clips.filter(c => Lab.V.clips[c.id] === -1).length;
+    const n = ship ? null : pnotes(cur().name)[v], stale = n && n.prompt && n.prompt !== prompt;
     sec.innerHTML = `<div class="vhead"><span class="vname ${ship ? "ship" : ""}" ${INFO[v] ? `data-tip="${esc(INFO[v])}"` : ""}>${esc(v)}</span>
       <p class="vprompt" ${ship ? "" : `data-tip="Click to expand"`}>${fmtPrompt(prompt)}</p>
       <span class="vtools">${ship ? "" : `<span class="stat">${ups ? `<span class="up">${ups} up</span>` : ""}${downs ? `<span class="down">${downs} down</span>` : ""}</span>
-        <button class="iconbtn" data-tip="Copy the prompt">${icon("copy")}</button>`}</span></div><div class="tiles"></div>`;
+        <button class="iconbtn ${n ? "noted" : ""}" data-note data-tip="${n ? "Edit the note on this prompt (C)" : "A note on this prompt's takes (C)"}">${icon("pen")}</button>
+        <button class="iconbtn" data-copy data-tip="Copy the prompt">${icon("copy")}</button>`}</span></div>
+      ${n ? callout(n.text, Lab.when(n.at), stale ? n.prompt : "") : ""}<div class="tiles"></div>`;
     const p = sec.querySelector(".vprompt");
     if (!ship) {
       p.onclick = () => { if (!p.classList.contains("whole")) { p.classList.toggle("open"); p.removeAttribute("data-tip"); } };
       requestAnimationFrame(() => { if (p.scrollHeight <= p.clientHeight + 2) { p.classList.add("whole"); p.removeAttribute("data-tip"); } });
     }
-    const cp = sec.querySelector(".vtools .iconbtn");
+    const nb = sec.querySelector("[data-note]"), pn = sec.querySelector(".pnote");
+    if (nb) nb.onclick = () => editPromptNote(v, nb);
+    if (pn) wireCallout(pn, () => editPromptNote(v, pn), () => savePromptNote(v, ""));
+    const cp = sec.querySelector("[data-copy]");
     if (cp) cp.onclick = () => navigator.clipboard.writeText(prompt).then(() => Lab.toast("Prompt copied", { icon: "copy" }), () => Lab.toast("Couldn't copy"));
     const grid = sec.querySelector(".tiles");
     let hidden = 0;
@@ -186,12 +215,14 @@
   function dockItem(c) {
     const s = cur(), pick = Lab.V.picks[s.name], v = Lab.V.clips[c.id];
     if (c.id === "shipped") return { id: "shipped", url: c.url, title: s.name, sub: "Shipped now · the file the game has", pick: pick === "shipped",
-      play: f => play(c, f), actions: [{ icon: "keep", label: pick === "shipped" ? "Keeping it" : "Keep it", cls: "pick", on: pick === "shipped", run: () => setPick("shipped"), tip: "Keep the shipped file (0 or Enter)" }] };
+      play: f => play(c, f), actions: [{ icon: "keep", label: pick === "shipped" ? "Keeping it" : "Keep it", cls: "pick", on: pick === "shipped", run: () => setPick("shipped"), tip: "Keep the shipped file (0 or Enter)" }],
+      note: { has: !!Lab.V.notes[s.name], tip: "A note on the whole sound (C)", open: a => editSoundNote(a, "above") } };
     const m = c.metrics || {};
     return {
       id: c.id, url: c.url, title: s.name, sub: `${c.variant} · seed ${c.seed}${c.gen_s ? ` · made in ${c.gen_s}s` : ""}`, pick: pick === c.id,
-      facts: [m.peak_db != null && `peak ${m.peak_db} dB`, m.rms_db != null && `rms ${m.rms_db} dB`, m.crest_db != null && `crest ${m.crest_db} dB`].filter(Boolean).join(" · "),
+      facts: [m.peak_db != null && `peak ${(+m.peak_db).toFixed(1)}`, m.rms_db != null && `rms ${(+m.rms_db).toFixed(1)}`, m.crest_db != null && `crest ${(+m.crest_db).toFixed(1)} dB`].filter(Boolean).join(" · "),
       play: f => play(c, f),
+      note: { has: !!pnotes(s.name)[c.variant], tip: `${pnotes(s.name)[c.variant] ? "Edit the note" : "A note"} on the ${c.variant} prompt (C)`, open: a => editPromptNote(c.variant, a, "above") },
       actions: [
         { icon: "up", cls: "good", on: v === 1, run: () => rate(1, c, false), tip: "Thumbs up (U)" },
         { icon: "down", cls: "bad", on: v === -1, run: () => rate(-1, c, false), tip: "Thumbs down (D)" },
@@ -252,6 +283,37 @@
     P.keepId = P.tiles[P.focus] ? P.tiles[P.focus].id : null;
     renderList(); renderSound();
   }
+  function callout(text, meta, oldPrompt, cls = "") {
+    return `<div class="pnote ${cls} ${oldPrompt ? "stale" : ""}">${icon("pen")}<div class="b"><p>${esc(text)}</p><div class="m"><span>${esc(meta)}</span>
+      ${oldPrompt ? `<span class="stale" data-tip="${esc(`Written about: ${oldPrompt}`)}">about an earlier version of this prompt</span>` : ""}</div></div>
+      <span class="a"><button class="btn ghost" data-edit>Edit</button><button class="btn ghost" data-resolve data-tip="It doesn't apply any more: remove it">${icon("check")}Resolve</button></span></div>`;
+  }
+  function wireCallout(el, edit, resolve) {
+    el.querySelector("[data-edit]").onclick = e => { e.stopPropagation(); edit(); };
+    el.querySelector("[data-resolve]").onclick = e => { e.stopPropagation(); resolve(); };
+    el.onclick = e => { if (!e.target.closest("button")) edit(); };
+  }
+  function keepPlace() { P.keepId = P.tiles[P.focus] ? P.tiles[P.focus].id : null; const y = $("sd").scrollTop; renderList(); renderSound(); $("sd").scrollTop = y; }
+  function editPromptNote(v, anchor, place = "below") {
+    const n = pnotes(cur().name)[v];
+    Lab.noteEditor({ anchor, place, title: `Note on the ${v} prompt`, value: n ? n.text : "", placeholder: "What's wrong with these takes, or what to try instead…",
+                     onSave: t => savePromptNote(v, t), onResolve: () => savePromptNote(v, "") });
+  }
+  async function savePromptNote(v, text) {
+    const s = cur();
+    await Lab.vote({ sound: s.name, variant: v, prompt_note: text, prompt: promptOf(s.name, v) },
+                   { label: text ? `Note saved on the ${v} prompt` : `Note on the ${v} prompt resolved`, icon: text ? "pen" : "check" });
+    keepPlace();
+  }
+  function editSoundNote(anchor, place = "below") {
+    const s = cur();
+    Lab.noteEditor({ anchor, place, title: `Note on the whole ${s.name} sound`, value: Lab.V.notes[s.name] || "",
+                     placeholder: "About the sound as a whole: what it should be, ideas to try…", onSave: t => saveSoundNote(t), onResolve: () => saveSoundNote("") });
+  }
+  async function saveSoundNote(text) {
+    await Lab.vote({ sound: cur().name, note: text }, { label: text ? "Note on the sound saved" : "Note on the sound resolved", icon: text ? "pen" : "check" });
+    keepPlace();
+  }
   function moveRow(dir) {
     const row = i => P.tiles[i] && P.tiles[i].variant;
     let i = P.focus;
@@ -270,7 +332,7 @@
     },
     keys: [["Space", "play or stop the selected take"], ["← →", "previous / next take"], ["↑ ↓", "previous / next prompt row"],
            ["U", "thumbs up, then play the next take"], ["D", "thumbs down, then play the next take"], ["Enter", "pick the selected take"],
-           ["0", "keep the shipped file"], ["S", "play the shipped file"], ["X", "A/B the take and the shipped file"], ["A", "audition every take in order"],
+           ["0", "keep the shipped file"], ["C", "a note on the selected take's prompt"], ["S", "play the shipped file"], ["X", "A/B the take and the shipped file"], ["A", "audition every take in order"],
            ["N", "next sound"], ["B", "previous sound"], ["Shift N", "next undecided sound"], ["H", "hide thumbed-down takes"], ["L", "loop loops on or off"], ["Esc", "stop"]],
     onKey(e) {
       if (!P.sounds.length || !$("sd")) return;
@@ -296,6 +358,7 @@
       else if (k === "n" || k === "]") step(1);
       else if (k === "b" || k === "[") step(-1);
       else if (k === "l") toggleLoop();
+      else if (k === "c") { e.preventDefault(); Lab.dock.openNote(); }
     },
   });
 })();

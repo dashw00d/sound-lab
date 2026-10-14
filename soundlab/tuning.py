@@ -132,7 +132,10 @@ def evidence(proj) -> dict:
                       for k, r in rows.items()]
             styles.sort(key=lambda r: (r["offered"] < FEW, -r["rate"], -r["picked"]))
             gen = [c["gen_s"] for c in sfx.values() if c.get("gen_s")]
-            e["sfx"] = dict(styles=styles, takes=len(sfx), silent=sum(bool(c.get("failed")) for c in sfx.values()),
+            made = {(c["name"], c["variant"]) for c in sfx.values()}  # (the user's notes on prompts this model made takes of)
+            notes = [dict(sound=n, style=var, text=x["text"], at=x.get("at", "")) for n, vs in v.get("prompt_notes", {}).items()
+                     for var, x in vs.items() if (n, var) in made]
+            e["sfx"] = dict(styles=styles, takes=len(sfx), silent=sum(bool(c.get("failed")) for c in sfx.values()), notes=notes,
                             sounds=len({c["name"] for c in sfx.values()}), gen_s=round(statistics.median(gen), 2) if gen else None, few=FEW)
         names = (idx.get("sets", {}).get("alerts") or {}).get("names", [])
         kits = Counter((clips[p].get("kit") or clips[p]["variant"]).split(".")[0] for n, p in v["picks"].items() if n in names and p in clips)
@@ -167,6 +170,7 @@ def _facts(task: str, e: dict) -> list[str]:
         if few:
             lines.append(f"tried on fewer than {e['few']} sounds: " + ", ".join(f"{r['style']} {r['picked']}/{r['offered']}" for r in few))
         lines.append(f"{e['takes']} takes of {e['sounds']} sounds, {e['silent']} silent" + (f", median {e['gen_s']} s per take" if e["gen_s"] else ""))
+        lines += [f"the user's note on {x['sound']} · {x['style']} ({x['at']}): {x['text']}" for x in e.get("notes", [])]
         return lines
     if task == "alerts":
         return ["picked kits: " + ", ".join(f"{k} for {n} of {e['alerts']} alerts" for k, n in e["picked"].items())]

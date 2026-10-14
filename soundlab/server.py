@@ -7,7 +7,7 @@
   GET  /api/tuning          {tuning, base, evidence, ...}: the prompt tuning (tuning.json) and what this project's votes say
   POST /api/tuning          {base, tuning}: save it; 409 with the current one if it changed since `base` (an agent wrote it)
   POST /api/vote            {clip, value: 1|-1|0} | {sound, pick: id|"shipped"|null} | {picks: {sound: id|null}}
-                            | {sound, note}
+                            | {sound, note} | {sound, variant, prompt_note, prompt}: a note on one prompt's takes
   GET  /api/balance         {balance (work/balance.json), mix (the game's mix file)}
   POST /api/mix             the whole mix; written to the game's mix file (the game re-reads it live)
   GET  /clips/<path>        a take (work/clips)
@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import threading
+from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -170,6 +171,15 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                         v["picks"][name] = pick
                     else:
                         v["picks"].pop(name, None)
+                if "prompt_note" in msg:  # (kept with the prompt text it's about, so a later rewrite shows it's older)
+                    pn = v.setdefault("prompt_notes", {})
+                    if msg["prompt_note"].strip():
+                        pn.setdefault(msg["sound"], {})[msg["variant"]] = dict(
+                            text=msg["prompt_note"].strip(), prompt=msg.get("prompt", ""), at=msg.get("at") or date.today().isoformat())
+                    else:
+                        pn.get(msg["sound"], {}).pop(msg["variant"], None)
+                        if not pn.get(msg["sound"]):
+                            pn.pop(msg["sound"], None)
                 if "note" in msg:
                     if msg["note"].strip():
                         v["notes"][msg["sound"]] = msg["note"]

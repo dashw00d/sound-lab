@@ -95,6 +95,8 @@ def status(proj, as_json: bool) -> int:
                     undecided=[n for n in sounds if n in taken and n not in votes["picks"]]),
         takes=dict(total=len(idx["clips"]), silent=sum(1 for c in idx["clips"].values() if c.get("failed"))),
         notes=votes["notes"],
+        prompt_notes={n: {var: dict(x, current=x.get("prompt", "") == idx["prompts"].get(n, {}).get(var, x.get("prompt", "")))
+                          for var, x in vs.items()} for n, vs in votes["prompt_notes"].items()},
         alert_sets=len(idx.get("sets", {}).get("alerts", {}).get("rows", [])),
         music={k: len(c["takes"]) for k, c in idx.get("mesh", {}).get("contexts", {}).items()},
         promoted=dict(sounds=len(Store.read(st.promoted_path, {})), music_tracks=len(Store.read(st.music_promoted_path, {}))),
@@ -115,7 +117,10 @@ def status(proj, as_json: bool) -> int:
     if tuning.summary():
         print(f"  models: {tuning.summary()} (prompt tuning: soundlab tuning)")
     for n, t in votes["notes"].items():
-        print(f"  note on {n}: {t}")
+        print(f"  note on {n} (the whole sound): {t}")
+    for n, vs in out["prompt_notes"].items():
+        for var, x in vs.items():
+            print(f"  note on {n} · {var} prompt ({x.get('at', '')}): {x['text']}" + ("" if x["current"] else "  [the prompt has changed since]"))
     return 0
 
 

@@ -2,7 +2,7 @@
 
 Generated (project.work, gitignored):  index.json (every take, its prompt and metrics), clips/, alert_kits/,
                                         balance.json (the Balance page's measurements)
-Authored (project.data, tracked):      votes.json (your picks, thumbs and notes), prompts.json (hand-written
+Authored (project.data, tracked):      votes.json (your picks, thumbs, notes and prompt notes), prompts.json (hand-written
                                         prompt variants), promoted.json, music_promoted.json (provenance)
 """
 from __future__ import annotations
@@ -47,12 +47,12 @@ class Store:
 
     def votes(self) -> dict:
         v = self.read(self.votes_path, {})
-        for k in ("clips", "picks", "notes"):
+        for k in ("clips", "picks", "notes", "prompt_notes"):
             v.setdefault(k, {})
         return v
 
     def save_votes(self, v: dict) -> None:
-        self.write(self.votes_path, v, sort=True)
+        self.write(self.votes_path, {k: x for k, x in v.items() if x or k != "prompt_notes"}, sort=True)  # (no empty key until there's a note)
 
     def prompts(self) -> dict:
         return self.read(self.prompts_path, {})

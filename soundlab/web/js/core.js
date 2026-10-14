@@ -88,6 +88,11 @@ function inverse(msg) {
   if ("clip" in msg) { inv.clip = msg.clip; inv.value = V.clips[msg.clip] || 0; }
   if ("pick" in msg) { inv.sound = msg.sound; inv.pick = V.picks[msg.sound] ?? null; }
   if (msg.picks) inv.picks = Object.fromEntries(Object.keys(msg.picks).map(n => [n, V.picks[n] ?? null]));
+  if ("note" in msg) { inv.sound = msg.sound; inv.note = V.notes[msg.sound] || ""; }
+  if ("prompt_note" in msg) {
+    const old = ((V.prompt_notes || {})[msg.sound] || {})[msg.variant];
+    Object.assign(inv, { sound: msg.sound, variant: msg.variant, prompt_note: old ? old.text : "", prompt: old ? old.prompt : msg.prompt, at: old ? old.at : undefined });
+  }
   return inv;
 }
 async function post(msg) {
@@ -215,6 +220,49 @@ Lab.wireNote = function (ta, key, onSaved) {
   ta.oninput = () => { grow(); box.classList.toggle("has", !!ta.value.trim()); clearTimeout(t); t = setTimeout(save, 700); };
   ta.onblur = save;
 };
+
+// ---- the note editor: a small box by what it's about. Enter saves, Shift+Enter is a new line, Esc cancels,
+// a click elsewhere saves (so nothing typed is lost). onSave gets the text ("" when it was emptied).
+Lab.noteEditor = function ({ anchor, title, value = "", placeholder = "", place = "below", onSave, onResolve }) {
+  if (Lab.noteEditor.close) Lab.noteEditor.close(true);
+  const el = document.createElement("div");
+  el.className = "pop";
+  el.innerHTML = `<div class="pop-h">${Lab.icon("pen")}<span>${Lab.esc(title)}</span></div>
+    <textarea rows="2" placeholder="${Lab.esc(placeholder)}">${Lab.esc(value)}</textarea>
+    <div class="pop-f"><span><kbd>Enter</kbd> save <kbd>Shift Enter</kbd> new line <kbd>Esc</kbd> cancel</span><span class="grow"></span>
+      ${value && onResolve ? `<button class="btn ghost" data-r>${Lab.icon("check")}Resolve</button>` : ""}<button class="btn primary" data-s>Save</button></div>`;
+  document.body.appendChild(el);
+  const ta = el.querySelector("textarea"), grow = () => { ta.style.height = "auto"; ta.style.height = `${Math.min(220, ta.scrollHeight + 2)}px`; };
+  const place_ = () => {
+    const r = anchor.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+    let top = place === "above" ? r.top - h - 10 : r.bottom + 10;
+    if (top < 64) top = r.bottom + 10;
+    if (top + h > innerHeight - 8) top = r.top - h - 10;
+    el.style.left = `${Lab.clamp(r.left + r.width / 2 - w / 2, 12, innerWidth - w - 12)}px`; el.style.top = `${Math.max(8, top)}px`;
+  };
+  let open = true;
+  const close = save => {
+    if (!open) return;
+    open = false; Lab.noteEditor.close = null;
+    document.removeEventListener("pointerdown", outside, true);
+    el.remove();
+    if (save && ta.value.trim() !== value.trim()) onSave(ta.value.trim());
+  };
+  const outside = e => { if (!el.contains(e.target) && e.target !== anchor && !anchor.contains(e.target)) close(true); };
+  ta.addEventListener("input", () => { grow(); place_(); });
+  ta.onkeydown = e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); close(true); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(false); }
+  };
+  el.querySelector("[data-s]").onclick = () => close(true);
+  const res = el.querySelector("[data-r]");
+  if (res) res.onclick = () => { close(false); onResolve(); };
+  document.addEventListener("pointerdown", outside, true);
+  Lab.noteEditor.close = close;
+  grow(); place_();
+  ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+};
+Lab.when = iso => { const d = new Date(iso + "T12:00"); return isNaN(d) ? iso || "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric" }); };
 
 // ---- pages
 Lab.register = function (name, page) { Lab.tabs[name] = page; Lab.order.push(name); };

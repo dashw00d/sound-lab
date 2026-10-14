@@ -61,7 +61,7 @@
         <span class="grow"></span><button class="btn ghost" id="delModel" ${used.length ? "disabled" : ""} data-tip="${used.length ? "It makes a task: give the task to another model first" : "Remove this model's guide"}">Remove</button></div>
       <textarea class="msum" rows="2" data-mf="summary" placeholder="What this model is and how it behaves: what it was trained on, what it's good and bad at…">${esc(m.summary)}</textarea>
 
-      <div class="sub"><span class="lbl">Rules</span>${Lab.seg([["all", "Every task"], ...Object.entries(T.tasks)], k, "rf")}<span class="grow"></span>
+      <div class="msub"><span class="lbl">Rules</span>${Lab.seg([["all", "Every task"], ...Object.entries(T.tasks)], k, "rf")}<span class="grow"></span>
         <button class="btn" id="addRule">${icon("plus")}Add a rule</button></div>
       <div class="rules">${rules.map(({ r, i }) => `<div class="rule ${r.by} ${r.pinned ? "pinned" : ""}" data-i="${i}">
           <button class="pin" data-pin="${i}" data-tip="${r.pinned ? "Pinned: read first" : "Pin: read first"}">${icon(r.pinned ? "starFill" : "star")}</button>
@@ -73,11 +73,11 @@
               <span class="date">${esc(r.added)}</span></div></div>
           <button class="iconbtn" data-delrule="${i}" data-tip="Remove">${icon("x")}</button></div>`).join("") || `<div class="none">No rules${k === "all" ? "" : " for this task"} yet.</div>`}</div>
 
-      <div class="sub"><span class="lbl">Prompt shapes</span><span class="faint">what a prompt for each task looks like, with {slots}</span></div>
+      <div class="msub"><span class="lbl">Prompt shapes</span><span class="faint">what a prompt for each task looks like, with {slots}</span></div>
       <div class="tpls">${Object.entries(T.tasks).map(([t, l]) => `<label class="tpl"><span>${esc(l)}</span>
         <textarea rows="1" class="mono" data-tpl="${t}" placeholder="—">${esc(m.templates[t] || "")}</textarea></label>`).join("")}</div>
 
-      <div class="sub"><span class="lbl">Examples</span><span class="grow"></span><button class="btn" id="addEx">${icon("plus")}Add an example</button></div>
+      <div class="msub"><span class="lbl">Examples</span><span class="grow"></span><button class="btn" id="addEx">${icon("plus")}Add an example</button></div>
       <div class="exs">${m.examples.map((x, i) => { const c = x.take && Lab.S.clips[x.take]; return `<div class="ex ${x.verdict}">
           <div class="exh"><button class="pill ${x.verdict === "good" ? "good" : "bad"}" data-verdict="${i}" data-tip="Click to flip">${icon(x.verdict === "good" ? "up" : "down")}${x.verdict === "good" ? "Good" : "Bad"}</button>
             <select data-ex="${i}" data-f="task">${Object.entries(T.tasks).map(([t, l]) => `<option value="${t}" ${t === x.task ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>
@@ -87,7 +87,7 @@
           <input type="text" data-ex="${i}" data-f="why" placeholder="Why it works, or doesn't…" value="${esc(x.why)}">
           <input type="text" class="take" data-ex="${i}" data-f="take" placeholder="A take id to listen to (optional)" value="${esc(x.take)}"></div>`; }).join("") || `<div class="none">No examples yet.</div>`}</div>
 
-      <div class="sub"><span class="lbl">Evidence in ${esc(Lab.project.name)}</span><span class="faint">from your picks and votes, for this model</span></div>
+      <div class="msub"><span class="lbl">Evidence in ${esc(Lab.project.name)}</span><span class="faint">from your picks and votes, for this model</span></div>
       ${evidence(T.ev[T.model] || {})}
     </section>`;
   }

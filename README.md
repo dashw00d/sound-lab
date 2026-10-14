@@ -98,7 +98,7 @@ SoundLab is made to be driven by a coding agent: the agent writes prompts, gener
 **The loop.** Ask for a round, vote on it in the app, then ask the agent to learn from it:
 
 1. *"The feast takes still aren't working, see my note. Do a new round from the tuning: 4–5 new prompt variants, 6 seeds each."*
-2. Listen and vote in the app: thumbs on the near-misses as well as a pick, plus a note on what's wrong.
+2. Listen and vote in the app: thumbs on the near-misses as well as a pick, plus a note on the prompts that miss (`C`, or the pen on a prompt row). A note stays with its prompt, so new prompts start clean.
 3. *"I've voted on the feast round. Read the evidence and update the tuning with what it taught you."*
 
 Step 3 is the one people skip, and it's the one that makes the agent better with your models: the votes go into the tuning as rules, so the next round starts from what worked. Thumbs say more than picks alone, because a pick only shows which take won and a thumbs down shows what lost.

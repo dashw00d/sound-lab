@@ -35,7 +35,9 @@ The project's `data` folder (tracked in the game's repo) holds:
 - **votes.json**:
   - `clips`: `{take id: 1 | -1}`, thumbs up or down.
   - `picks`: `{sound: take id | "shipped"}`; `"shipped"` means keep the current file.
-  - `notes`: `{sound: text}`. Notes are instructions: read them with `status` and act on them.
+  - `prompt_notes`: `{sound: {variant: {text, prompt, at}}}`, the user's note on one prompt's takes, with the prompt text it was written about and the date. This is the main kind of note.
+  - `notes`: `{sound: text}`, a note on the whole sound (and `mesh_<set>` for a music set).
+  - Notes are instructions: read them with `status` and act on them. A prompt note is about that prompt only, so don't carry it over to new variants: they start clean, and the user notes them if they miss too. `status` flags a prompt note whose prompt has changed since it was written. It may no longer apply, so weigh it, and ask if unsure. When the user resolves a note, it's gone: open notes are current.
 - **prompts.json**: hand-written prompt variants, `{sound: {variant: prompt}}`.
 - **promoted.json**, **music_promoted.json**: provenance of everything shipped.
 
@@ -44,7 +46,7 @@ Rules:
 - Never edit or delete the user's votes, picks or notes. Generators keep takes the user has voted on.
 - Ship (`promote --apply`) only when the user asks. Run the dry run first and show what will change. Shipping overwrites the game's files: they're in the game's git, but say what you replaced.
 - Instrument pool: an instrument is in when one of its audition takes is picked or it is net 👍, and out when net 👎. Each music take draws one instrument per role from the pool, seeded.
-- Music shipping: liked takes (`mesh_<set>.<take>.<profile>` = 1) ship as tracks. A set with none liked ships all takes not 👎.
+- Music shipping: liked takes (`mesh_<set>.<take>.<profile>` = 1) ship as tracks. A set with none liked ships all takes not 👎, at the music's `default_profile`.
 
 ## Prompt tuning: start here
 

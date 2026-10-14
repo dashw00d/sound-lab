@@ -1,6 +1,7 @@
 // The dock: whatever take the page has selected, large. Play it, see its waveform or spectrogram, hover for the time
 // (and frequency), click to seek, drag to loop a range; the page's actions for it (thumbs, pick) sit beside it.
-// A page hands it an item: {id, url, title, sub, facts, pick, play(from), actions: [{icon, label, cls, on, run, tip}]}.
+// A page hands it an item: {id, url, title, sub, facts, pick, play(from), actions: [{icon, label, cls, on, run, tip}],
+// note: {has, tip, open(anchor)}} (a note button beside the view switch, e.g. the note on this take's prompt).
 (() => {
   const D = Lab.dock = { item: null, active: false, s: null, a: null, drag: null };
   const $ = id => document.getElementById(id);
@@ -9,13 +10,13 @@
   D.init = function () {
     const el = $("dock");
     el.innerHTML = `<div class="left"><button class="playbtn" id="dPlay" disabled>${Lab.icon("play")}</button>
-        <div class="info"><div class="title" id="dTitle">Nothing selected</div><div class="sub" id="dSub">Select a take to inspect it</div>
-          <div class="time"><b id="dNow">0:00.00</b> / <span id="dDur">–</span></div></div></div>
+        <div class="info"><div class="title" id="dTitle">Nothing selected</div><div class="dsub" id="dSub">Select a take to inspect it</div>
+          <div class="time"><b id="dNow">0:00.00</b> / <span id="dDur">–</span></div><div class="dfacts" id="dFacts"></div></div></div>
       <div class="scope" id="dScope"><canvas></canvas><div class="region" hidden></div><div class="head"></div><div class="hover"><span></span></div>
         <div class="rtag" hidden><span></span><button title="Clear the loop (double-click)">${Lab.icon("x")}</button></div>
         <div class="ruler"></div><div class="msg"></div></div>
       <div class="right"><div class="row" id="dActs"></div>
-        <div class="row"><span class="facts" id="dFacts"></span><span class="seg" id="dView">
+        <div class="row"><span id="dNote"></span><span class="seg" id="dView">
           <button data-v="wave" data-tip="Waveform (V)">${Lab.icon("vwave")}</button><button data-v="spec" data-tip="Spectrogram (V)">${Lab.icon("vspec")}</button></span></div></div>`;
     scope = $("dScope"); cv = scope.querySelector("canvas"); head = scope.querySelector(".head"); hov = scope.querySelector(".hover");
     reg = scope.querySelector(".region"); rtag = scope.querySelector(".rtag"); ruler = scope.querySelector(".ruler"); msg = scope.querySelector(".msg");
@@ -60,6 +61,11 @@
     if (on) D.show(null);
   };
   Lab.onFlush(() => { D.item = null; D.s = D.a = D.spec = null; });
+  D.openNote = function () {  // (the page's note key: the dock's note button, if it has one)
+    const b = $("dNote").firstElementChild;
+    if (b && D.item && D.item.note) { D.item.note.open(b); return true; }
+    return false;
+  };
   D.show = function (item) {
     if (!D.active) return;
     const same = D.item && item && D.item.id === item.id && D.item.url === item.url;
@@ -69,9 +75,12 @@
     $("dFacts").textContent = item && item.facts || "";
     $("dPlay").disabled = !(item && item.url);
     const acts = $("dActs");
-    acts.innerHTML = (item && item.actions || []).map((a, i) => `<button class="btn ${a.cls || ""} ${a.on ? "on" : ""}" data-a="${i}" ${a.tip ? `data-tip="${Lab.esc(a.tip)}"` : ""}>
+    acts.innerHTML = (item && item.actions || []).map((a, i) => `<button class="btn ${a.label ? "" : "sq"} ${a.cls || ""} ${a.on ? "on" : ""}" data-a="${i}" ${a.tip ? `data-tip="${Lab.esc(a.tip)}"` : ""}>
       ${a.icon ? Lab.icon(a.icon) : ""}${a.label ? `<span>${Lab.esc(a.label)}</span>` : ""}</button>`).join("");
     acts.querySelectorAll("button").forEach(b => b.onclick = () => item.actions[+b.dataset.a].run());
+    const n = item && item.note, nb = $("dNote");
+    nb.innerHTML = n ? `<button class="btn pick ${n.has ? "on" : ""}" data-tip="${Lab.esc(n.tip || "")}">${Lab.icon("pen")}<span>Note</span></button>` : "";
+    if (n) nb.firstElementChild.onclick = () => n.open(nb.firstElementChild);
     if (!same) { D.clearRegion(true); D.s = D.a = D.spec = null; D.load(); }
     D.sync();
   };
