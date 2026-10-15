@@ -10,13 +10,20 @@ The design comes from the project (Project.music):
   default_profile                optional: the profile the Music page opens on, and the one a set with no liked take
                                  ships at (default: "contrast" if there is one)
   contexts                       {context: [mode, mood word]};  biomes: {biome: word, "any": ""}
-  instruments                    {id: {role, tag, sentence, name}}: the candidates (auditions on the Instruments page)
+  instruments                    {id: {role, tag, sentence, name, prompts?}}: the candidates (auditions on the
+                                 Instruments page); `prompts` ({variant: prompt}) replaces the audition template, e.g.
+                                 to compare prompt shapes or for an instrument the template can't describe (voices)
   provisional                    {role: id}: used until the pool has votes
   prompts(context, mode, mood, names) -> {level: prompt}   names: {role: instrument name}
+  styles                         optional: {style: prompts function, same signature}, alternative prompt styles to
+                                 compare in a tuning round. A style's sets are keyed "<context>[.<biome>]~<style>"
   audition                       {seconds, template} (template takes {tag} and {sentence})
   manifest, out_dir              where promote writes the game's music.json and the files
   rotate_loops                   loops a track plays before the game moves on (written into the manifest)
   seed_file(path)                optional: called for each shipped file before after_install (e.g. an import stub)
+
+Each `generate` run is a round (index mesh.rounds; each set carries its round). The Music page shows the newest
+round's sets and any set with a liked take, and folds the rest under "Earlier rounds".
 
 How a set is made: SA3 generates the spine from an explicit prompt; its tempo is measured and corrected to the grid
 (rubberband, a small factor), its first strong downbeat found, and bars+1 bars cut from there. The other levels
@@ -30,7 +37,7 @@ from __future__ import annotations
 import hashlib
 import random
 import shutil
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import numpy as np
@@ -40,8 +47,8 @@ from .dsp import SR
 from .store import Store
 
 
-def key_of(context: str, biome: str) -> str:
-    return context if biome == "any" else f"{context}.{biome}"
+def key_of(context: str, biome: str, style: str | None = None) -> str:
+    return (context if biome == "any" else f"{context}.{biome}") + (f"~{style}" if style else "")
 
 
 # --------------------------------------------------------------------------- the instrument pool
@@ -51,26 +58,35 @@ def auditions(proj: P.Project, seeds: int = 4) -> int:
     tuning.require("instruments")
     M, st = proj.music, Store(proj)
     idx = st.index()
-    if all(f"pool_{pid}.pool.s{k}" in idx["clips"] for pid in M["instruments"] for k in range(seeds)):
+    au = M["audition"]
+
+    def prompts(ins):
+        return ins.get("prompts") or {"pool": au["template"].format(tag=ins["tag"], sentence=ins["sentence"])}
+    if all(f"pool_{pid}.{v}.s{k}" in idx["clips"] for pid, ins in M["instruments"].items() for v in prompts(ins)
+           for k in range(seeds)):
         print("every audition already exists; pass a larger --seeds for more", flush=True)
         return 0
     from .engine import Engine
 
     eng = Engine()
-    au = M["audition"]
     for pid, ins in M["instruments"].items():
-        name, prompt = f"pool_{pid}", au["template"].format(tag=ins["tag"], sentence=ins["sentence"])
+        name = f"pool_{pid}"
         idx["sounds"][name] = dict(kind="pool", seconds=au["seconds"], channels=2, palette=ins["role"], shipped=None)
-        idx["prompts"][name] = {"pool": prompt}
-        for seed in range(seeds):
-            if f"{name}.pool.s{seed}" in idx["clips"]:
-                continue  # (existing takes are kept; more --seeds only adds)
-            x = dsp.normalise(eng.generate(prompt, au["seconds"], seed), -18.0, -2.5)
-            rel = f"{name}/pool.s{seed}.ogg"
-            dsp.write(st.clips / rel, x)
-            idx["clips"][f"{name}.pool.s{seed}"] = dict(name=name, variant="pool", seed=seed, prompt=prompt, file=rel,
-                                                        failed=dsp.silent(x), duration=au["seconds"], gen_s=round(eng.last_s, 2))
-        print(f"  {name}: {seeds} takes", flush=True)
+        idx["prompts"][name] = prompts(ins)
+        made = 0
+        for variant, prompt in prompts(ins).items():
+            for seed in range(seeds):
+                cid = f"{name}.{variant}.s{seed}"
+                if cid in idx["clips"]:
+                    continue  # (existing takes are kept; more --seeds only adds)
+                x = dsp.normalise(eng.generate(prompt, au["seconds"], seed), -18.0, -2.5)
+                rel = f"{name}/{variant}.s{seed}.ogg"
+                dsp.write(st.clips / rel, x)
+                idx["clips"][cid] = dict(name=name, variant=variant, seed=seed, prompt=prompt, file=rel,
+                                         failed=dsp.silent(x), duration=au["seconds"], gen_s=round(eng.last_s, 2))
+                made += 1
+        if made:
+            print(f"  {name}: {made} takes", flush=True)
     st.save_index(idx)
     return 0
 
@@ -99,7 +115,10 @@ def take_roles(pool: dict[str, list[str]], key: str, seed: int) -> dict[str, str
 
 # --------------------------------------------------------------------------- generating sets
 
-def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int = 3, tries: int = 14) -> int:
+def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int = 3, tries: int = 14,
+             styles: list[str] | None = None, profiles: list[str] | None = None) -> int:
+    """Sets for every context x biome (x style, when given: the project's alternative prompt styles), each `takes`
+    takes, at every profile (or only `profiles`)."""
     tuning.require("music")
     M, st = proj.music, Store(proj)
     bpm, bar_beats, bars = M["bpm"], M["bar_beats"], M["bars"]
@@ -116,6 +135,7 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
     def level(x, lv):
         return dsp.normalise(x, M["lufs"][lv], -2.5)
 
+    profs = {p: n for p, n in M["profiles"].items() if not profiles or p in profiles}
     pool, provisional = pool_of(proj)
     from .engine import Engine
 
@@ -125,8 +145,13 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
     mesh.update(bpm=bpm, bar_beats=bar_beats, bars=bars, levels=levels, provisional=provisional,
                 profiles=list(M["profiles"]), pool={r: [names[p] for p in ps] for r, ps in pool.items()})
     mesh.setdefault("contexts", {})
-    for ctx, biome in [(c, b) for c in contexts for b in biomes]:
-        key = key_of(ctx, biome)
+    runs = [(c, b, s) for c in contexts for b in biomes for s in (styles or [None])]
+    rid = datetime.now().strftime("%Y-%m-%d %H:%M")  # a round: this run's sets (the Music page shows the newest)
+    mesh.setdefault("rounds", []).append(dict(id=rid, contexts=contexts, biomes=biomes, styles=styles or [],
+                                              profiles=list(profs), takes=takes))
+    for ctx, biome, style in runs:
+        key = key_of(ctx, biome, style)
+        make = M["styles"][style] if style else M["prompts"]
         mode, mood = M["contexts"][ctx]
         if M["biomes"].get(biome):
             mood = f"{mood}, {M['biomes'][biome]}"
@@ -135,7 +160,7 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
             if len(found) == takes:
                 break
             roles = take_roles(pool, key, seed)
-            prompts = M["prompts"](ctx, mode, mood, {r: names[p] for r, p in roles.items()})
+            prompts = make(ctx, mode, mood, {r: names[p] for r, p in roles.items()})
             first_prompts = first_prompts or prompts
             spine = eng.generate(prompts[spine_lv], need + 2 * bar + 4.0, seed)  # room to find a downbeat
             got, wobble = dsp.tempo_of(spine, bpm)
@@ -160,7 +185,7 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
                 continue
             base, _ = dsp.snap(base, bpm)
             failed = None
-            for prof, noise in M["profiles"].items():
+            for prof, noise in profs.items():
                 files = {spine_lv: f"mesh_{key}/{spine_lv}.{tid}.ogg"}
                 info = {spine_lv: dict(lock=round(ref_lock, 2))}
                 for lv in [l for l in levels if l != spine_lv]:
@@ -191,10 +216,11 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
                         dsp.write(st.clips / v["levels"][lv], i.pop("audio"))
             print(f"  {key} {tid}: {got:.1f} -> {after:.1f} BPM, " + ", ".join(take["instruments"].values()), flush=True)
             found.append(take)
-        mesh["contexts"][key] = dict(context=ctx, biome=biome, mode=mode, prompts=first_prompts, takes=found)
+        mesh["contexts"][key] = dict(context=ctx, biome=biome, mode=mode, prompts=first_prompts, takes=found, round=rid,
+                                     **({"style": style} if style else {}))
         st.save_index(idx)
-    print("music: " + ", ".join(f"{key_of(c, b)} {len(mesh['contexts'][key_of(c, b)]['takes'])} takes"
-                                for c in contexts for b in biomes)
+    print("music: " + ", ".join(f"{key_of(c, b, s)} {len(mesh['contexts'][key_of(c, b, s)]['takes'])} takes"
+                                for c, b, s in runs)
           + (" (provisional pool)" if provisional else ""), flush=True)
     return 0
 
@@ -203,26 +229,29 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
 
 def promote(proj: P.Project, apply: bool = False) -> int:
     """Ship the music: every take liked on the Music page becomes a track in rotation (votes "mesh_<key>.<take>.
-    <profile>" > 0); a set with none liked ships all its takes not voted down, at the default profile (else
-    "contrast" if there is one, else the first). Writes out_dir/<track>_<level>.ogg and the manifest, removes tracks no longer chosen,
+    <profile>" > 0), whatever its style; a context and biome with none liked in any style ships all its plain
+    (unstyled) set's takes not voted down, at the default profile (else "contrast" if there is one, else the first). Writes out_dir/<track>_<level>.ogg and the manifest, removes tracks no longer chosen,
     records provenance in music_promoted.json, then the project's after_install."""
     M, st = proj.music, Store(proj)
     idx, votes = st.index(), st.votes()["clips"]
     out_dir, levels = Path(M["out_dir"]), M["levels"]
     tracks, record, written = [], {}, []
-    for key, c in idx.get("mesh", {}).get("contexts", {}).items():
-        if not c["takes"]:
+    sets = idx.get("mesh", {}).get("contexts", {})
+    liked = {key: [(t, p) for t in c["takes"] for p in t["profiles"] if votes.get(f"mesh_{key}.{t['id']}.{p}", 0) > 0]
+             for key, c in sets.items()}
+    any_liked = {(c["context"], c["biome"]) for key, c in sets.items() if liked[key]}
+    for key, c in sets.items():
+        if not c["takes"] or (not liked[key] and (c.get("style") or (c["context"], c["biome"]) in any_liked)):
             continue
-        liked = [(t, p) for t in c["takes"] for p in t["profiles"] if votes.get(f"mesh_{key}.{t['id']}.{p}", 0) > 0]
         ps = c["takes"][0]["profiles"]
         p0 = next(p for p in (M.get("default_profile"), "contrast", next(iter(ps))) if p in ps)
-        chosen = liked or [(t, p0) for t in c["takes"] if votes.get(f"mesh_{key}.{t['id']}.{p0}", 0) >= 0]
+        chosen = liked[key] or [(t, p0) for t in c["takes"] if votes.get(f"mesh_{key}.{t['id']}.{p0}", 0) >= 0]
         for take, prof in chosen:
-            tid = f"{c['context']}.{c['biome']}.{take['id']}.{prof}"
+            tid = ".".join(x for x in (c["context"], c["biome"], c.get("style"), take["id"], prof) if x)
             files = {lv: out_dir / f"{tid}_{lv}.ogg" for lv in levels}
             tracks.append(dict(id=tid, context=c["context"], biome=c["biome"],
                                files={lv: proj.asset_uri(f) for lv, f in files.items()}))
-            record[tid] = dict(key=key, take=take["id"], profile=prof, seed=take["seed"], voted=bool(liked),
+            record[tid] = dict(key=key, take=take["id"], profile=prof, seed=take["seed"], voted=bool(liked[key]),
                                prompts=take.get("prompts", c["prompts"]), instruments=take.get("instruments", {}),
                                date=date.today().isoformat(), sha256={})
             for lv in levels:
@@ -234,7 +263,7 @@ def promote(proj: P.Project, apply: bool = False) -> int:
                     if M.get("seed_file"):
                         M["seed_file"](files[lv])
                     written.append(files[lv])
-        print(f"  {key}: " + ", ".join(f"{t['id']} {p}" for t, p in chosen) + ("" if liked else " (none liked yet)"))
+        print(f"  {key}: " + ", ".join(f"{t['id']} {p}" for t, p in chosen) + ("" if liked[key] else " (none liked yet)"))
     if not apply:
         print(f"dry run: {len(tracks)} tracks; pass --apply to ship them")
         return 0

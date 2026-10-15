@@ -24,6 +24,20 @@
    "text": "Music: the close profile is much better than contrast (levels that keep the spine's chords, with gentler contrast).",
    "by": "user",
    "added": "2026-10-14"
+  },
+  {
+   "id": "t2",
+   "text": "Emberhold's music: it's a medieval RTS of monsters and bloody warfare, so dark and martial, never pastoral or cosy folk. The calm tier must be more interesting (a brooding build-up between fights that still carries a theme, not ambient mush); raise the bar on all three tiers.",
+   "by": "user",
+   "added": "2026-10-14",
+   "project": "Emberhold"
+  },
+  {
+   "id": "t3",
+   "text": "Emberhold's music: avoid folk music. No Folk/Nordic genre tags and no folk instruments carrying it (fiddles, lyre, kantele, frame drum, willow flute); the score is dark cinematic: string and brass sections, choirs, big drums, dread textures.",
+   "by": "user",
+   "added": "2026-10-14",
+   "project": "Emberhold"
   }
  ],
  "models": {
@@ -129,6 +143,40 @@
      "id": "r10",
      "text": "Give the tempo, the mode or key, the instruments, and one mood word. For a set that must mesh, one tempo and key everywhere.",
      "why": "",
+     "tasks": [
+      "music",
+      "instruments"
+     ],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": false
+    },
+    {
+     "id": "r11",
+     "text": "Start music from the game's genre and stakes (the project's taste), then the level's mood: a context's mood word alone (\"warm\") pulls a war game toward pastoral folk.",
+     "why": "Emberhold, 2026-10-14: round 1's styles (story: \"a quiet moment after the day's work\", tune, saga, dance) were judged \"the opposite direction\" for a medieval RTS of monsters and warfare before any vote; dropped unvoted.",
+     "tasks": [
+      "music"
+     ],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": true
+    },
+    {
+     "id": "r12",
+     "text": "Calm and action are derived from the tension spine (audio-to-audio at about 0.5), so they inherit its material: give the spine a clear theme, and ask calm for a theme too, never \"sparse, lots of space\" (it comes out a quiet loop with nothing in it).",
+     "why": "music.py derives the non-spine levels from the spine. Emberhold, 2026-10-14: the designer found the plain prompts' calm (\"sparse… lots of space\" over a spine that \"repeats a short figure\") dull.",
+     "tasks": [
+      "music"
+     ],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": false
+    },
+    {
+     "id": "r13",
+     "text": "Instrument auditions: tags + one sentence (\"TrackType: Instrument, VocalType: Instrumental, Genre: …, Instruments: …. <who plays what>, 90 BPM, <key>, <room>.\") wins for orchestral ensembles and choirs; SA3's own assistant shape (\"TrackType: Instrument, <instrument> <style> motif loop with <character>. BPM: X.\") wins for unusual sound-makers (bowed cymbal, bullroarer, bagpipes, throat singing). Leave out \"Length: N seconds\" (the assistant's UI strips it to set the duration). Voices work as a choir or chant: the model's assistant treats vocal words as failures, but the auditions found usable choirs.",
+     "why": "Emberhold, 2026-10-14: 13 dark candidates, each in both shapes with the same content, 4 seeds each; picks: tags 9 (malechoir, chant, strings, tremolo, horns, lowbrass, drumensemble, timpani, waterphone), guide 4 (bowedcymbal, bullroarer, sackpipa, throat). Picks only, no thumbs. Source of the assistant's shape: stable_audio_3/interface/reprompt.py.",
      "tasks": [
       "music",
       "instruments"

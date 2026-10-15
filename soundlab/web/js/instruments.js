@@ -10,7 +10,7 @@
   function instruments() {
     const by = Lab.byName();
     return Object.entries(Lab.S.sounds).filter(([, m]) => m.kind === "pool").map(([name, m]) => ({
-      name, id: name.slice(5), role: m.palette, prompt: (Lab.S.prompts[name] || {}).pool || "",
+      name, id: name.slice(5), role: m.palette, prompts: Lab.S.prompts[name] || {},
       takes: (by[name] || []).sort((a, b) => a.seed - b.seed),
     }));
   }
@@ -43,8 +43,12 @@
       for (const ins of list.filter(i => i.role === role)) {
         const st = stateOf(ins), [cls, ic, txt] = PILL[st], d = document.createElement("div");
         d.className = `card inst ${st}`; d.dataset.ins = ins.name;
+        // One row of takes per prompt (several when the auditions compare prompt shapes), each with its prompt.
+        const vars = [...new Set(ins.takes.map(t => t.variant))], many = vars.length > 1;
+        const say = v => ins.prompts[v] ? `<p data-tip="${esc(ins.prompts[v])}">${many ? `<span class="lbl">${esc(v)}</span>` : ""}${esc(prose(ins.prompts[v]))}</p>` : "";
+        if (many) d.classList.add("multi");
         d.innerHTML = `<div class="name"><b>${esc(label(ins))}</b><span class="pill ${cls}">${ic ? icon(ic) : ""}${txt}</span>
-          ${ins.prompt ? `<p data-tip="${esc(ins.prompt)}">${esc(prose(ins.prompt))}</p>` : ""}</div><div class="tiles"></div>`;
+          ${many ? "" : say(vars[0])}</div>${vars.map(v => `${many ? `<div class="name ivar">${say(v)}</div>` : ""}<div class="tiles" data-variant="${esc(v)}"></div>`).join("")}`;
         for (const t of ins.takes) {
           t.url = Lab.clipUrl(t);
           const tile = Lab.tile(t, `take ${t.seed + 1}`);
@@ -53,7 +57,7 @@
             tile.onclick = () => { P.focus = i; paint(); Lab.play(t.url, { id: t.id }); };
             P.tiles.push({ ...t, ins, card });
           }
-          d.querySelector(".tiles").appendChild(tile);
+          d.querySelector(`.tiles[data-variant="${CSS.escape(t.variant)}"]`).appendChild(tile);
         }
         el.appendChild(d); card++;
       }

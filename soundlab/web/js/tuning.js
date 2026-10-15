@@ -39,7 +39,7 @@
       <div class="taste">${t.taste.map((x, i) => `<div class="tst ${x.by}">${icon(x.by === "user" ? "pen" : "flag")}
           <textarea rows="1" data-taste="${i}" spellcheck="true">${esc(x.text)}</textarea>
           <button class="by ${x.by}" data-adopt-taste="${i}" data-tip="${x.by === "user" ? "Yours: an instruction agents follow and never change" : "An agent's reading of your votes: click to make it yours"}">${x.by === "user" ? "Yours" : "Agent"}</button>
-          <span class="date">${esc(x.added)}</span><button class="iconbtn" data-del-taste="${i}" data-tip="Remove">${icon("x")}</button></div>`).join("")}
+          ${x.project ? `<span class="date" data-tip="Only for this game">${esc(x.project)} only</span>` : ""}<span class="date">${esc(x.added)}</span><button class="iconbtn" data-del-taste="${i}" data-tip="Remove">${icon("x")}</button></div>`).join("")}
         <div class="add">${icon("pen")}<input type="text" id="addTaste" placeholder="Add something you like or dislike: how things should sound, which styles win you over…  (Enter)"></div></div>
 
       <h3>Models</h3>
@@ -103,9 +103,11 @@
           <td>${r.offered}</td><td>${r.picked}</td><td>${r.takes}</td><td>${r.silent}</td><td>${r.up}</td><td>${r.down}</td><td>${r.words}</td></tr>`).join("")}</tbody></table>`);
     }
     if (e.alerts) out.push(`<div class="facts"><span>alerts: picked ${Object.entries(e.alerts.picked).map(([k, n]) => `<b>${esc(k)}</b> for ${n} of ${e.alerts.alerts}`).join(", ")}</span></div>`);
-    if (e.instruments) out.push(`<div class="facts"><span>instruments: ${Object.entries(e.instruments).map(([k, n]) => `<b>${n}</b> ${esc(k)}`).join(" · ")}</span></div>`);
+    if (e.instruments) out.push(`<div class="facts"><span>instruments: ${Object.entries(e.instruments).filter(([k]) => !k.startsWith("_")).map(([k, n]) => `<b>${n}</b> ${esc(k)}`).join(" · ")}</span>${e.instruments._prompts ? `<span>votes by prompt: ${Object.entries(e.instruments._prompts).map(([p, x]) =>
+      `<b>${esc(p)}</b> ${x.liked} liked / ${x.disliked} disliked / ${x.picked} picked`).join(", ")}</span>` : ""}</div>`);
     if (e.music) out.push(`<div class="facts"><span>music: <b>${e.music.sets}</b> sets, <b>${e.music.takes}</b> takes</span><span>votes by profile: ${Object.entries(e.music.votes).map(([p, x]) =>
-      `<b>${esc(p)}</b> ${x.liked} liked / ${x.disliked} disliked`).join(", ") || "none yet"}</span></div>`);
+      `<b>${esc(p)}</b> ${x.liked} liked / ${x.disliked} disliked`).join(", ") || "none yet"}</span>${Object.keys(e.music.styles || {}).length > 1 ? `<span>votes by style: ${Object.entries(e.music.styles).map(([p, x]) =>
+      `<b>${esc(p)}</b> ${x.liked} liked / ${x.disliked} disliked`).join(", ")}</span>` : ""}</div>`);
     return out.join("") || `<div class="none">No takes from this model in this project yet.</div>`;
   }
 

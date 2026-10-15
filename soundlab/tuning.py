@@ -5,7 +5,8 @@ user likes carry over from game to game). The Tuning page edits it; `soundlab tu
 what this project's votes say. It is the starting point for every prompt an agent writes (AGENTS.md).
 
   tasks    {task: {model, note}}                 task: sfx | alerts | instruments | music
-  taste    [{id, text, by, added}]               the user's taste, for every model
+  taste    [{id, text, by, added, project?}]     the user's taste, for every model; with `project` (a project's name),
+                                                 only for that game (its genre, its direction)
   models   {model id: {name, engine, summary, rules, templates, examples}}
              engine     "sa3": SoundLab's generators run it | "external": made elsewhere, imported into the index
              rules      [{id, text, why, tasks, by, added, pinned}]   tasks: the tasks it's for ([] = all)
@@ -84,7 +85,8 @@ def clean(t: dict) -> dict:
     return dict(
         about=s(t.get("about")) or "Prompt tuning: the starting point for every prompt. See soundlab/tuning.py and AGENTS.md.",
         tasks={k: task(k) for k in TASKS},
-        taste=[dict(id=x.get("id") or _id("t"), text=s(x.get("text")), by=by(x.get("by")), added=s(x.get("added")) or date.today().isoformat())
+        taste=[dict(id=x.get("id") or _id("t"), text=s(x.get("text")), by=by(x.get("by")), added=s(x.get("added")) or date.today().isoformat(),
+                    **({"project": s(x["project"])} if s(x.get("project")) else {}))
                for x in t.get("taste") or [] if isinstance(x, dict) and s(x.get("text"))],
         models=models)
 
@@ -112,7 +114,8 @@ def evidence(proj) -> dict:
     out: dict = {}
     for mid in {c.get("model") or default for c in idx["clips"].values()} | {default}:
         clips = {k: c for k, c in idx["clips"].items() if (c.get("model") or default) == mid}
-        sfx = {k: c for k, c in clips.items() if not c.get("kit") and c.get("variant") != "pool"}
+        audition = {k for k, c in clips.items() if idx["sounds"].get(c["name"], {}).get("kind") == "pool"}
+        sfx = {k: c for k, c in clips.items() if not c.get("kit") and k not in audition}
         e = {}
         if sfx:
             rows, offered = {}, {}
@@ -142,19 +145,29 @@ def evidence(proj) -> dict:
         if kits:
             e["alerts"] = dict(alerts=len(names), picked=dict(kits.most_common()))
         pool = [n for n, m in idx["sounds"].items() if m.get("kind") == "pool"]
-        if pool and any(c.get("variant") == "pool" for c in clips.values()):
+        if pool and audition:
             def state(n):
                 net = sum(v["clips"].get(k, 0) for k, c in clips.items() if c["name"] == n)
                 return "out" if net < 0 else "in" if v["picks"].get(n) or net > 0 else "undecided"
             e["instruments"] = dict(Counter(state(n) for n in pool))
+            variants = Counter(clips[k]["variant"] for k in audition)
+            if len(variants) > 1:  # (auditions in several prompt shapes: the votes per shape)
+                by = {}
+                for k in audition:
+                    x = by.setdefault(clips[k]["variant"], dict(liked=0, disliked=0, picked=0))
+                    x["liked"] += v["clips"].get(k, 0) > 0
+                    x["disliked"] += v["clips"].get(k, 0) < 0
+                    x["picked"] += v["picks"].get(clips[k]["name"]) == k
+                e["instruments"]["_prompts"] = by
         if mid == default and idx.get("mesh", {}).get("contexts"):
-            prof = {}
+            prof, style = {}, {}
             for k, x in v["clips"].items():
                 if k.startswith("mesh_"):
-                    p = prof.setdefault(k.rsplit(".", 1)[-1], dict(liked=0, disliked=0))
-                    p["liked" if x > 0 else "disliked"] += 1
+                    key = k[5:].rsplit(".", 2)[0]
+                    for d, n in ((prof, k.rsplit(".", 1)[-1]), (style, key.split("~")[1] if "~" in key else "plain")):
+                        d.setdefault(n, dict(liked=0, disliked=0))["liked" if x > 0 else "disliked"] += 1
             e["music"] = dict(sets=len(idx["mesh"]["contexts"]), takes=sum(len(c["takes"]) for c in idx["mesh"]["contexts"].values()),
-                              votes=prof, notes={k[5:]: n for k, n in v["notes"].items() if k.startswith("mesh_")})
+                              votes=prof, styles=style, notes={k[5:]: n for k, n in v["notes"].items() if k.startswith("mesh_")})
         out[mid] = e
     return out
 
@@ -175,9 +188,14 @@ def _facts(task: str, e: dict) -> list[str]:
     if task == "alerts":
         return ["picked kits: " + ", ".join(f"{k} for {n} of {e['alerts']} alerts" for k, n in e["picked"].items())]
     if task == "instruments":
-        return [", ".join(f"{n} {k}" for k, n in e.items())]
+        by = e.get("_prompts", {})
+        return [", ".join(f"{n} {k}" for k, n in e.items() if not k.startswith("_"))] + \
+            ([("votes by prompt: " + ", ".join(f"{p} {x['liked']} liked / {x['disliked']} disliked / {x['picked']} picked"
+                                               for p, x in sorted(by.items())))] if by else [])
     return [f"{e['sets']} sets, {e['takes']} takes; votes by profile: " +
             (", ".join(f"{p} {x['liked']} liked / {x['disliked']} disliked" for p, x in e["votes"].items()) or "none yet")] + \
+           ([("votes by style: " + ", ".join(f"{p} {x['liked']} liked / {x['disliked']} disliked"
+                                             for p, x in e["styles"].items()))] if len(e.get("styles", {})) > 1 else []) + \
            [f"note on {k}: {n}" for k, n in e["notes"].items()]
 
 
@@ -191,10 +209,11 @@ def show(proj, task: str | None = None, as_json: bool = False) -> int:
         print(f"no tuning yet ({PATH}): open the Tuning page, or write it (soundlab/tuning.py documents the shape)")
         return 0
     print(f"Prompt tuning ({PATH}): the starting point for every prompt. Follow it, then vary from it.")
-    if t["taste"]:
+    taste = [x for x in t["taste"] if not x.get("project") or (proj and x["project"] == proj.name)]
+    if taste:
         print("\nThe user's taste (for every model; by user = an instruction):")
-        for x in t["taste"]:
-            print(f"  - {x['text']}  [{x['by']}, {x['added']}]")
+        for x in taste:
+            print(f"  - {x['text']}  [{x['by']}, {x['added']}" + (f", {x['project']} only" if x.get("project") else "") + "]")
     for k in [task] if task else TASKS:
         mid = t["tasks"][k]["model"]
         m = t["models"].get(mid)

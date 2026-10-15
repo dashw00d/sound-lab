@@ -3,7 +3,7 @@
 (() => {
   const FADES = { cut: ["cut", 0], beat: ["1 beat", 1], bar: ["1 bar", 4], two: ["2 bars", 8] };  // in beats
   const PROFILE_INFO = { close: "levels keep the spine's chords; gentler contrast", contrast: "clearer contrast; chords drift more" };
-  const M = { key: null, take: 0, prof: null, level: null, stack: false, fade: "bar", quant: false, enter: "start",
+  const M = { older: false, key: null, take: 0, prof: null, level: null, stack: false, fade: "bar", quant: false, enter: "start",
               deck: null, pendingAt: 0, raf: 0, gen: 0 };  // (gen: bumped by every start, switch and stop; a stale load gives up)
   const { icon, esc } = Lab, $ = id => document.getElementById(id);
   const bufs = new Map(), shapes = new Map(), MAX_BUFS = 18;  // (a 42 s level decodes to about 16 MB)
@@ -29,15 +29,46 @@
   const files = () => set().takes[M.take].profiles[M.prof].levels;
   const posOf = d => (((Lab.actx.currentTime - d.t0) % loopS()) + loopS()) % loopS();
   // What ships from a set, as `music promote` decides it: its liked takes, or (none liked) every take not thumbed
-  // down, at the project's default profile (else "contrast", else the first).
+  // down, at the project's default profile (else "contrast", else the first). A style's set (key "<set>~<style>")
+  // ships only liked takes, and a plain set ships nothing unliked once any style of its context and biome is liked.
   function profile0(k) {
     const t = set(k).takes[0], ps = t ? Object.keys(t.profiles) : [], d = Lab.project.default_profile;
     return ps.includes(d) ? d : ps.includes("contrast") ? "contrast" : ps[0];
   }
+  // Rounds: each `music generate` run. The newest round's sets show, with any set that has a liked take; the rest
+  // fold under "Earlier rounds", newest first (opened when the set playing is one of them).
+  const roundOf = k => set(k).round || "";
+  const newest = () => keys().reduce((r, k) => roundOf(k) > r ? roundOf(k) : r, "");
+  const shown = k => roundOf(k) === newest() || likedIn(k).length > 0;
+  function roundLabel(r) {
+    if (!r) return "Before rounds";
+    const x = (mesh().rounds || []).find(o => o.id === r);
+    return `Round ${r}` + (x && x.styles && x.styles.length ? ` · ${x.styles.join(", ")}` : "");
+  }
+  function setChip(k) {
+    const sc = mesh().contexts[k], n = ships(k).liked;
+    return `<button class="setc ${k === M.key ? "on" : ""}" data-key="${esc(k)}">
+        <b>${esc(k.replace(/[.~]/g, " · "))}</b><small><span>${esc(sc.mode)}</span><span>${sc.takes.length} take${sc.takes.length === 1 ? "" : "s"}</span>${n ? `<span class="liked">${n} liked</span>` : ""}</small></button>`;
+  }
+  function setList() {
+    const now = keys().filter(shown), old = keys().filter(k => !shown(k));
+    if (old.includes(M.key) && M.openedFor !== M.key) { M.older = true; M.openedFor = M.key; }  // (once per set)
+    if (!old.length) return `<div class="sets">${now.map(setChip).join("")}</div>`;
+    const rounds = [...new Set(old.map(roundOf))].sort().reverse();
+    return `<div class="sets">${now.map(setChip).join("")}
+        <button class="setc older ${M.older ? "on" : ""}" id="molder" data-tip="Sets from earlier rounds with nothing liked">
+          <b>${icon("right")}Earlier rounds</b><small><span>${old.length} set${old.length === 1 ? "" : "s"}</span></small></button></div>
+      ${M.older ? rounds.map(r => `<div class="round"><div class="roundh">${esc(roundLabel(r))}</div>
+        <div class="sets">${old.filter(k => roundOf(k) === r).map(setChip).join("")}</div></div>`).join("") : ""}`;
+  }
+  function likedIn(k) {
+    return set(k).takes.flatMap(t => Object.keys(t.profiles).filter(p => (Lab.V.clips[voteId(k, t.id, p)] || 0) > 0).map(p => `${t.id} · ${p}`));
+  }
   function ships(k) {
-    const takes = set(k).takes, p0 = profile0(k);
-    const liked = takes.flatMap(t => Object.keys(t.profiles).filter(p => (Lab.V.clips[voteId(k, t.id, p)] || 0) > 0).map(p => `${t.id} · ${p}`));
-    return { liked: liked.length, list: liked.length ? liked : takes.filter(t => (Lab.V.clips[voteId(k, t.id, p0)] || 0) >= 0).map(t => `${t.id} · ${p0}`) };
+    const c = set(k), takes = c.takes, p0 = profile0(k), liked = likedIn(k);
+    const sibling = keys().some(o => o !== k && set(o).context === c.context && set(o).biome === c.biome && likedIn(o).length);
+    const fallback = c.style || sibling ? [] : takes.filter(t => (Lab.V.clips[voteId(k, t.id, p0)] || 0) >= 0).map(t => `${t.id} · ${p0}`);
+    return { liked: liked.length, list: liked.length ? liked : fallback };
   }
 
   function hold(param, at) {  // keep the value an automation has reached at `at` (cancelling would jump back)
@@ -223,7 +254,7 @@
     if (!mesh() || !keys().length) { Lab.showEmpty("layers", "No music yet", `<p>Make some with <code>soundlab music generate --contexts …</code>.</p>`); return; }
     if (arg && mesh().contexts[arg] && arg !== M.key && M.deck && Lab.tab === "music") { switchTo({ key: arg, take: 0 }); return; }  // (playing: enter on the bar)
     if (arg && mesh().contexts[arg]) { if (arg !== M.key) M.take = 0; M.key = arg; }
-    if (!M.key || !set()) M.key = keys()[0];
+    if (!M.key || !set()) M.key = keys().find(shown) || keys()[0];
     M.take = Math.min(M.take, set().takes.length - 1);
     M.level = M.level && mesh().levels.includes(M.level) ? M.level : mesh().levels[Math.floor(mesh().levels.length / 2)];
     const def = mesh().profiles.includes(Lab.project.default_profile) ? Lab.project.default_profile : mesh().profiles[mesh().profiles.length - 1];
@@ -244,8 +275,7 @@
         <p class="lede">A take's levels play in sync the whole time; intensity is only their volumes, so it moves at any moment.
           Switching take, profile or set enters on the next bar line. Click the timeline to jump to a bar.</p></div></div>
       ${m.provisional ? `<div class="warn">${icon("flag")}Provisional instrument pool: choose instruments on the Instruments page, then regenerate.</div>` : ""}
-      <div class="sets">${keys().map(k => { const sc = m.contexts[k], n = ships(k).liked; return `<button class="setc ${k === M.key ? "on" : ""}" data-key="${esc(k)}">
-        <b>${esc(k.replace(".", " · "))}</b><small><span>${esc(sc.mode)}</span><span>${sc.takes.length} take${sc.takes.length === 1 ? "" : "s"}</span>${n ? `<span class="liked">${n} liked</span>` : ""}</small></button>`; }).join("")}</div>
+      ${setList()}
       <section class="card transport">
         <div class="ttop">
           <button class="playbtn" id="mplay" data-tip="Play or stop (Space)">${icon(M.deck ? "stop" : "play")}</button>
@@ -278,7 +308,7 @@
       </div>
       <div class="facts"><span>tempo <b>${take.measured_bpm} → ${take.corrected_bpm} BPM</b></span>${take.beat_spread_ms != null ? `<span>beat spread <b>${take.beat_spread_ms} ms</b></span>` : ""}
         <span>beat lock <b>${esc(m.levels.map(lv => info[lv] ? `${lv} ${info[lv].lock}` : "").filter(Boolean).join(", "))}</b></span>
-        <span>ships <b>${sh.list.length ? esc(sh.list.join(", ")) : "nothing"}</b>${sh.liked ? "" : " (none liked yet: every take not thumbed down, at its default profile)"}</span></div>
+        <span>ships <b>${sh.list.length ? esc(sh.list.join(", ")) : "nothing"}</b>${sh.liked ? "" : sh.list.length ? " (none liked yet: every take not thumbed down, at its default profile)" : c.style ? " (a style's takes ship only when liked)" : " (a style of this set is liked instead)"}</span></div>
       <div class="notebox ${Lab.V.notes["mesh_" + M.key] ? "has" : ""}">${icon("pen")}<textarea id="mnote" rows="1"
         placeholder="Notes on ${esc(M.key)}: do the levels mesh? Which lineups work?">${esc(Lab.V.notes["mesh_" + M.key] || "")}</textarea><span class="saved">${icon("check")}saved</span></div>
       <details class="prompts"><summary>${icon("right")}Prompts</summary>
@@ -286,6 +316,7 @@
     document.querySelector(".page.music").scrollTop = y;
     const vw = Lab.view();
     vw.querySelectorAll("[data-key]").forEach(b => b.onclick = () => switchTo({ key: b.dataset.key, take: 0 }));
+    if ($("molder")) $("molder").onclick = () => { M.older = !M.older; render(); };
     vw.querySelectorAll("[data-take]").forEach(b => b.onclick = () => switchTo({ take: +b.dataset.take }));
     vw.querySelectorAll("[data-prof]").forEach(b => b.onclick = () => switchTo({ prof: b.dataset.prof }));
     vw.querySelectorAll("[data-fade]").forEach(b => b.onclick = () => { M.fade = b.dataset.fade; render(); });

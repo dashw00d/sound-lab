@@ -8,7 +8,8 @@
   soundlab [--project PATH] sounds promote [--apply] [--only NAME ...]
   soundlab [--project PATH] alerts build
   soundlab [--project PATH] music audition [--seeds 4]
-  soundlab [--project PATH] music generate --contexts C ... [--biomes B ...] [--takes 3] [--tries 14]
+  soundlab [--project PATH] music generate --contexts C ... [--biomes B ...] [--styles S ...] [--profiles P ...]
+                                           [--takes 3] [--tries 14]
   soundlab [--project PATH] music promote [--apply]
   soundlab [--project PATH] balance measure
 
@@ -156,6 +157,8 @@ def main() -> int:
     p.add_argument("--biomes", nargs="*", default=["any"])
     p.add_argument("--takes", type=int, default=3)
     p.add_argument("--tries", type=int, default=14)
+    p.add_argument("--styles", nargs="*", help="the project's alternative prompt styles (music.styles), for a tuning round")
+    p.add_argument("--profiles", nargs="*", help="only these profiles (default: all)")
     p = mu.add_parser("promote")
     p.add_argument("--apply", action="store_true")
     ba = sub.add_parser("balance").add_subparsers(dest="action", required=True)
@@ -200,10 +203,12 @@ def main() -> int:
             return music.auditions(proj, a.seeds)
         if a.action == "generate":
             bad = [c for c in a.contexts if c not in proj.music["contexts"]] + \
-                  [b for b in a.biomes if b not in proj.music["biomes"]]
+                  [b for b in a.biomes if b not in proj.music["biomes"]] + \
+                  [s for s in a.styles or [] if s not in proj.music.get("styles", {})] + \
+                  [p for p in a.profiles or [] if p not in proj.music["profiles"]]
             if bad:
-                raise SystemExit(f"unknown contexts/biomes: {bad}")
-            return music.generate(proj, a.contexts, a.biomes, a.takes, a.tries)
+                raise SystemExit(f"unknown contexts/biomes/styles/profiles: {bad}")
+            return music.generate(proj, a.contexts, a.biomes, a.takes, a.tries, a.styles, a.profiles)
         return music.promote(proj, a.apply)
     if a.cmd == "balance":
         from . import balance
