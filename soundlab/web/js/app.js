@@ -18,7 +18,12 @@
   syncVol();
   Lab.dock.init();
 
-  await Lab.load();
+  try { await Lab.load(); }
+  catch {  // (the server is down or the project file is broken: say so, rather than a blank page)
+    Lab.showEmpty("x", "Couldn't load the project", `<p>The server didn't give the project's state. Check the terminal running <code>soundlab serve</code>, then reload.</p>
+      <button class="btn" onclick="location.reload()">${Lab.icon("refresh")}Reload</button>`);
+    return;
+  }
   $("projectName").textContent = Lab.project.name;
   document.title = `${Lab.project.name} · SoundLab`;
   Lab.status();

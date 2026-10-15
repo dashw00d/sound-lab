@@ -170,6 +170,8 @@ def main() -> int:
     p.add_argument("--apply", action="store_true")
     p.add_argument("--add", nargs="+", metavar="SET.TAKE.PROFILE",
                    help="ship just these takes beside what has shipped (nothing is removed)")
+    p.add_argument("--replace", action="store_true",
+                   help="with --add: these takes become the whole rotation of their contexts (the rest is removed)")
     ba = sub.add_parser("balance").add_subparsers(dest="action", required=True)
     ba.add_parser("measure")
     a = ap.parse_args()
@@ -225,7 +227,7 @@ def main() -> int:
             if bad:
                 raise SystemExit(f"unknown profiles: {bad}")
             return music.derive(proj, a.profiles, a.sets)
-        return music.add(proj, a.add, a.apply) if a.add else music.promote(proj, a.apply)
+        return music.add(proj, a.add, a.apply, a.replace) if a.add else music.promote(proj, a.apply)
     if a.cmd == "balance":
         from . import balance
 

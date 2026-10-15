@@ -53,6 +53,9 @@
     if (P.region && P.region.id === P.current) { P.el.currentTime = P.region.a; P.el.play().catch(() => {}); return; }
     Lab.endNow();
   });
+  P.el.addEventListener("pause", () => {  // (paused from outside, e.g. a media key: our own stops clear `current` first, and a restart un-pauses)
+    if (P.current && P.el.paused && !P.el.ended) Lab.stop();
+  });
   const playing = id => document.querySelectorAll(`[data-play-id="${CSS.escape(id)}"]`);
   function frame() {
     P.raf = 0;

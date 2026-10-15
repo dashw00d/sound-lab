@@ -27,8 +27,11 @@ The design comes from the project (Project.music):
   rotate_loops                   loops a track plays before the game moves on (written into the manifest)
   seed_file(path)                optional: called for each shipped file before after_install (e.g. an import stub)
 
-Each `generate` run is a round (index mesh.rounds; each set carries its round). The Music page shows only the newest
-round's sets and folds everything older under "Earlier rounds" (liked sets first).
+Each `generate` run is a round (index mesh.rounds), and `--takes` counts the takes of that run. Each take carries its
+round, and a set keeps the takes of every run: nothing is deleted. The Music page shows only the newest round's takes (a
+batch to listen to, vote on and talk over), and folds everything older away, voted on or not: other sets under "Earlier
+rounds", a set's older takes under "Earlier takes". Votes and notes stay with their takes. Shipping ships what is liked
+in any round, and for a set with nothing liked, only its newest batch.
 
 How a set is made: SA3 generates the spine from an explicit prompt; its tempo is measured and corrected to the grid
 (rubberband, a small factor), its first strong downbeat found, and bars+1 bars cut from there. The other levels
@@ -271,10 +274,21 @@ def _derive_level(eng, M: dict, prompt: str, init: np.ndarray, seed: int, noise:
     return None, f"{lv}: beat lock {lock:.2f}, {off * 1000:+.0f} ms off the grid"
 
 
+def newest_round(mesh: dict) -> str:
+    """The latest run's round id (the batch being listened to)."""
+    rounds = mesh.get("rounds") or []
+    return rounds[-1]["id"] if rounds else max((c.get("round", "") for c in mesh.get("contexts", {}).values()), default="")
+
+
+def current_takes(c: dict) -> list[dict]:
+    """A set's newest batch: the takes of the round it was last generated in."""
+    return [t for t in c["takes"] if t.get("round", c.get("round", "")) == c.get("round", "")]
+
+
 def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int = 3, tries: int = 14,
              styles: list[str] | None = None, profiles: list[str] | None = None) -> int:
-    """Sets for every context x biome (x style, when given: the project's alternative prompt styles), each `takes`
-    takes, at every profile (or only `profiles`)."""
+    """Sets for every context x biome (x style, when given: the project's alternative prompt styles): a new batch of
+    `takes` takes each, at every profile (or only `profiles`). Earlier takes of a set stay, but are no longer the batch."""
     tuning.require("music")
     M, st = proj.music, Store(proj)
     bpm, bar_beats, bars = M["bpm"], M["bar_beats"], M["bars"]
@@ -301,7 +315,10 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
                 profiles=list(M["profiles"]), pool={r: [names[p] for p in ps] for r, ps in pool.items()})
     mesh.setdefault("contexts", {})
     runs = [(c, b, s) for c in contexts for b in biomes for s in (styles or [None])]
-    rid = datetime.now().strftime("%Y-%m-%d %H:%M")  # a round: this run's sets (the Music page shows the newest)
+    now = datetime.now()
+    rid = now.strftime("%Y-%m-%d %H:%M")  # a round: this run's takes (the Music page shows the newest batch)
+    if any(r["id"] == rid for r in mesh.get("rounds", [])):  # (a second run in the same minute is still its own batch)
+        rid = now.strftime("%Y-%m-%d %H:%M:%S")
     mesh.setdefault("rounds", []).append(dict(id=rid, contexts=contexts, biomes=biomes, styles=styles or [],
                                               profiles=list(profs), takes=takes))
     for ctx, biome, style in runs:
@@ -310,8 +327,14 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
         mode, mood = M["contexts"][ctx]
         if M["biomes"].get(biome):
             mood = f"{mood}, {M['biomes'][biome]}"
+        old = mesh["contexts"].get(key) or {}
+        # Regenerating a key never reuses a take id: votes (mesh_<key>.<id>.<profile>) and the page's "seen" markers
+        # are keyed by it, and a take's files are named by it. Seeds (and so ids) continue after the highest this
+        # key has used. The earlier takes stay (hidden on the page once this batch exists), tagged with their round.
+        first_seed = max([old.get("next_seed", 0)] + [int(t["id"][1:]) + 1 for t in old.get("takes", [])
+                                                      if t["id"][1:].isdigit()])
         found, first_prompts = [], None
-        for seed in range(tries):
+        for seed in range(first_seed, first_seed + tries):
             if len(found) == takes:
                 break
             roles = take_roles(pool, key, seed)
@@ -330,7 +353,7 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
                 continue
             after, _ = dsp.tempo_of(spine, bpm)
             tid = f"k{seed}"
-            take = dict(id=tid, seed=seed, measured_bpm=round(got, 2), corrected_bpm=round(after, 2),
+            take = dict(id=tid, seed=seed, round=rid, measured_bpm=round(got, 2), corrected_bpm=round(after, 2),
                         beat_spread_ms=round(wobble, 1), profiles={}, prompts=prompts,
                         instruments={r: names[p] for r, p in roles.items()  # (the ones its prompts name)
                                      if any(names[p].lower() in t.lower() for t in prompts.values())})
@@ -359,17 +382,23 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
                 continue
             print(f"  {key} {tid}: {got:.1f} -> {after:.1f} BPM, " + ", ".join(take["instruments"].values()), flush=True)
             found.append(take)
-        mesh["contexts"][key] = dict(context=ctx, biome=biome, mode=mode, prompts=first_prompts, takes=found, round=rid,
-                                     **({"style": style} if style else {}))
+        for t in old.get("takes", []):  # (takes made before takes carried their round: the set's)
+            t.setdefault("round", old.get("round", ""))
+        if not found and old.get("takes"):
+            print(f"  {key}: no new takes passed; the set keeps its earlier takes", flush=True)
+        mesh["contexts"][key] = dict(context=ctx, biome=biome, mode=mode, prompts=first_prompts or old.get("prompts"),
+                                     takes=found + old.get("takes", []),  # (the newest batch first)
+                                     round=rid if found or not old.get("takes") else old.get("round", ""),
+                                     next_seed=first_seed + tries, **({"style": style} if style else {}))
         st.save_index(idx)
-    print("music: " + ", ".join(f"{key_of(c, b, s)} {len(mesh['contexts'][key_of(c, b, s)]['takes'])} takes"
+    print("music: " + ", ".join(f"{key_of(c, b, s)} {len([t for t in mesh['contexts'][key_of(c, b, s)]['takes'] if t.get('round') == rid])} new takes"
                                 for c, b, s in runs)
           + (" (provisional pool)" if provisional else ""), flush=True)
     return 0
 
 
 def derive(proj: P.Project, profiles: list[str], keys: list[str] | None = None) -> int:
-    """Add profiles to existing takes (the newest round's sets, or `keys`), from each take's saved spine: other
+    """Add profiles to existing takes (the newest round's takes, or every take of the sets `keys`), from each take's saved spine: other
     audio-to-audio strengths, or layers mixed in. A level of a strength the take already has is reused, and a layer
     is made once per take. Existing profiles and votes are untouched."""
     tuning.require("music")
@@ -377,7 +406,8 @@ def derive(proj: P.Project, profiles: list[str], keys: list[str] | None = None) 
     idx = st.index()
     mesh = idx.get("mesh", {})
     sets = mesh.get("contexts", {})
-    newest = max((c.get("round", "") for c in sets.values()), default="")
+    newest = newest_round(mesh)
+    only = None if keys else newest  # (named sets: all their takes; by default the newest batch)
     keys = keys or [k for k, c in sets.items() if c.get("round", "") == newest]
     spine_lv = M["levels"][len(M["levels"]) // 2]
     bar = 60.0 / M["bpm"] * M["bar_beats"]
@@ -388,6 +418,8 @@ def derive(proj: P.Project, profiles: list[str], keys: list[str] | None = None) 
         c = sets[key]
         mood = M["contexts"][c["context"]][1] + (f", {M['biomes'][c['biome']]}" if M["biomes"].get(c["biome"]) else "")
         for take in c["takes"]:
+            if only and take.get("round", c.get("round", "")) != only:
+                continue
             todo = [p for p in profiles if p not in take["profiles"]]
             if not todo:
                 continue
@@ -455,10 +487,11 @@ def check(proj: P.Project, keys: list[str] | None = None) -> int:
     return 0
 
 
-def add(proj: P.Project, takes: list[str], apply: bool = False) -> int:
+def add(proj: P.Project, takes: list[str], apply: bool = False, replace: bool = False) -> int:
     """Ship chosen takes ("<set>.<take>.<profile>", e.g. night~trailer.k2.close) into rotation beside what has
-    already shipped: the manifest's other tracks stay as they are and nothing is removed. For locking in a keeper
-    while the rest of a round is undecided."""
+    already shipped: the manifest's other tracks stay as they are and nothing is removed. For locking in keepers
+    while the rest of a round is undecided. With `replace`, the chosen takes become the whole rotation of each
+    context and biome they're for (its other tracks are removed); other contexts are untouched."""
     M, st = proj.music, Store(proj)
     sets = st.index().get("mesh", {}).get("contexts", {})
     out_dir, levels = Path(M["out_dir"]), M["levels"]
@@ -490,21 +523,37 @@ def add(proj: P.Project, takes: list[str], apply: bool = False) -> int:
                 if M.get("seed_file"):
                     M["seed_file"](files[lv])
                 written.append(files[lv])
+    removed = []
+    if replace:
+        chosen = {".".join(x for x in (sets[k]["context"], sets[k]["biome"], sets[k].get("style"), tk, pr) if x)
+                  for k, tk, pr in (n.rsplit(".", 2) for n in takes)}
+        touched = {(sets[n.rsplit(".", 2)[0]]["context"], sets[n.rsplit(".", 2)[0]]["biome"]) for n in takes}
+        removed = [t for t in manifest["tracks"] if (t["context"], t.get("biome", "any")) in touched and t["id"] not in chosen]
+        manifest["tracks"] = [t for t in manifest["tracks"] if t not in removed]
+        for t in removed:
+            print(f"  - {t['id']} ({t['context']}, {t.get('biome', 'any')}): leaves the rotation")
     ctxs = {sets[n.rsplit(".", 2)[0]]["context"] for n in takes}
     print("  rotation then: " + ", ".join(f"{x} {sum(t['context'] == x for t in manifest['tracks'])} tracks" for x in sorted(ctxs)))
     if not apply:
         print("dry run: pass --apply to ship")
         return 0
+    out_dir = Path(M["out_dir"])
+    for t in removed:  # (its files go too; they stay in git history)
+        for lv in levels:
+            f = out_dir / f"{t['id']}_{lv}.ogg"
+            f.unlink(missing_ok=True)
+            f.with_name(f.name + ".import").unlink(missing_ok=True)
+        record.pop(t["id"], None)
     st.write(Path(M["manifest"]), manifest)
     st.write(st.music_promoted_path, record, sort=True)
-    print(f"added {len(takes)}; manifest {Path(M['manifest']).relative_to(proj.root)} has {len(manifest['tracks'])} tracks")
+    print(f"added {len(takes)}, removed {len(removed)}; manifest {Path(M['manifest']).relative_to(proj.root)} has {len(manifest['tracks'])} tracks")
     return proj.after_install(written) if proj.after_install else 0
 
 
 def promote(proj: P.Project, apply: bool = False) -> int:
     """Ship the music: every take liked on the Music page becomes a track in rotation (votes "mesh_<key>.<take>.
     <profile>" > 0), whatever its style; a context and biome with none liked in any style ships all its plain
-    (unstyled) set's takes not voted down, at the default profile (else "contrast" if there is one, else the first). Writes out_dir/<track>_<level>.ogg and the manifest, removes tracks no longer chosen,
+    (unstyled) set's newest batch not voted down, at the default profile (else "contrast" if there is one, else the first). Writes out_dir/<track>_<level>.ogg and the manifest, removes tracks no longer chosen,
     records provenance in music_promoted.json, then the project's after_install."""
     M, st = proj.music, Store(proj)
     idx, votes = st.index(), st.votes()["clips"]
@@ -519,7 +568,7 @@ def promote(proj: P.Project, apply: bool = False) -> int:
             continue
         ps = c["takes"][0]["profiles"]
         p0 = next(p for p in (M.get("default_profile"), "contrast", next(iter(ps))) if p in ps)
-        chosen = liked[key] or [(t, p0) for t in c["takes"] if votes.get(f"mesh_{key}.{t['id']}.{p0}", 0) >= 0]
+        chosen = liked[key] or [(t, p0) for t in current_takes(c) if votes.get(f"mesh_{key}.{t['id']}.{p0}", 0) >= 0]
         for take, prof in chosen:
             tid = ".".join(x for x in (c["context"], c["biome"], c.get("style"), take["id"], prof) if x)
             files = {lv: out_dir / f"{tid}_{lv}.ogg" for lv in levels}

@@ -217,6 +217,39 @@
      "by": "agent",
      "added": "2026-10-14",
      "pinned": true
+    },
+    {
+     "id": "r17",
+     "text": "Music: always write the tempo (\"90 BPM\" or \"BPM: 90\"): without it only 5% of takes hold a steady beat, so nearly all are rejected; with it about half do. Write the key as a common name (\"D minor\", not \"D aeolian\"): steadier, and leaving the key out lowers the rating.",
+     "why": "Prompt probe 2026-10-15 (Emberhold, .work/music_probe; 188 random prompts scored by quality.py and the tempo check, ridge regression, kept only effects with the same sign in pilot and main run): no tempo: steady 5% vs 48-52%, effect -0.43 ±0.06; key D minor +0.14 ±0.06 steady; key omitted -0.19 ±0.12 CE.",
+     "tasks": [
+      "music"
+     ],
+     "by": "agent",
+     "added": "2026-10-15",
+     "pinned": true
+    },
+    {
+     "id": "r18",
+     "text": "Music, dark cinematic: on average these lower the rating: the word \"menacing\" (-0.47), monks' chant (-0.34), Genre: Horror (-0.33), and in a mix trombones/tuba, hurdy-gurdy, bullroarer, bowed cymbal (-0.3 each). These help: an ostinato part (+0.37), Genre: Orchestral and Genre: Medieval (+0.33). Parts with rhythm (a drum pounding a rhythm, a theme, a bass line) and \"fierce\"/\"mournful\" make steadier takes; calm prompts, \"tense\", Fantasy and Dark Ambient genres, and the string section less steady. Averages, not bans: the designer's favourite has trombones.",
+     "why": "Same probe 2026-10-15: Audiobox content enjoyment (CE) effects ±0.15 each, seed noise ±0.6 per prompt; steadiness effects ±0.06-0.09. Folk instruments left out of the main run (the designer's direction; Audiobox itself rates folk fiddles and flutes high, +0.7 in the pilot). Prompt shape and part count: no clear effect.",
+     "tasks": [
+      "music"
+     ],
+     "by": "agent",
+     "added": "2026-10-15",
+     "pinned": false
+    },
+    {
+     "id": "r19",
+     "text": "Music levels: build them as a stack (calm = the spine itself, quieter; tension and action = the spine plus percussion layers), not by audio-to-audio. Vary what carries the music between takes (lead instrument, melody character), not only the seed: one template gives every take the same DNA. Keep each prompt plain; clever prompts degrade fast.",
+     "why": "Emberhold round 5, 2026-10-15: 14 of 14 likes on the stack profile (close and layered got none). The designer: \"very repetitive. Same horn, same synth punches, beat intensity, same basic DNA\"; \"when you try to get too clever with it, the model starts degrading reallll fast\".",
+     "tasks": [
+      "music"
+     ],
+     "by": "agent",
+     "added": "2026-10-15",
+     "pinned": true
     }
    ],
    "templates": {

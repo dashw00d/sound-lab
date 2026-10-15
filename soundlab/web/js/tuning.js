@@ -3,7 +3,7 @@
 // learn; the user's own rules and taste are instructions. Edits save as you type; a save based on an older copy
 // (an agent wrote the file meanwhile) is refused, and the page reloads instead of overwriting it.
 (() => {
-  const T = { data: null, base: 0, ev: {}, tasks: {}, commands: {}, engines: {}, model: null, filter: "all", dirty: false, timer: 0 };
+  const T = { data: null, base: 0, ev: {}, tasks: {}, commands: {}, engines: {}, model: null, filter: "all", dirty: false, timer: 0, busy: null, snap: "" };
   const { icon, esc } = Lab, $ = id => document.getElementById(id);
   const today = () => new Date().toISOString().slice(0, 10);
   const uid = p => p + Math.random().toString(36).slice(2, 8);
@@ -12,13 +12,25 @@
   const uses = id => Object.keys(T.tasks).filter(k => T.data.tasks[k].model === id);
 
   async function show() {
+    if (T.busy) await T.busy;  // (a save from the last visit is still on its way: load after it)
     const r = await (await fetch("/api/tuning")).json();
     if (Lab.tab !== "tuning") return;
-    Object.assign(T, { data: r.tuning, base: r.base, ev: r.evidence, tasks: r.tasks, commands: r.commands, engines: r.engines, dirty: false });
+    Object.assign(T, { ev: r.evidence, tasks: r.tasks, commands: r.commands, engines: r.engines });
+    // (unsaved edits, including keystrokes typed during the fetch, stay: the save merges them with what the file says now)
+    if (!T.dirty || !T.data) Object.assign(T, { data: r.tuning, base: r.base, snap: JSON.stringify(r.tuning), dirty: false });
     if (!T.data.models[T.model]) T.model = (T.data.tasks.sfx && T.data.tasks.sfx.model) || Object.keys(T.data.models)[0] || null;
-    render();
+    hold(render);
+    if (T.dirty) save();
   }
   const keep = fn => { const p = $("tp"), y = p ? p.scrollTop : 0; fn(); const q = $("tp"); if (q) q.scrollTop = y; };
+  // keep() and the focused field with its cursor, for a repaint nobody asked for (an agent's write, a merge)
+  const fields = () => { const p = $("tp"); return p ? [...p.querySelectorAll("textarea, input, select")] : []; };
+  const hold = fn => {
+    const f = fields(), a = document.activeElement, i = f.indexOf(a), sel = i >= 0 && a.selectionStart != null ? [a.selectionStart, a.selectionEnd] : null;
+    keep(fn);
+    const g = fields();
+    if (i >= 0 && g.length === f.length) { g[i].focus({ preventScroll: true }); if (sel) g[i].setSelectionRange(...sel); }
+  };
   function render() {
     const t = T.data, m = cur();
     Lab.view().innerHTML = `<div class="page" id="tp"><div class="wrap tuning">
@@ -58,7 +70,8 @@
       <div class="mhead"><input type="text" class="mname" data-mf="name" value="${esc(m.name)}" spellcheck="false">
         <input type="text" class="mid" id="mid" value="${esc(T.model)}" spellcheck="false" data-tip="Its id: what takes record as their model">
         <select data-mf="engine">${Object.entries(T.engines).map(([e, l]) => `<option value="${e}" ${e === m.engine ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>
-        <span class="grow"></span><button class="btn ghost" id="delModel" ${used.length ? "disabled" : ""} data-tip="${used.length ? "It makes a task: give the task to another model first" : "Remove this model's guide"}">Remove</button></div>
+        <span class="grow"></span>${used.length ? `<span class="faint">makes ${used.map(k => esc(T.tasks[k])).join(", ")}: give ${used.length === 1 ? "it" : "them"} to another model to remove this</span>` : ""}
+        <button class="btn ghost" id="delModel" ${used.length ? "disabled" : ""} data-tip="${used.length ? "It makes a task: give the task to another model first" : "Remove this model's guide"}">Remove</button></div>
       <textarea class="msum" rows="2" data-mf="summary" placeholder="What this model is and how it behaves: what it was trained on, what it's good and bad at…">${esc(m.summary)}</textarea>
 
       <div class="msub"><span class="lbl">Rules</span>${Lab.seg([["all", "Every task"], ...Object.entries(T.tasks)], k, "rf")}<span class="grow"></span>
@@ -122,15 +135,32 @@
     text("[data-rule]", el => { cur().rules[+el.dataset.rule][el.dataset.f] = el.value; });
     text("[data-tpl]", el => { cur().templates[el.dataset.tpl] = el.value; });
     text("textarea[data-ex], input[data-ex]", el => { cur().examples[+el.dataset.ex][el.dataset.f] = el.value.trim() === "" && el.dataset.f === "take" ? "" : el.value; });
-    const act = (sel, ev, fn) => v.querySelectorAll(sel).forEach(el => el.addEventListener(ev, () => { fn(el); changed(true); }));
+    const act = (sel, ev, fn) => v.querySelectorAll(sel).forEach(el => el.addEventListener(ev, () => { if (fn(el) !== false) changed(true); }));  // (fn returns false: cancelled)
+    const sure = (by, what, ask) => by !== "user" || !what.trim() || confirm(ask);  // (your own words are instructions: ask before they go)
     act("[data-route]", "change", el => { T.data.tasks[el.dataset.route].model = el.value; });
     act("[data-mf=engine]", "change", el => { cur().engine = el.value; });
     act("select[data-ex]", "change", el => { cur().examples[+el.dataset.ex].task = el.value; });
-    act("[data-del-taste]", "click", el => T.data.taste.splice(+el.dataset.delTaste, 1));
-    act("[data-adopt-taste]", "click", el => { const x = T.data.taste[+el.dataset.adoptTaste]; x.by = x.by === "user" ? "agent" : "user"; });
+    act("[data-del-taste]", "click", el => {
+      const x = T.data.taste[+el.dataset.delTaste];
+      if (!sure(x.by, x.text, `Remove this from your taste?\n\n"${x.text}"\n\nAgents follow it as an instruction.`)) return false;
+      T.data.taste.splice(+el.dataset.delTaste, 1);
+    });
+    act("[data-adopt-taste]", "click", el => {
+      const x = T.data.taste[+el.dataset.adoptTaste];
+      if (!sure(x.by, x.text, `Stop treating this as yours?\n\n"${x.text}"\n\nIt becomes an agent's hypothesis: agents may rewrite or remove it.`)) return false;
+      x.by = x.by === "user" ? "agent" : "user";
+    });
     act("[data-pin]", "click", el => { const r = cur().rules[+el.dataset.pin]; r.pinned = !r.pinned; });
-    act("[data-adopt]", "click", el => { const r = cur().rules[+el.dataset.adopt]; r.by = r.by === "user" ? "agent" : "user"; });
-    act("[data-delrule]", "click", el => cur().rules.splice(+el.dataset.delrule, 1));
+    act("[data-adopt]", "click", el => {
+      const r = cur().rules[+el.dataset.adopt];
+      if (!sure(r.by, r.text, `Stop treating this rule as yours?\n\n"${r.text}"\n\nIt becomes an agent's hypothesis: agents may rewrite or remove it.`)) return false;
+      r.by = r.by === "user" ? "agent" : "user";
+    });
+    act("[data-delrule]", "click", el => {
+      const r = cur().rules[+el.dataset.delrule];
+      if (!sure(r.by, r.text, `Remove your rule?\n\n"${r.text}"\n\nAgents follow it as an instruction.`)) return false;
+      cur().rules.splice(+el.dataset.delrule, 1);
+    });
     act("[data-scope]", "click", el => { const r = cur().rules[+el.dataset.scope], t = el.dataset.task; r.tasks = r.tasks.includes(t) ? r.tasks.filter(x => x !== t) : [...r.tasks, t]; });
     act("[data-verdict]", "click", el => { const x = cur().examples[+el.dataset.verdict]; x.verdict = x.verdict === "good" ? "bad" : "good"; });
     act("[data-delex]", "click", el => cur().examples.splice(+el.dataset.delex, 1));
@@ -150,12 +180,15 @@
       let n = 1; while (T.data.models[`new-model-${n}`]) n++;
       T.model = `new-model-${n}`;
       T.data.models[T.model] = { name: "New model", engine: "external", summary: "", rules: [], templates: {}, examples: [] };
+      const first = Object.keys(T.data.models)[0];  // (the server gives a task with no model to the first one: the same here)
+      for (const t of Object.values(T.data.tasks)) if (!T.data.models[t.model]) t.model = first;
       changed(true); const el = document.querySelector(".mname"); if (el) { el.focus(); el.select(); }
     };
     if (!cur()) return;
     $("mid").onchange = e => {  // (rename the key, and the tasks that point at it)
       const id = e.target.value.trim(), old = T.model;
       if (!id || id === old || T.data.models[id]) { e.target.value = old; return; }
+      if (Object.keys(T.ev[old] || {}).length && !confirm(`Rename "${old}" to "${id}"?\n\nTakes record the id of the model that made them, so this project's evidence for it (votes, picks) stops matching the new id.`)) { e.target.value = old; return; }
       T.data.models = Object.fromEntries(Object.entries(T.data.models).map(([k, x]) => [k === old ? id : k, x]));
       for (const t of Object.values(T.data.tasks)) if (t.model === old) t.model = id;
       T.model = id; changed(true);
@@ -189,30 +222,89 @@
     el.className = `savestate ${s}`;
     el.innerHTML = s === "saved" ? `${icon("check")}saved` : s === "saving" ? "saving…" : `${icon("x")}not saved`;
   }
-  async function save() {
+  // Edits made while a save is on its way wait for it, and go in the next round with the new base: a save never conflicts with itself.
+  function save() {
     clearTimeout(T.timer);
-    if (!T.dirty) return;
+    if (T.busy) return T.busy;
+    if (!T.dirty) return Promise.resolve();
+    T.busy = run().finally(() => { T.busy = null; if (Lab.tab === "tuning") state(T.dirty ? "error" : "saved"); });
+    return T.busy;
+  }
+  async function run() {
+    Lab._writing = (Lab._writing || 0) + 1;  // (our own write: the poll doesn't mistake it for an agent's)
+    try { for (let n = 0; T.dirty && n < 5; n++) if (!await send()) return; }
+    finally { Lab._writing--; }
+  }
+  async function send() {
     T.dirty = false;
     let r;
     try { r = await Lab.post("/api/tuning", { base: T.base, tuning: T.data }); } catch { r = null; }
-    if (r && r.status === 409) {  // (written elsewhere since this copy was loaded: take theirs, don't overwrite it)
+    if (r && r.status === 409) {  // (written elsewhere since this copy was loaded: keep theirs, and lay our edit over it)
       const j = await r.json();
-      T.data = j.tuning; T.base = j.base;
+      T.data = merge(JSON.parse(T.snap || "{}"), T.data, j.tuning); T.base = j.base; T.snap = JSON.stringify(j.tuning);
+      T.dirty = true;  // (the merged copy is saved in the next round)
       if (!T.data.models[T.model]) T.model = Object.keys(T.data.models)[0] || null;
-      keep(render);
-      Lab.toast("The tuning changed elsewhere (an agent?), so it was reloaded; redo your last edit", { icon: "refresh" });
-      return;
+      if (Lab.tab === "tuning") hold(render);
+      Lab.toast("The tuning changed elsewhere (an agent?): your edit was merged into it", { icon: "refresh" });
+      return true;
     }
-    if (!r || !r.ok) { T.dirty = true; state("error"); Lab.toast("Couldn't save the tuning", { icon: "x" }); return; }
-    T.base = (await r.json()).base;
+    if (!r || !r.ok) { T.dirty = true; if (Lab.tab === "tuning") state("error"); Lab.toast("Couldn't save the tuning", { icon: "x" }); return false; }
+    const j = await r.json();
+    T.base = j.base; T.snap = JSON.stringify(j.tuning);
     await Lab.stampSeen("tuning");
-    state(T.dirty ? "saving" : "saved");
+    if (Lab.tab === "tuning") state(T.dirty ? "saving" : "saved");
+    return true;
   }
+  // Three-way merge by id: `b` is what the file said when we loaded it, `m` is ours, `t` is theirs now. What only we changed
+  // is ours, what only they changed is theirs; where both changed the same field ours wins, and nothing we added is dropped.
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  function merge(b, m, t) {
+    if (same(m, b)) return t;
+    if (same(t, b)) return m;
+    const obj = x => x && typeof x === "object" && !Array.isArray(x);
+    if (Array.isArray(m) && Array.isArray(t) && [...m, ...t].every(x => obj(x) && x.id)) {
+      const was = new Map((Array.isArray(b) ? b : []).map(x => [x.id, x])), mine = new Map(m.map(x => [x.id, x])), their = new Set(t.map(x => x.id));
+      return [...t.filter(x => mine.has(x.id) || !was.has(x.id) || !same(x, was.get(x.id))).map(x => mine.has(x.id) ? merge(was.get(x.id), mine.get(x.id), x) : x),
+        ...m.filter(x => !their.has(x.id) && (!was.has(x.id) || !same(x, was.get(x.id))))];
+    }
+    if (obj(m) && obj(t)) {
+      const out = {};
+      for (const k of new Set([...Object.keys(t), ...Object.keys(m)])) {
+        const v = merge(obj(b) ? b[k] : undefined, m[k], t[k]);
+        if (v !== undefined) out[k] = v;
+      }
+      return out;
+    }
+    return m;
+  }
+  // Blank rules and examples are never kept (tuning.py drops them): drop them here too when leaving, and say so.
+  function purge() {
+    let n = 0;
+    for (const m of Object.values(T.data ? T.data.models : {})) {
+      const r = m.rules.length + m.examples.length;
+      m.rules = m.rules.filter(x => x.text.trim()); m.examples = m.examples.filter(x => x.prompt.trim());
+      n += r - m.rules.length - m.examples.length;
+    }
+    return n;
+  }
+  function leave() {
+    const n = purge();
+    if (n) Lab.toast(`Dropped ${n} empty rule${n === 1 ? "" : "s"} or example${n === 1 ? "" : "s"}: they need text to be kept`, { icon: "x" });
+    return save();
+  }
+  // Closing the tab inside the 700 ms debounce: send what's pending (keepalive lets the request outlive the page).
+  const flush = () => {
+    if (!T.dirty || !T.data) return;
+    clearTimeout(T.timer); T.dirty = false;
+    fetch("/api/tuning", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ base: T.base, tuning: T.data }) }).catch(() => {});
+  };
+  addEventListener("pagehide", flush);
+  addEventListener("beforeunload", flush);
   // An agent wrote tuning.json while the page was open (and nothing here is unsaved): show theirs.
-  async function reload() { if (!T.dirty && Lab.tab === "tuning") show(); }
+  async function reload() { if (!T.dirty && !T.busy && Lab.tab === "tuning") show(); }
 
   Lab.register("tuning", {
-    title: "Tuning", icon: "fork", show, refresh: reload, dock: false, leave: save, reload,
+    title: "Tuning", icon: "fork", show, refresh: reload, dock: false, leave, reload,
     keys: [["Ctrl S", "save now"], ["Esc", "leave the field"]],
     onKey(e) { if (e.key === "s" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); } },
   });

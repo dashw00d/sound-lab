@@ -6,6 +6,7 @@
   const D = Lab.dock = { item: null, active: false, s: null, a: null, drag: null };
   const $ = id => document.getElementById(id);
   let scope, cv, head, hov, reg, rtag, ruler, msg;
+  const MIN_LOOP = .02;  // (seconds: the shortest range a drag can loop)
 
   D.init = function () {
     const el = $("dock");
@@ -34,7 +35,8 @@
       hov.firstElementChild.textContent = label;
       if (D.drag) {
         if (Math.abs(e.clientX - D.drag.x) > 4) D.drag.moved = true;
-        if (D.drag.moved) D.showRegion(Math.min(D.drag.t, t), Math.max(D.drag.t, t));
+        if (D.drag.moved && Math.abs(t - D.drag.t) > MIN_LOOP) D.showRegion(Math.min(D.drag.t, t), Math.max(D.drag.t, t));  // (only what pointer-up would keep)
+        else if (D.drag.moved) D.restoreRegion();
       }
     };
     scope.onpointerdown = e => {
@@ -46,11 +48,13 @@
       const dr = D.drag; D.drag = null;
       if (!dr || !D.item) return;
       const t = tAt(e);
-      if (dr.moved && Math.abs(t - dr.t) > .02) { D.setRegion(Math.min(dr.t, t), Math.max(dr.t, t)); D.seek(Math.min(dr.t, t)); return; }
+      if (dr.moved && Math.abs(t - dr.t) > MIN_LOOP) { D.setRegion(Math.min(dr.t, t), Math.max(dr.t, t)); D.seek(Math.min(dr.t, t)); return; }
+      D.restoreRegion();  // (a drag too short to loop is a click)
       const r = Lab.player.region;
       if (r && (t < r.a || t > r.b)) D.clearRegion();
       D.seek(t);
     };
+    scope.onpointercancel = scope.onlostpointercapture = () => { if (D.drag) { D.drag = null; D.restoreRegion(); } };
     scope.ondblclick = () => D.clearRegion();
     new ResizeObserver(() => { D.draw(); D.ruler(); D.placeRegion(); }).observe(scope);
   };
@@ -60,7 +64,9 @@
     D.item = null; D.s = D.a = D.spec = null;
     if (on) D.show(null);
   };
-  Lab.onFlush(() => { D.item = null; D.s = D.a = D.spec = null; });
+  Lab.onFlush(() => {  // (the page hands the dock its item again when it refreshes)
+    if (D.active) D.show(null); else { D.item = null; D.s = D.a = D.spec = null; }
+  });
   D.openNote = function () {  // (the page's note key: the dock's note button, if it has one)
     const b = $("dNote").firstElementChild;
     if (b && D.item && D.item.note) { D.item.note.open(b); return true; }
@@ -103,6 +109,7 @@
   D.draw = function () {
     if (!cv) return;
     const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+    scope.classList.toggle("ready", !!(D.s && D.item));  // (hover and crosshair only once there is something to point at)
     if (!D.s || !D.item) { const g = cv.getContext("2d"); g.clearRect(0, 0, cv.width, cv.height); return; }
     if (Lab.prefs.view === "spec") {
       D.spec = Lab.spectrogram(D.item.url, D.s);
@@ -160,6 +167,11 @@
     if (!D._reg || !D.s || reg.hidden) return;
     const [a, b] = D._reg;
     reg.style.left = `${100 * a / D.s.dur}%`; reg.style.width = `${100 * (b - a) / D.s.dur}%`;
+  };
+  D.restoreRegion = function () {  // (show the loop that stands: after a drag that kept nothing)
+    const r = Lab.player.region;
+    if (r && D.item && r.id === D.item.id) D.showRegion(r.a, r.b);
+    else if (reg) { D._reg = null; reg.hidden = true; rtag.hidden = true; }
   };
   D.clearRegion = function (quiet) {
     const P = Lab.player;

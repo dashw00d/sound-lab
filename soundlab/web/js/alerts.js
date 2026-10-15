@@ -13,9 +13,17 @@
   const url = cid => cid.startsWith("shipped:") ? Lab.shippedUrl(Lab.S.sounds[cid.slice(8)].shipped) : Lab.clipUrl(Lab.S.clips[cid]);
   const short = n => n.replace(/^alert_/, "").replace(/_/g, " ");
   const kitOf = r => r.id === "shipped" ? "Shipped now" : r.label.replace(/ · take \d+$/, "");
-  const takeOf = r => r.id === "shipped" ? "reference" : (r.label.match(/take \d+$/) || [r.id])[0];
-  const picked = r => r.id !== "shipped" && set().names.every(n => !r.clips[n] || Lab.V.picks[n] === r.clips[n]);
+  // (the kit's seed counts from 0; Sounds and Instruments say "take" for seed + 1, so this does too)
+  const takeOf = r => { if (r.id === "shipped") return "reference"; const m = r.label.match(/take (\d+)$/); return m ? `take ${+m[1] + 1}` : r.id; };
+  // What a pick on this row is: a kit's take for each alert, or "shipped" (keep the file the game has) on the reference row.
+  const chosen = (r, n) => Lab.V.picks[n] === (r.id === "shipped" ? "shipped" : r.clips[n]);
+  const picked = r => { const has = set().names.filter(n => r.clips[n]); return has.length > 0 && has.every(n => chosen(r, n)); };
   const whatFor = n => Object.entries(set().what || {}).map(([f, w]) => w[n] ? `${f}: ${w[n]}` : "").filter(Boolean).join("\n");
+
+  // A take's thumb from the Sounds page (alert takes are voted there too), as a corner mark on its cell.
+  const vote = cid => cid.startsWith("shipped:") ? 0 : Lab.V.clips[cid] || 0;
+  const voteMark = cid => vote(cid) ? `<span style="position:absolute;top:-2px;right:-2px;display:flex;transform:scale(.7);pointer-events:none;color:var(--${vote(cid) > 0 ? "good" : "bad"})">${icon(vote(cid) > 0 ? "up" : "down")}</span>` : "";
+  const voteTip = cid => vote(cid) ? ` data-tip="${vote(cid) > 0 ? "Thumbs up" : "Thumbs down"} (voted on the Sounds page)"` : "";
 
   function show() {
     const s = set();
@@ -33,11 +41,11 @@
     rs.forEach((r, i) => {
       const k = kitOf(r);
       if (k !== last) { html += `<tr class="kit"><td colspan="${cols}">${esc(k)}${r.family ? `<small>${esc(r.family)}</small>` : ""}</td></tr>`; last = k; }
-      const pk = picked(r);
-      html += `<tr class="r ${pk ? "picked" : ""} ${r.id === "shipped" ? "ref" : ""}" data-i="${i}"><td class="rl">${pk ? icon("starFill") : ""}${esc(takeOf(r))}</td>
-        ${s.names.map((n, j) => r.clips[n] ? `<td><button class="cell" data-r="${i}" data-c="${j}" data-play-id="${esc(r.clips[n])}"><canvas></canvas></button></td>` : "<td></td>").join("")}
+      const pk = picked(r), ref = r.id === "shipped";
+      html += `<tr class="r ${pk ? "picked" : ""} ${ref ? "ref" : ""}" data-i="${i}"><td class="rl">${pk ? icon(ref ? "keep" : "starFill") : ""}${esc(takeOf(r))}</td>
+        ${s.names.map((n, j) => r.clips[n] ? `<td><button class="cell" data-r="${i}" data-c="${j}" data-play-id="${esc(r.clips[n])}"${voteTip(r.clips[n])}><canvas></canvas>${voteMark(r.clips[n])}</button></td>` : "<td></td>").join("")}
         <td><span class="row rowbtn" style="flex-wrap:nowrap;gap:4px"><button class="iconbtn" data-playrow="${i}" data-tip="Play the whole row (Space)">${icon("play")}</button>
-          ${r.id === "shipped" ? "" : `<button class="btn ${pk ? "pick on" : ""}" data-pick="${i}">${icon(pk ? "starFill" : "star")}${pk ? "Picked" : "Pick set"}</button>`}</span></td></tr>`;
+          <button class="btn ${pk ? "pick on" : ""}" data-pick="${i}">${icon(ref ? "keep" : pk ? "starFill" : "star")}${ref ? (pk ? "Keeping" : "Keep set") : pk ? "Picked" : "Pick set"}</button></span></td></tr>`;
     });
     const page = document.getElementById("ap"), y = page ? page.scrollTop : 0;
     Lab.view().innerHTML = html + `</tbody></table></div></div>`;
@@ -59,7 +67,7 @@
     document.querySelectorAll(".agrid th.c").forEach(th => th.classList.toggle("on", +th.dataset.col === P.col));
     document.querySelectorAll(".agrid .cell").forEach(b => {
       const r = rs[+b.dataset.r], n = s.names[+b.dataset.c];
-      Lab.tileState(b, { focus: +b.dataset.r === P.row && +b.dataset.c === P.col, chosen: r.id !== "shipped" && Lab.V.picks[n] === r.clips[n] });
+      Lab.tileState(b, { focus: +b.dataset.r === P.row && +b.dataset.c === P.col, chosen: !!r.clips[n] && chosen(r, n) });
     });
     const f = document.querySelector(".agrid .cell.focus");
     if (f && scroll) f.closest("tr").scrollIntoView({ block: "nearest" });
@@ -69,10 +77,11 @@
     const r = rows()[P.row], n = set().names[P.col], cid = r && r.clips[n];
     if (!cid) return null;
     const c = Lab.S.clips[cid], pk = picked(r);
-    return { id: cid, url: url(cid), title: n, sub: `${kitOf(r)} · ${takeOf(r)}`, pick: Lab.V.picks[n] === cid && r.id !== "shipped",
+    return { id: cid, url: url(cid), title: n, sub: `${kitOf(r)} · ${takeOf(r)}`, pick: chosen(r, n),
       facts: c && c.prompt ? c.prompt.replace(/ · kit .*$/, "") : "",
       play: f => { P.seq = null; Lab.play(url(cid), { id: cid, from: f }); },
-      actions: r.id === "shipped" ? [] : [{ icon: pk ? "starFill" : "star", label: pk ? "Set picked" : "Pick set", cls: "pick", on: pk, run: pickRow, tip: "Pick this kit for every alert (Enter)" }] };
+      actions: r.id === "shipped" ? [{ icon: "keep", label: pk ? "Keeping set" : "Keep set", cls: "pick", on: pk, run: pickRow, tip: "Keep the shipped file for every alert (Enter)" }]
+        : [{ icon: pk ? "starFill" : "star", label: pk ? "Set picked" : "Pick set", cls: "pick", on: pk, run: pickRow, tip: "Pick this kit for every alert (Enter)" }] };
   }
   function playCell() {
     const r = rows()[P.row], cid = r.clips[set().names[P.col]];
@@ -93,10 +102,11 @@
     Lab.play(u, { id: cid, onEnd: () => setTimeout(() => { if (P.seq) next(); }, 450) });
   }
   async function pickRow() {
-    const r = rows()[P.row];
-    if (r.id === "shipped") return;
-    await Lab.vote({ picks: r.clips }, { label: `Picked ${kitOf(r)} · ${takeOf(r)} for every alert`, icon: "starFill" });
-    show();
+    const r = rows()[P.row], ref = r.id === "shipped";
+    const picks = ref ? Object.fromEntries(Object.keys(r.clips).map(n => [n, "shipped"])) : r.clips;
+    try { await Lab.vote({ picks }, { label: ref ? "Keeping the shipped file for every alert" : `Picked ${kitOf(r)} · ${takeOf(r)} for every alert`, icon: ref ? "keep" : "starFill" }); }
+    catch { return; }  // (Lab.vote already said so)
+    if (Lab.tab === "alerts") show();
   }
   Lab.register("alerts", {
     title: "Alerts", icon: "bell", show, enabled: () => Lab.project.features.alerts,

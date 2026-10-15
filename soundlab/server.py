@@ -8,20 +8,31 @@
   POST /api/tuning          {base, tuning}: save it; 409 with the current one if it changed since `base` (an agent wrote it)
   POST /api/vote            {clip, value: 1|-1|0} | {sound, pick: id|"shipped"|null} | {picks: {sound: id|null}}
                             | {sound, note} | {sound, variant, prompt_note, prompt}: a note on one prompt's takes
-  GET  /api/balance         {balance (work/balance.json), mix (the game's mix file)}
-  POST /api/mix             the whole mix; written to the game's mix file (the game re-reads it live)
+  GET  /api/balance         {balance (work/balance.json), mix (the game's mix file), version (1 or 2: the mix file's
+                            kind, which the page follows), base (the mix file's stamp)}
+  POST /api/mix             {base, version, mix}: the mix's levels; written to the game's mix file (the game re-reads
+                            it live): for a sound table, only the dBs change. 409 if the file changed since `base`;
+                            {mix (as written), base} on success
   GET  /clips/<path>        a take (work/clips)
   GET  /shipped/<path>      a shipped file (the project's assets)
 
 Bound to a loopback address, it answers only requests addressed to one (so a DNS-rebinding page can't reach it),
 and it takes writes only as JSON from its own origin (so another website open in the browser can't post to it).
+
+Errors are JSON, {"error": message}: 400 for a request that isn't valid, 404, 409 for a stale write, 500 for the rest
+(its traceback goes to the server's stderr).
 """
 from __future__ import annotations
 
 import json
+import math
 import mimetypes
+import re
+import sys
 import threading
+import traceback
 from datetime import date
+from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -38,22 +49,94 @@ LOCK = threading.Lock()
 LOOPBACK = {"127.0.0.1", "localhost", "[::1]", "::1"}
 
 
+class HttpError(Exception):
+    def __init__(self, code: int, message: str):
+        super().__init__(message)
+        self.code = code
+
+
 def _inside(base: Path, rel: str) -> Path | None:
-    p = (base / rel).resolve()
-    return p if p.is_relative_to(base.resolve()) and p.is_file() else None
+    try:
+        p = (base / rel).resolve()
+        return p if p.is_relative_to(base.resolve()) and p.is_file() else None
+    except (ValueError, OSError):  # (a NUL in the name, a name too long)
+        return None
+
+
+def _byte_range(header: str, size: int):
+    """The (start, end) of a single satisfiable `bytes=` range; None when there's no usable range (send the whole file:
+    absent, malformed or several ranges); False when it lies past the end (416)."""
+    m = re.fullmatch(r"bytes=(\d{0,18})-(\d{0,18})", header.strip(), re.I | re.A)
+    if not m or not (m[1] or m[2]):
+        return None
+    if not m[1]:  # (the last n bytes)
+        n = int(m[2])
+        return (max(0, size - n), size - 1) if n and size else False
+    start, end = int(m[1]), int(m[2]) if m[2] else size - 1
+    if m[2] and end < start:
+        return None
+    return (start, min(end, size - 1)) if start < size else False
+
+
+def _num(v, what: str) -> float:
+    if isinstance(v, bool) or not isinstance(v, (int, float, str)):
+        raise HttpError(400, f"{what}: expected a number of dB")
+    try:
+        x = float(v)
+    except ValueError:
+        raise HttpError(400, f"{what}: expected a number of dB, got {v!r}") from None
+    if not math.isfinite(x) or abs(x) > 200:
+        raise HttpError(400, f"{what}: {v!r} dB is out of range")
+    return round(x, 2)
+
+
+def _section(d: dict, key: str) -> dict:
+    v = d.get(key, {})
+    if not isinstance(v, dict):
+        raise HttpError(400, f"the mix's {key!r} must be an object")
+    return v
+
+
+def _version(mix) -> int:
+    v = mix.get("version", 1) if isinstance(mix, dict) else 1
+    return 2 if isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 2 else 1
 
 
 def make_handler(proj: P.Project, host: str = "127.0.0.1"):
     st = Store(proj)
     mix_path = Path(proj.balance["mix"]) if proj.balance else None
+
+    def mix_stamp() -> str:  # (a string: nanoseconds don't survive a trip through a JavaScript number)
+        return str(mix_path.stat().st_mtime_ns) if mix_path and mix_path.exists() else "0"
+
     info = dict(name=proj.name, root=str(proj.root), features=dict(
         alerts=bool(proj.alerts), music=bool(proj.music), balance=bool(proj.balance)),
         instruments={k: v["name"] for k, v in (proj.music or {}).get("instruments", {}).items()},
         default_profile=(proj.music or {}).get("default_profile"))
 
     class Handler(BaseHTTPRequestHandler):
+        _started = False  # (the response's headers are out: an error can no longer be sent)
+
         def log_message(self, *_):
             pass
+
+        def end_headers(self):
+            self._started = True
+            super().end_headers()
+
+        def send_error(self, code, message=None, explain=None):
+            if self._started:
+                self.close_connection = True
+                return
+            body = json.dumps(dict(error=message or HTTPStatus(code).phrase)).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.close_connection = True
+            if self.command != "HEAD":
+                self.wfile.write(body)
 
         def send_json(self, obj, status=200):
             body = json.dumps(obj).encode()
@@ -63,42 +146,91 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
             self.end_headers()
             self.wfile.write(body)
 
+        def guard(self, fn, bad_input=()):
+            """Run a request; any error becomes a JSON {error} with its status (400 for `bad_input` errors, 500 otherwise)."""
+            self._started = False
+            try:
+                fn()
+            except (BrokenPipeError, ConnectionResetError):
+                self.close_connection = True
+            except HttpError as e:
+                self.send_error(e.code, str(e))
+            except bad_input as e:
+                traceback.print_exc(file=sys.stderr)
+                self.send_error(400, f"missing {e}" if isinstance(e, KeyError) else f"bad request: {e}")
+            except Exception as e:
+                print(f"{self.command} {self.path}: {type(e).__name__}", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
+                self.send_error(500, f"{type(e).__name__}: {e}")
+
         def send_file(self, path: Path | None):
             if path is None:
                 self.send_error(404)
                 return
             size = path.stat().st_size
-            start, end, rng = 0, size - 1, self.headers.get("Range", "")
-            if rng.startswith("bytes="):  # audio elements seek and loop with range requests
-                a, _, b = rng[6:].partition("-")
-                start = int(a) if a else max(0, size - int(b))
-                end = int(b) if a and b else size - 1
-            self.send_response(206 if rng else 200)
+            start, end, status = 0, size - 1, 200
+            rng = _byte_range(self.headers.get("Range", ""), size)  # audio elements seek and loop with range requests
+            if rng is False:
+                self.send_response(416)
+                self.send_header("Content-Range", f"bytes */{size}")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            if rng:
+                start, end = rng
+                status = 206
+            self.send_response(status)
             self.send_header("Content-Type", mimetypes.guess_type(path.name)[0] or "application/octet-stream")
             self.send_header("Accept-Ranges", "bytes")
-            self.send_header("Content-Length", str(end - start + 1))
-            if rng:
+            self.send_header("Content-Length", str(max(0, end - start + 1)))
+            if status == 206:
                 self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
             self.send_header("Cache-Control", "no-cache")
             self.end_headers()
             with open(path, "rb") as f:
                 f.seek(start)
-                self.wfile.write(f.read(end - start + 1))
+                left = end - start + 1
+                while left > 0:
+                    chunk = f.read(min(left, 1 << 20))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
 
         def foreign(self) -> bool:
             """A request from another website (its Origin isn't ours), or addressed to a name that isn't loopback."""
             where = self.headers.get("Host") or ""
-            if host in LOOPBACK and where.rsplit(":", 1)[0] not in LOOPBACK:
+            name = where.strip().lower()
+            name = name[:name.index("]") + 1] if name.startswith("[") and "]" in name else name if name.count(":") > 1 else name.partition(":")[0]
+            if host in LOOPBACK and name not in LOOPBACK:
                 return True
             origin = self.headers.get("Origin")
             return bool(origin) and urlparse(origin).netloc != where
 
-        def body(self):
-            return json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+        def body(self) -> dict:
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                raise HttpError(400, "bad Content-Length") from None
+            if not 0 <= n <= 32 << 20:
+                raise HttpError(400, "the request body is too large" if n > 0 else "bad Content-Length")
+            try:
+                msg = json.loads(self.rfile.read(n) or b"{}")
+            except ValueError as e:  # (not JSON, or not UTF-8)
+                raise HttpError(400, f"the request body isn't valid JSON: {e}") from None
+            if not isinstance(msg, dict):
+                raise HttpError(400, "the request body must be a JSON object")
+            return msg
 
         def do_GET(self):
+            self.guard(self.get)
+
+        def do_POST(self):
+            self.guard(self.post, (KeyError, ValueError, TypeError, AttributeError))
+
+        def get(self):
             if self.foreign():
-                self.send_error(403)
+                self.send_error(403, "addressed to a non-loopback host or from another origin")
                 return
             url = unquote(urlparse(self.path).path)
             if url in ("/", "/index.html"):
@@ -119,8 +251,8 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
             elif url == "/favicon.ico":
                 self.send_file(paths.WEB / "img" / "favicon.png")
             elif url == "/api/balance":
-                self.send_json(dict(balance=Store.read(st.balance_path, {}),
-                                    mix=Store.read(mix_path, {}) if mix_path else {}))
+                mix = Store.read(mix_path, {}) if mix_path else {}  # (the page follows the mix file's kind, and saves against its stamp)
+                self.send_json(dict(balance=Store.read(st.balance_path, {}), mix=mix, version=_version(mix), base=mix_stamp()))
             elif url.startswith("/clips/"):
                 self.send_file(_inside(st.clips, url[7:]))
             elif url.startswith("/shipped/"):
@@ -128,26 +260,69 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
             else:
                 self.send_error(404)
 
-        def do_POST(self):
+        def post(self):
             if self.foreign() or self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
-                self.send_error(403)
+                self.send_error(403, "writes are taken only as JSON from this page's own origin")
                 return
             url = urlparse(self.path).path
             if url == "/api/mix" and mix_path:
-                mix = self.body()
-                clean = {k: {n: round(float(v), 2) for n, v in sorted(mix.get(k, {}).items())
-                             if abs(float(v)) > 1e-6 or k == "buses"} for k in ("buses", "sounds", "music", "levels")}
+                msg = self.body()
+                mix = msg.get("mix")
+                if not isinstance(mix, dict):
+                    raise HttpError(400, "no mix levels to save")
                 with LOCK:
+                    cur = Store.read(mix_path, {})
+                    if str(msg.get("base")) != mix_stamp():  # (an agent or the game's tools wrote it since this page read it)
+                        self.send_json(dict(error="the mix file changed since this page loaded it: reload to see it", base=mix_stamp()), 409)
+                        return
+                    if not isinstance(cur, dict):
+                        raise HttpError(500, "the mix file isn't a JSON object")
+                    if msg.get("version") != _version(cur):
+                        raise HttpError(400, f"this page and the mix file disagree about its kind (version {msg.get('version')} vs {_version(cur)}): reload the page")
+                    if _version(cur) >= 2:
+                        # A sound table: only the levels change (bus, category, event and music dBs); every other field
+                        # of the table (files, categories' voices and spaces, ducks, the positional model) stays.
+                        # (all checked before anything is changed, so a bad payload writes nothing)
+                        buses = {b: _num(v, f"bus {b}") for b, v in _section(mix, "buses").items()}
+                        cats = {c: _num(v, f"category {c}") for c, v in _section(mix, "categories").items()}
+                        sounds = {n: _num(v, f"event {n}") for n, v in _section(mix, "sounds").items()}
+                        mm = _section(mix, "music")
+                        music = {k: {n: _num(v, f"music {k} {n}") for n, v in sorted(_section(mm, k).items())} for k in ("levels", "tracks")}
+                        contexts = set((proj.music or {}).get("contexts", {}))
+                        for b, v in buses.items():
+                            cur.setdefault("buses", {})[b] = v
+                        for c, v in cats.items():
+                            if isinstance(cur.get("categories", {}).get(c), dict):
+                                cur["categories"][c]["db"] = v
+                        for sid, v in sounds.items():
+                            if isinstance(cur.get("sounds", {}).get(sid), dict):
+                                cur["sounds"][sid]["db"] = v
+                        mu = cur.setdefault("music", {})
+                        # (a track's 0 is kept only to override a context's trim)
+                        ctx_trim = any(n in contexts and abs(v) > 1e-6 for n, v in music["tracks"].items())
+                        mu["levels"] = {n: v for n, v in music["levels"].items() if abs(v) > 1e-6}
+                        mu["tracks"] = {n: v for n, v in music["tracks"].items() if abs(v) > 1e-6 or (ctx_trim and n not in contexts)}
+                        clean = cur
+                    else:
+                        clean = {}
+                        for k in ("buses", "sounds", "music", "levels"):
+                            vals = {n: _num(v, f"{k} {n}") for n, v in sorted(_section(mix, k).items())}
+                            contexts = set((proj.music or {}).get("contexts", {}))
+                            ctx_trim = k == "music" and any(n in contexts and abs(v) > 1e-6 for n, v in vals.items())
+                            clean[k] = {n: v for n, v in vals.items() if abs(v) > 1e-6 or k == "buses" or (ctx_trim and n not in contexts)}
                     Store.write(mix_path, clean)
-                self.send_json(clean)
+                    self.send_json(dict(mix=clean, base=mix_stamp()))
                 return
             if url == "/api/tuning":
                 msg = self.body()
+                new = msg.get("tuning")
+                if not isinstance(new, dict) or not new:  # (clean({}) would save an empty tuning over the rules)
+                    raise HttpError(400, "no tuning to save: it must be a non-empty object")
                 with LOCK:
                     if str(msg.get("base")) != tuning.stamp():
-                        self.send_json(dict(tuning=tuning.load(), base=tuning.stamp()), 409)
+                        self.send_json(dict(error="tuning.json changed since this page loaded it", tuning=tuning.load(), base=tuning.stamp()), 409)
                         return
-                    t = tuning.save(msg.get("tuning") or {})
+                    t = tuning.save(new)
                     self.send_json(dict(tuning=t, base=tuning.stamp()))
                 return
             if url != "/api/vote":

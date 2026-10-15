@@ -35,6 +35,9 @@ TASKS = {"sfx": "Sound effects", "alerts": "Alerts", "instruments": "Instrument 
 COMMANDS = {"sfx": "sounds generate", "alerts": "alerts build", "instruments": "music audition", "music": "music generate"}
 ENGINES = {"sa3": "runs in SoundLab", "external": "made outside SoundLab, imported"}
 RUNNABLE = {"sa3"}  # what SoundLab's generators can run
+MODEL = ("name", "engine", "summary", "rules", "templates", "examples")  # (the keys clean() knows; others are kept as they came)
+RULE = ("id", "text", "why", "tasks", "by", "added", "pinned")
+EXAMPLE = ("id", "prompt", "verdict", "why", "task", "take")
 FEW = 5  # a prompt style offered for fewer sounds than this is listed apart: one lucky win says little
 
 
@@ -62,6 +65,7 @@ def clean(t: dict) -> dict:
     s = lambda x: x.strip() if isinstance(x, str) else ""
     by = lambda x: "user" if x != "agent" else "agent"
     tasks = lambda xs: [x for x in xs if x in TASKS] if isinstance(xs, list) else []
+    more = lambda d, known: {k: v for k, v in d.items() if k not in known}  # (keys this code doesn't know: kept, not dropped)
     models = {}
     for mid, m in (t.get("models") or {}).items():
         if not isinstance(m, dict) or not s(mid):
@@ -70,25 +74,28 @@ def clean(t: dict) -> dict:
             name=s(m.get("name")) or s(mid), engine=m.get("engine") if m.get("engine") in ENGINES else "external",
             summary=s(m.get("summary")),
             rules=[dict(id=r.get("id") or _id("r"), text=s(r.get("text")), why=s(r.get("why")), tasks=tasks(r.get("tasks")),
-                        by=by(r.get("by")), added=s(r.get("added")) or date.today().isoformat(), pinned=bool(r.get("pinned")))
+                        by=by(r.get("by")), added=s(r.get("added")) or date.today().isoformat(), pinned=bool(r.get("pinned")),
+                        **more(r, RULE))
                    for r in m.get("rules") or [] if isinstance(r, dict) and s(r.get("text"))],
             templates={k: s(v) for k, v in (m.get("templates") or {}).items() if k in TASKS and s(v)},
             examples=[dict(id=e.get("id") or _id("e"), prompt=s(e.get("prompt")), verdict="bad" if e.get("verdict") == "bad" else "good",
-                           why=s(e.get("why")), task=e.get("task") if e.get("task") in TASKS else "sfx", take=s(e.get("take")))
-                      for e in m.get("examples") or [] if isinstance(e, dict) and s(e.get("prompt"))])
+                           why=s(e.get("why")), task=e.get("task") if e.get("task") in TASKS else "sfx", take=s(e.get("take")),
+                           **more(e, EXAMPLE))
+                      for e in m.get("examples") or [] if isinstance(e, dict) and s(e.get("prompt"))],
+            **more(m, MODEL))
     given = t.get("tasks") if isinstance(t.get("tasks"), dict) else {}
 
     def task(k):
         x = given.get(k) if isinstance(given.get(k), dict) else {}
-        return dict(model=x.get("model") if x.get("model") in models else next(iter(models), ""), note=s(x.get("note")))
+        return dict(model=x.get("model") if x.get("model") in models else next(iter(models), ""), note=s(x.get("note")), **more(x, ("model", "note")))
 
     return dict(
         about=s(t.get("about")) or "Prompt tuning: the starting point for every prompt. See soundlab/tuning.py and AGENTS.md.",
         tasks={k: task(k) for k in TASKS},
         taste=[dict(id=x.get("id") or _id("t"), text=s(x.get("text")), by=by(x.get("by")), added=s(x.get("added")) or date.today().isoformat(),
-                    **({"project": s(x["project"])} if s(x.get("project")) else {}))
+                    **({"project": s(x["project"])} if s(x.get("project")) else {}), **more(x, ("id", "text", "by", "added", "project")))
                for x in t.get("taste") or [] if isinstance(x, dict) and s(x.get("text"))],
-        models=models)
+        models=models, **more(t, ("about", "tasks", "taste", "models")))
 
 
 def require(task: str) -> None:

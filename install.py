@@ -167,6 +167,9 @@ def main() -> int:
         say(f"the model: {MODEL_REPO} into {hf_home} (about 10 GB the first time)")
         run([PY, "-c", f"from huggingface_hub import snapshot_download; print(snapshot_download('{MODEL_REPO}'))"],
             env=dict(env, HF_HOME=str(hf_home)))
+        say(f"the music quality model: facebook/audiobox-aesthetics into {hf_home} (small)")
+        run([PY, "-c", "from audiobox_aesthetics.infer import initialize_predictor; initialize_predictor()"],
+            env=dict(env, HF_HOME=str(hf_home)))  # (into the lab's cache: the generator runs offline)
     say("checking it all works")
     rc = subprocess.run([str(PY), "-m", "soundlab", "doctor"] + ([] if a.no_model else ["--generate"]),
                         env=dict(env, PYTHONPATH=str(ROOT)), cwd=ROOT).returncode

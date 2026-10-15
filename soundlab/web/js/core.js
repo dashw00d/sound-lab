@@ -57,7 +57,7 @@ Lab.empty = (icon, title, html) => `<div class="page"><div class="empty"><div cl
 Lab.showEmpty = (icon, title, html) => { Lab.dock.attach(false); Lab.view().innerHTML = Lab.empty(icon, title, html); };
 Lab.clipUrl = c => c && !c.failed ? "/clips/" + c.file : null;
 Lab.shippedUrl = rel => rel ? "/shipped/" + rel : null;
-Lab.fmt = t => { if (!isFinite(t)) return "–"; t = Math.max(0, t); const m = Math.floor(t / 60); return `${m}:${(t - 60 * m).toFixed(2).padStart(5, "0")}`; };
+Lab.fmt = t => { if (!isFinite(t)) return "–"; const cs = Math.round(Math.max(0, t) * 100), m = Math.floor(cs / 6000); return `${m}:${((cs - 6000 * m) / 100).toFixed(2).padStart(5, "0")}`; };
 Lab.clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 // Takes grouped by the sound they are for, in the order the index lists them.
 Lab.byName = function () {
@@ -80,7 +80,11 @@ Lab.fillRange = function (el) {
 
 // ---- API
 Lab.apply = function (r) { Lab.project = r.project; Lab.S = r.index; Lab.V = r.votes; Lab.shipped = r.shipped || {}; };
-Lab.load = async function () { Lab.apply(await (await fetch("/api/state")).json()); };
+Lab.load = async function () {
+  const r = await fetch("/api/state");
+  if (!r.ok) throw new Error(`state refused: ${r.status}`);
+  Lab.apply(await r.json());
+};
 Lab.post = (url, obj) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) });
 Lab.undoStack = [];
 function inverse(msg) {
@@ -99,7 +103,7 @@ async function post(msg) {
   Lab._writing = (Lab._writing || 0) + 1;  // (our own write: the poll doesn't mistake it for someone else's)
   try {
     const r = await Lab.post("/api/vote", msg);
-    if (!r.ok) throw new Error(`vote refused: ${r.status}`);
+    if (!r.ok) throw new Error(((await r.json().catch(() => null)) || {}).error || `vote refused: ${r.status}`);
     Lab.V = await r.json();
     await Lab.stampSeen("votes");
   }
@@ -113,14 +117,14 @@ let queue = Promise.resolve();
 const serial = fn => { const p = queue.then(fn, fn); queue = p.catch(() => {}); return p; };
 Lab.vote = (msg, undo) => serial(async () => {
   if (undo) { Lab.undoStack.push({ inv: inverse(msg), label: undo.label }); if (Lab.undoStack.length > 100) Lab.undoStack.shift(); }
-  try { await post(msg); } catch (e) { if (undo) Lab.undoStack.pop(); Lab.toast("Couldn't save that: is the server running?", { icon: "x" }); throw e; }
+  try { await post(msg); } catch (e) { if (undo) Lab.undoStack.pop(); Lab.toast(`Couldn't save that: ${e.message.startsWith("Failed to fetch") ? "is the server running?" : e.message}`, { icon: "x" }); throw e; }
   if (undo) Lab.toast(undo.label, { undo: true, icon: undo.icon });
   return Lab.V;
 });
 Lab.undo = () => serial(async () => {
   const u = Lab.undoStack.pop();
   if (!u) { Lab.toast("Nothing to undo"); return; }
-  await post(u.inv);
+  try { await post(u.inv); } catch (e) { Lab.undoStack.push(u); Lab.toast(`Couldn't undo that: ${e.message.startsWith("Failed to fetch") ? "is the server running?" : e.message}`, { icon: "x" }); return; }
   Lab.refresh();
   Lab.toast(`Undone: ${u.label}`, { icon: "undo" });
 });
@@ -187,6 +191,7 @@ Lab.tip = {
     this.t = setTimeout(() => {
       if (this.cur !== target || !document.body.contains(target)) return;
       const el = document.getElementById("tip"), r = target.getBoundingClientRect();
+      el.style.left = "0px"; el.style.top = "0px";  // (measured from the corner, not squeezed by where it was last)
       el.textContent = target.dataset.tip; el.classList.add("show");
       const w = el.offsetWidth, h = el.offsetHeight;
       let x = r.left + r.width / 2 - w / 2, y = r.bottom + 8;
@@ -202,6 +207,8 @@ document.addEventListener("mouseover", e => {
   if (t && t.dataset.tip) Lab.tip.show(t); else Lab.tip.hide();
 });
 document.addEventListener("pointerdown", () => Lab.tip.hide(), true);
+// (a disabled button keeps its tooltip, so it is reachable by the mouse: its clicks are stopped here, children included)
+document.addEventListener("click", e => { if (e.target.closest && e.target.closest("button:disabled")) { e.preventDefault(); e.stopPropagation(); } }, true);
 document.addEventListener("scroll", () => Lab.tip.hide(), true);
 
 // ---- a note box that saves itself as you type
@@ -280,14 +287,17 @@ Lab.renderTabs = function () {
   nav.querySelectorAll("button").forEach(b => b.onclick = () => Lab.go(b.dataset.tab));
 };
 Lab.go = function (name, arg) {
-  if (!Lab.enabled(name)) name = Lab.order.find(Lab.enabled);
+  if (!Lab.S) return;  // (the state didn't load)
+  if (!Lab.enabled(name)) { name = Lab.order.find(Lab.enabled); arg = undefined; }
   if (Lab.tab && Lab.tab !== name && Lab.tabs[Lab.tab].leave) Lab.tabs[Lab.tab].leave();
   Lab.stop(); Lab.tip.hide();
   Lab.tab = name;
   Lab.renderTabs();
   Lab.dock.attach(Lab.tabs[name].dock !== false);
+  const v = Lab.view();  // (the page eases in when you arrive, not each time it re-renders)
+  v.classList.add("enter"); clearTimeout(Lab._enterT); Lab._enterT = setTimeout(() => v.classList.remove("enter"), 400);
   Lab.tabs[name].show(arg);
-  Lab.setHash(arg);
+  Lab.setHash(Lab.tabs[name].hash ? Lab.tabs[name].hash() : arg);  // (a page that remembers its item keeps it in the URL)
 };
 Lab.setHash = function (arg) { history.replaceState(null, "", "#" + Lab.tab + (arg ? "/" + encodeURIComponent(arg) : "")); };
 window.addEventListener("hashchange", () => {
@@ -309,15 +319,19 @@ Lab.status = function () {
 // ---- modals: the palette (jump anywhere) and the key sheet
 Lab.modal = null;
 Lab.openModal = function (id, onKey) {
-  Lab.closeModal();
+  const back = Lab.modal ? Lab.modal.back : document.activeElement;  // (where focus returns to when it closes)
+  Lab.closeModal(true);
   const el = document.getElementById(id);
   el.hidden = false; document.getElementById("scrim").hidden = false;
-  Lab.modal = { el, onKey };
+  el.tabIndex = -1; el.focus();
+  Lab.modal = { el, onKey, back };
   return el;
 };
-Lab.closeModal = function () {
+Lab.closeModal = function (keepFocus) {
   if (!Lab.modal) return;
-  Lab.modal.el.hidden = true; document.getElementById("scrim").hidden = true; Lab.modal = null;
+  const { el, back } = Lab.modal;
+  el.hidden = true; document.getElementById("scrim").hidden = true; Lab.modal = null;
+  if (!keepFocus && back && back !== document.body && document.body.contains(back)) back.focus();
 };
 Lab.fuzzy = function (q, s) {
   const t = s.toLowerCase();
@@ -359,6 +373,7 @@ Lab.palette = {
     return out;
   },
   open() {
+    if (!Lab.S) return;
     const el = Lab.openModal("palette", e => this.key(e));
     el.innerHTML = `<div class="q">${Lab.icon("search")}<input type="text" id="pq" placeholder="Jump to a sound, a music set, an instrument or a page…" autocomplete="off" spellcheck="false"></div>
       <div class="res" id="pres"></div><div class="foot"><span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span></div>`;
@@ -404,16 +419,16 @@ Lab.palette = {
     else if (e.key === "Enter") { e.preventDefault(); this.run(); }
   },
 };
-Lab.GLOBAL_KEYS = [["Ctrl K", "jump to a sound, set or page"], ["/", "jump to…"], ["Alt 1-6", "switch page"], ["Ctrl Z", "undo the last vote or pick"],
-                   ["V", "waveform or spectrogram"], ["M", "mute"], ["?", "this sheet"]];
+Lab.GLOBAL_KEYS = () => [["Ctrl K", "jump to a sound, set or page"], ["/", "the same, with one key"], ["Alt 1-" + Lab.order.filter(Lab.enabled).length, "switch page"],
+                         ["Ctrl Z", "undo the last vote or pick"], ["V", "waveform or spectrogram"], ["M", "mute"], ["?", "this sheet"]];
 Lab.help = {
   open() {
-    const page = Lab.tabs[Lab.tab], el = Lab.openModal("help", e => { if (e.key === "Escape" || e.key === "?") { e.preventDefault(); Lab.closeModal(); } });
+    const page = Lab.tabs[Lab.tab] || { title: "SoundLab", dock: false }, el = Lab.openModal("help", e => { if (e.key === "Escape" || e.key === "?") { e.preventDefault(); Lab.closeModal(); } });
     const k = ([keys, what]) => `<div class="k"><span>${Lab.esc(what)}</span><span>${keys.split(" ").map(x => `<kbd>${Lab.esc(x)}</kbd>`).join("")}</span></div>`;
     const dock = page.dock !== false ? [["Click", "seek (in the dock)"], ["Drag", "loop a range (in the dock)"], ["Double-click", "clear the loop"]] : [];
     el.innerHTML = `<h2>${Lab.icon("keyboard")}Keyboard</h2><div class="dim">SoundLab is built to be driven from the keyboard: listen, vote and move on without the mouse.</div>
       <div class="cols"><div class="sect">${Lab.esc(page.title)}</div>${(page.keys || []).map(k).join("") || `<div class="dim">No keys on this page.</div>`}
-      <div class="sect">Everywhere</div>${[...Lab.GLOBAL_KEYS, ...dock].map(k).join("")}</div>`;
+      <div class="sect">Everywhere</div>${[...Lab.GLOBAL_KEYS(), ...dock].map(k).join("")}</div>`;
   },
 };
 Lab.toggleMute = function () {
@@ -424,26 +439,34 @@ Lab.toggleMute = function () {
 // ---- keys: the palette and global shortcuts first, then the page's own
 document.addEventListener("keydown", e => {
   if (Lab.actx.state === "suspended") Lab.actx.resume();
-  if (Lab.modal) { Lab.modal.onKey(e); return; }
-  const t = e.target, typing = t.tagName === "TEXTAREA" || (t.tagName === "INPUT" && t.type !== "range");
-  const mod = e.ctrlKey || e.metaKey, k = e.key;
+  const t = e.target, typing = t.tagName === "TEXTAREA" || t.tagName === "SELECT" || (t.tagName === "INPUT" && t.type !== "range");
+  const mod = e.ctrlKey || e.metaKey, k = e.key, page = Lab.tabs[Lab.tab];
+  if (mod && k.toLowerCase() === "s") e.preventDefault();  // (never the browser's Save dialog)
+  if (Lab.modal) {
+    if (k === "Tab") {  // (focus stays inside the open sheet)
+      const f = [...Lab.modal.el.querySelectorAll("input, button, select, textarea")].filter(x => !x.disabled), i = f.indexOf(document.activeElement);
+      if (!f.length) e.preventDefault();
+      else if (i < 0 || (e.shiftKey ? i === 0 : i === f.length - 1)) { e.preventDefault(); f[e.shiftKey ? f.length - 1 : 0].focus(); }
+      return;
+    }
+    Lab.modal.onKey(e); return;
+  }
   if (mod && k.toLowerCase() === "k") { e.preventDefault(); Lab.palette.open(); return; }
-  if (typing) {
-    if (k === "Escape") t.blur();
-    else if (mod && k.toLowerCase() === "s") { const p = Lab.tabs[Lab.tab]; if (p && p.onKey) p.onKey(e); }  // (save, from inside a field)
+  if (mod && k.toLowerCase() === "s") {  // (a page gets Ctrl S only if it lists it: Sounds' S and Music's S are other keys)
+    if (page && page.onKey && (page.keys || []).some(([x]) => x === "Ctrl S")) page.onKey(e);
     return;
   }
+  if (typing) { if (k === "Escape") t.blur(); return; }
   if (t.tagName === "INPUT" && t.type === "range") t.blur();  // (a slider keeps focus after dragging; keys go to the page)
   if (mod && k.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); Lab.undo(); return; }
-  if (e.altKey && /^[1-9]$/.test(k)) { e.preventDefault(); const p = Lab.order.filter(Lab.enabled)[+k - 1]; if (p) Lab.go(p); return; }
-  if ((mod || e.altKey) && !(mod && k.toLowerCase() === "s")) return;  // (Ctrl + / - / 0 / D… belong to the browser)
-  if (!mod && !e.altKey) {
-    if (k === "?") { Lab.help.open(); return; }
-    if (k === "/") { e.preventDefault(); Lab.palette.open(); return; }
-    if (k === "m" || k === "M") { Lab.toggleMute(); return; }
-    if ((k === "v" || k === "V") && Lab.dock.active) { Lab.dock.toggleView(); return; }
-  }
-  const page = Lab.tabs[Lab.tab];
+  const digit = /^Digit([1-9])$/.exec(e.code || "");  // (e.key is another character under Alt on a Mac)
+  if (e.altKey && digit) { e.preventDefault(); const p = Lab.order.filter(Lab.enabled)[+digit[1] - 1]; if (p) Lab.go(p); return; }
+  if (mod || e.altKey) return;  // (Ctrl + / - / 0 / D… belong to the browser)
+  if (k === "?") { Lab.help.open(); return; }
+  if (k === "/") { e.preventDefault(); Lab.palette.open(); return; }
+  if (k === "m" || k === "M") { Lab.toggleMute(); return; }
+  if ((k === "v" || k === "V") && Lab.dock.active) { Lab.dock.toggleView(); return; }
+  if ((k === "Enter" || k === " ") && t.closest && t.closest("button, a[href]")) return;  // (a focused button takes Enter and Space as its click, not also the page's key)
   if (page && page.onKey) page.onKey(e);
 });
 // A clicked button gives focus back, so Enter or Space afterwards means the page's shortcut, not "click it again".

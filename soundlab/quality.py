@@ -153,7 +153,13 @@ def aesthetics(paths: list[str]) -> list[dict | None]:
     except ImportError:
         return [None] * len(paths)
     if "p" not in _AES:
-        _AES["p"] = initialize_predictor()
+        try:
+            _AES["p"] = initialize_predictor()
+        except Exception as e:  # (not in the lab's cache, e.g. an older install: no ratings, nothing rejected)
+            print(f"  ! music quality model unavailable ({type(e).__name__}); run install.py again. Ratings skipped.", flush=True)
+            _AES["p"] = None
+    if _AES["p"] is None:
+        return [None] * len(paths)
     out = []
     for i in range(0, len(paths), 8):
         out += [{k: round(float(v), 2) for k, v in r.items()} for r in _AES["p"].forward([{"path": p} for p in paths[i:i + 8]])]

@@ -20,8 +20,8 @@ You make game audio with local models: Stable Audio 3 Medium (SA3) by default, a
 | `sounds promote [--apply] [--only NAME..]` | ship the picks into the game (dry run without `--apply`) | seconds |
 | `alerts build` | the alert family: kits (cached) composed into every alert, one row per kit | ~1 min first time |
 | `music audition [--seeds 4]` | solo takes of every candidate instrument | ~1 min |
-| `music generate --contexts C.. [--biomes B..] [--styles S..] [--profiles P..] [--takes 3] [--tries 14]` | music sets (each take: a spine plus derived levels on one beat grid); `--styles` makes a set per prompt style for a tuning round, `--profiles` limits the derived-level profiles | 1–3 min per set |
-| `music derive --profiles P.. [--sets KEY..]` | add profiles (audio-to-audio strengths) to existing takes, from each take's saved spine: the newest round's sets by default; existing profiles and votes stay | ~10 s per level |
+| `music generate --contexts C.. [--biomes B..] [--styles S..] [--profiles P..] [--takes 3] [--tries 14]` | a new batch of music takes per set (each take: a spine plus derived levels on one beat grid); `--takes` is the batch size, `--styles` makes a set per prompt style for a tuning round, `--profiles` limits the derived-level profiles | 1–3 min per set |
+| `music derive --profiles P.. [--sets KEY..]` | add profiles (audio-to-audio strengths) to existing takes, from each take's saved spine: the newest batch's takes by default (all of a set's takes with `--sets`); existing profiles and votes stay | ~10 s per level |
 | `music check [--sets KEY..]` | measure every level for what sounds off (soundlab/quality.py: Audiobox Aesthetics ratings, pauses, drift, noise) and flag it on the Music page | ~1 s per file |
 | `music promote [--apply]` | ship the liked music takes as tracks and write the game's music manifest | seconds |
 | `balance measure` | measure every shipped sound for the Balance page | ~1 min |
@@ -48,10 +48,14 @@ Rules:
 - Never edit or delete the user's votes, picks or notes. Generators keep takes the user has voted on.
 - Ship (`promote --apply`) only when the user asks. Run the dry run first and show what will change. Shipping overwrites the game's files: they're in the game's git, but say what you replaced.
 - Instrument pool: an instrument is in when one of its audition takes is picked or it is net 👍, and out when net 👎. Each music take draws one instrument per role from the pool, seeded.
-- Music shipping: liked takes (`mesh_<set>.<take>.<profile>` = 1) ship as tracks. A set with none liked ships all takes not 👎, at the music's `default_profile`.
+- Music shipping: liked takes (`mesh_<set>.<take>.<profile>` = 1) ship as tracks. A set with none liked ships its newest batch's takes not 👎, at the music's `default_profile` (older takes ship only when liked).
 - Off-sounding music: `music generate` rejects a take a level of which Audiobox Aesthetics rates under `quality.GATE` (validated against the user's likes, see `quality.py`), and `music check` flags weak levels, long pauses, drift and noise. Report flags as measurements; the user's ears decide. Install the model's package with `uv pip install --python runtime/venv/bin/python audiobox_aesthetics` (without it the gate passes everything).
 - Music layers: a derived level can't add intensity (audio-to-audio keeps the spine's density at any strength), so the project's `music.layers` are stems made from text (percussion: no pitch, so no clash), put on the grid, rotated so their bar accents meet the spine's, and mixed into levels by a profile's `layers` ({layer: {level: dB}}). Each take keeps its stems (the Music page plays one alone from its chip). `music derive --profiles P` adds a layered profile to takes already heard.
-- Music prompt styles: the project's `music.styles` are alternative prompt functions. `music generate --styles S..` makes sets keyed `<context>[.<biome>]~<style>`, side by side with the plain sets on the Music page, and the tuning evidence counts votes by style. A style's takes ship only when liked; a context and biome with nothing liked in any style ships its plain set as before. Each `music generate` run is a round: the Music page shows only the newest round's sets and folds everything older (liked sets first), so a new round is what the user sees first.
+- Music prompt styles: the project's `music.styles` are alternative prompt functions. `music generate --styles S..` makes sets keyed `<context>[.<biome>]~<style>`, side by side with the plain sets on the Music page, and the tuning evidence counts votes by style. A style's takes ship only when liked; a context and biome with nothing liked in any style ships its plain set as before. Each `music generate` run is a round, and its takes are a batch: the user listens to all of them, votes, and talks it over with you, and the next run hides every one of them (voted on or not) and starts a fresh batch. The Music page shows only the newest round's takes; a set's older takes fold under "Earlier takes", and older sets under "Earlier rounds" (liked first). Nothing is deleted: every take keeps its `round`, its id (seeds, and so ids, continue past the highest the set has used, so a vote always stays with its audio) and its votes. `--takes` counts the new takes of that run.
+
+## What we've learned: MODELS_LOG.md
+
+`MODELS_LOG.md` is the dated record of what each model does and doesn't do, with how it was measured and how sure we are (solid, leaning, anecdote), including what didn't work. Read it before a new kind of round. Add to it whenever a round, a probe or a measurement teaches something: the finding, the evidence, the date, and the `tuning.json` rule id it became. Experiments outside the app (like `research/music_probe.py`) live in `research/`, with their raw results in `research/data/`.
 
 ## Prompt tuning: start here
 
@@ -90,7 +94,7 @@ Optional sections turn pages on:
 
 - **`alerts`**: a dict documented at the top of `soundlab/alerts.py`. It has two families: `recordings` (whole takes) and `earcon` (one instrument's notes retuned to a motif).
 - **`music`**: a dict documented in `soundlab/music.py`. It covers the grid, levels, loudness, profiles, contexts and biomes, the instrument candidates and roles, a `prompts(context, mode, mood, names)` function, and where the manifest and files go. The game plays the manifest: a track per context and biome, each with one file per level, all on one grid.
-- **`balance`**: a dict documented in `soundlab/balance.py`. It names the mix file, the folders to measure, the groups, and `call_sites()` and `buses()`, which read the game's own code.
+- **`balance`**: a dict documented in `soundlab/balance.py`. It names the mix file and the folders holding sound files. Best is a sound table (the mix file at `"version": 2`: every level the game applies, which the game reads and the page edits, so the page shows exactly what the game plays; Emberhold's `assets/audio/mix.json` and `tools/audio/README.md` "The mix" are the example). An older trims-only mix also needs the groups and `call_sites()`/`buses()`, which read the game's own code.
 
 Emberhold's file (`/home/ryan/dev/games/emberhold/tools/audio/soundlab_project.py`) is a complete example.
 

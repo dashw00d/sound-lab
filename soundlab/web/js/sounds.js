@@ -19,7 +19,7 @@
     (P.kind === "all" || s.kind === P.kind) &&
     (!P.q || s.name.toLowerCase().includes(P.q.toLowerCase()));
   const visible = () => P.sounds.filter(matches);
-  const takeName = c => c.id === "shipped" ? "the shipped file" : `${c.variant} · seed ${c.seed}`;
+  const takeName = c => c.id === "shipped" ? "the shipped file" : `${c.variant} · take ${c.seed + 1}`;
   // Notes: on a prompt (stays with that prompt: new variants start clean), or on the whole sound.
   const pnotes = name => (Lab.V.prompt_notes || {})[name] || {};
   const promptOf = (name, v) => (Lab.S.prompts[name] || {})[v] || "";
@@ -51,7 +51,7 @@
     build();
     P.cur = Math.max(0, P.sounds.findIndex(s => s.name === name));
     P.keepId = P.tiles[P.focus] ? P.tiles[P.focus].id : null;
-    renderList(); renderSound();
+    renderFilters(); renderList(); renderSound();  // (the filters too: the Notes count changes with a note)
   }
   function renderFilters() {
     const el = $("sf");
@@ -117,14 +117,14 @@
     const s = cur(), el = $("sd"), pick = Lab.V.picks[s.name];
     const silent = s.clips.filter(c => c.failed).length, pc = pick && pick !== "shipped" ? Lab.S.clips[pick] : null;
     const decision = pick === "shipped" ? `<span class="pill keep">${icon("keep")}Keeping the shipped file</span>`
-      : pick ? `<span class="pill pick">${icon("starFill")}Picked ${esc(pc ? `${pc.variant} · seed ${pc.seed}` : pick)}</span>` +
+      : pick ? `<span class="pill pick">${icon("starFill")}Picked ${esc(pc ? takeName(pc) : pick)}</span>` +
                (unshipped(s) ? `<span class="pill accent" data-tip="The game still has the previous file. Ask for a promote to ship this pick.">Not shipped yet</span>` : "")
       : `<span class="pill todo">Undecided</span>`;
     el.innerHTML = `<div class="shead"><div>
         <div class="eyebrow">${s.kind === "loop" ? "Loop" : "One-shot"}${s.palette ? ` · ${esc(s.palette)}` : ""}</div>
         <h1>${esc(s.name)}</h1>
         <div class="meta"><span class="chip">${s.seconds} s</span><span class="chip">${s.channels === 1 ? "mono" : "stereo"}</span>
-          <span class="chip">${s.clips.length} takes${silent ? ` · ${silent} silent` : ""}</span></div></div>
+          <span class="chip">${s.clips.length - silent} takes${silent ? ` · ${silent} silent` : ""}</span></div></div>
       <div class="actions">${decision}
         <button class="btn" id="keep" data-tip="Keep the file the game has now (0)">${icon("keep")}Keep shipped</button>
         ${pick ? `<button class="btn ghost" id="clear" data-tip="Clear the decision">Clear</button>` : ""}
@@ -152,10 +152,12 @@
     if (s.shipped) rows.appendChild(row("shipped", "the file the game has now", [{ id: "shipped", variant: "shipped", url: Lab.shippedUrl(s.shipped) }], true));
     const prompts = Lab.S.prompts[s.name] || {};
     const rank = v => ORDER.includes(v) ? ORDER.indexOf(v) : ORDER.length + (v.includes("-") ? 1 : 0);
+    const shown = new Set();
     for (const v of Object.keys(prompts).sort((a, b) => rank(a) - rank(b))) {
       const clips = s.clips.filter(c => c.variant === v).sort((a, b) => a.seed - b.seed);
-      if (clips.length) rows.appendChild(row(v, prompts[v], clips, false));
+      if (clips.length) { rows.appendChild(row(v, prompts[v], clips, false)); shown.add(v); }
     }
+    for (const [v, n] of Object.entries(pnotes(s.name))) if (!shown.has(v)) rows.appendChild(orphanRow(v, n));  // (a note whose prompt has no takes)
     const keep = P.keepId ? P.tiles.findIndex(t => t.id === P.keepId) : -1;
     P.focus = keep >= 0 ? keep : P.focus >= 0 ? Lab.clamp(P.focus, 0, P.tiles.length - 1) : Math.min(s.shipped ? 1 : 0, P.tiles.length - 1);
     P.keepId = null;
@@ -188,7 +190,7 @@
     for (const c of clips) {
       if (!ship) c.url = Lab.clipUrl(c);
       const hide = !ship && Lab.prefs.hideDown && Lab.V.clips[c.id] === -1;
-      const t = Lab.tile(c, ship ? "shipped now" : `seed ${c.seed}`, ship ? "wide ship" : "");
+      const t = Lab.tile(c, ship ? "shipped now" : `take ${c.seed + 1}`, ship ? "wide ship" : "");
       if (hide) { t.classList.add("hide"); hidden++; }
       if (!c.failed && !hide) {
         const i = P.tiles.length;
@@ -198,6 +200,15 @@
       c.el = t; grid.appendChild(t);
     }
     if (hidden) grid.insertAdjacentHTML("beforeend", `<span class="hiddenmsg">${hidden} hidden</span>`);
+    return sec;
+  }
+  // A prompt note with no row of takes (the prompt has none, or it was removed): the note still shows, to edit or resolve.
+  function orphanRow(v, n) {
+    const sec = document.createElement("section"), prompt = promptOf(cur().name, v) || n.prompt;
+    sec.className = "variant";
+    sec.innerHTML = `<div class="vhead"><span class="vname">${esc(v)}</span><p class="vprompt whole">${fmtPrompt(prompt)}</p></div>
+      ${callout(n.text, `${Lab.when(n.at)} · no takes on this prompt`, "")}`;
+    wireCallout(sec.querySelector(".pnote"), () => editPromptNote(v, sec.querySelector(".pnote")), () => savePromptNote(v, ""));
     return sec;
   }
   function paint(scroll = true) {
@@ -219,7 +230,7 @@
       note: { has: !!Lab.V.notes[s.name], tip: "A note on the whole sound (C)", open: a => editSoundNote(a, "above") } };
     const m = c.metrics || {};
     return {
-      id: c.id, url: c.url, title: s.name, sub: `${c.variant} · seed ${c.seed}${c.gen_s ? ` · made in ${c.gen_s}s` : ""}`, pick: pick === c.id,
+      id: c.id, url: c.url, title: s.name, sub: `${c.variant} · take ${c.seed + 1}${c.gen_s ? ` · made in ${c.gen_s}s` : ""}`, pick: pick === c.id,
       facts: [m.peak_db != null && `peak ${(+m.peak_db).toFixed(1)}`, m.rms_db != null && `rms ${(+m.rms_db).toFixed(1)}`, m.crest_db != null && `crest ${(+m.crest_db).toFixed(1)} dB`].filter(Boolean).join(" · "),
       play: f => play(c, f),
       note: { has: !!pnotes(s.name)[c.variant], tip: `${pnotes(s.name)[c.variant] ? "Edit the note" : "A note"} on the ${c.variant} prompt (C)`, open: a => editPromptNote(c.variant, a, "above") },
@@ -249,8 +260,11 @@
     if (P.tiles[P.focus]) play(P.tiles[P.focus]);
   }
   function toggleLoop() {
+    if (cur().kind === "oneshot") { Lab.toast("One-shots don't loop", { icon: "loop" }); return; }
     P.loopLong = !P.loopLong;
-    Lab.player.el.loop = P.loopLong && cur().kind !== "oneshot" && !Lab.player.region;
+    const pl = Lab.player, want = P.loopLong && !P.audition;
+    pl.loopWanted = want;  // (what the player goes back to when an A-B region is cleared)
+    pl.el.loop = want && !(pl.region && pl.region.id === pl.current);
     const b = $("lp"); if (b) b.classList.toggle("on", P.loopLong);
     Lab.toast(`Looping ${P.loopLong ? "on" : "off"}`, { icon: "loop" });
   }
@@ -267,19 +281,31 @@
     if (Lab.player.current === "shipped") { if (take) play(take, t); Lab.toast(`A · ${take ? takeName(take) : ""}`, { icon: "ab" }); }
     else { play({ id: "shipped", url: Lab.shippedUrl(s.shipped) }, t); Lab.toast("B · the shipped file", { icon: "ab" }); }
   }
+  const pending = {};  // clip id -> the vote on its way (Lab.V is stale until it lands, so a quick second press toggles from this)
   async function rate(v, c = P.tiles[P.focus], advance = true) {
     if (!c || c.id === "shipped") return;
-    const now = Lab.V.clips[c.id] === v ? 0 : v, i = P.tiles.indexOf(c), next = advance ? P.tiles[i + 1] : null;
-    const hide = Lab.prefs.hideDown && now === -1;
-    if (next && !hide) { P.focus = i + 1; paint(); play(next); }  // (move on at once: a quick next press rates the next take)
-    await Lab.vote({ clip: c.id, value: now }, { label: `${now === 1 ? "Thumbs up" : now === -1 ? "Thumbs down" : "Vote cleared"} · ${takeName(c)}`, icon: now === -1 ? "down" : now ? "up" : "x" });
+    const q = pending[c.id] || (pending[c.id] = { n: 0, value: Lab.V.clips[c.id] || 0 });
+    const now = q.value === v ? 0 : v, i = P.tiles.indexOf(c), next = advance ? P.tiles[i + 1] : null;
+    const hide = Lab.prefs.hideDown && now === -1, moved = !!next && !hide;
+    q.value = now; q.n++;
+    if (moved) { P.focus = i + 1; paint(); play(next); }  // (move on at once: a quick next press rates the next take)
+    try {
+      await Lab.vote({ clip: c.id, value: now }, { label: `${now === 1 ? "Thumbs up" : now === -1 ? "Thumbs down" : "Vote cleared"} · ${takeName(c)}`, icon: now === -1 ? "down" : now ? "up" : "x" });
+    } catch {  // (Lab.vote already said so) back to the take that wasn't rated
+      if (moved && Lab.tab === "sounds" && $("sd") && P.focus === i + 1) { P.focus = i; paint(); play(c); }
+      return;
+    } finally { if (!--q.n) delete pending[c.id]; }
+    if (Lab.tab !== "sounds" || !$("sd")) return;
     renderList();
     if (hide) { P.keepId = (next || P.tiles[i - 1] || {}).id; renderSound(); if (next) play(next); }
     else paint(false);
   }
   async function setPick(id) {
     const s = cur(), now = id && Lab.V.picks[s.name] === id ? null : id, c = Lab.S.clips[now];
-    await Lab.vote({ sound: s.name, pick: now }, { label: now === null ? `Decision cleared · ${s.name}` : now === "shipped" ? `Keeping the shipped ${s.name}` : `Picked ${c ? takeName(c) : now} for ${s.name}`, icon: now ? "starFill" : "x" });
+    try {
+      await Lab.vote({ sound: s.name, pick: now }, { label: now === null ? `Decision cleared · ${s.name}` : now === "shipped" ? `Keeping the shipped ${s.name}` : `Picked ${c ? takeName(c) : now} for ${s.name}`, icon: now ? "starFill" : "x" });
+    } catch { return; }  // (Lab.vote already said so)
+    if (Lab.tab !== "sounds" || !$("sd")) return;
     P.keepId = P.tiles[P.focus] ? P.tiles[P.focus].id : null;
     renderList(); renderSound();
   }
@@ -293,7 +319,13 @@
     el.querySelector("[data-resolve]").onclick = e => { e.stopPropagation(); resolve(); };
     el.onclick = e => { if (!e.target.closest("button")) edit(); };
   }
-  function keepPlace() { P.keepId = P.tiles[P.focus] ? P.tiles[P.focus].id : null; const y = $("sd").scrollTop; renderList(); renderSound(); $("sd").scrollTop = y; }
+  function keepPlace() {
+    const sd = $("sd");
+    if (!sd) return;  // (left the tab while it saved)
+    P.keepId = P.tiles[P.focus] ? P.tiles[P.focus].id : null;
+    const y = sd.scrollTop;
+    renderFilters(); renderList(); renderSound(); $("sd").scrollTop = y;
+  }
   function editPromptNote(v, anchor, place = "below") {
     const n = pnotes(cur().name)[v];
     Lab.noteEditor({ anchor, place, title: `Note on the ${v} prompt`, value: n ? n.text : "", placeholder: "What's wrong with these takes, or what to try instead…",
@@ -301,8 +333,10 @@
   }
   async function savePromptNote(v, text) {
     const s = cur();
-    await Lab.vote({ sound: s.name, variant: v, prompt_note: text, prompt: promptOf(s.name, v) },
-                   { label: text ? `Note saved on the ${v} prompt` : `Note on the ${v} prompt resolved`, icon: text ? "pen" : "check" });
+    try {
+      await Lab.vote({ sound: s.name, variant: v, prompt_note: text, prompt: promptOf(s.name, v) || (pnotes(s.name)[v] || {}).prompt || "" },  // (a note's prompt is kept when the variant is gone)
+                     { label: text ? `Note saved on the ${v} prompt` : `Note on the ${v} prompt resolved`, icon: text ? "pen" : "check" });
+    } catch { return; }  // (Lab.vote already said so)
     keepPlace();
   }
   function editSoundNote(anchor, place = "below") {
@@ -311,7 +345,8 @@
                      placeholder: "About the sound as a whole: what it should be, ideas to try…", onSave: t => saveSoundNote(t), onResolve: () => saveSoundNote("") });
   }
   async function saveSoundNote(text) {
-    await Lab.vote({ sound: cur().name, note: text }, { label: text ? "Note on the sound saved" : "Note on the sound resolved", icon: text ? "pen" : "check" });
+    try { await Lab.vote({ sound: cur().name, note: text }, { label: text ? "Note on the sound saved" : "Note on the sound resolved", icon: text ? "pen" : "check" }); }
+    catch { return; }  // (Lab.vote already said so)
     keepPlace();
   }
   function moveRow(dir) {
@@ -325,7 +360,7 @@
   }
 
   Lab.register("sounds", {
-    title: "Sounds", icon: "wave", show, refresh,
+    title: "Sounds", icon: "wave", show, refresh, leave() { P.audition = false; }, hash: () => P.sounds.length ? cur().name : undefined,
     count() {
       const by = new Set(Object.values(Lab.S.clips).map(c => c.name));
       return Object.entries(Lab.S.sounds).filter(([n, m]) => m.kind !== "pool" && by.has(n) && Lab.V.picks[n] == null).length || "";
@@ -354,7 +389,10 @@
       else if (k === "a") audition();
       else if (k === "h") toggleHide();
       else if (k === "Escape") { P.audition = false; syncTools(); Lab.stop(); }
-      else if (k === "N") { const v = P.sounds.findIndex((s, i) => i > P.cur && !decided(s)); go(v >= 0 ? v : P.sounds.findIndex(s => !decided(s))); }
+      else if (k === "N") {  // (the next undecided sound in the list as filtered)
+        const todo = visible().filter(s => !decided(s)), nx = todo.find(s => P.sounds.indexOf(s) > P.cur) || todo[0];
+        if (nx) go(P.sounds.indexOf(nx)); else Lab.toast("Every sound here is decided", { icon: "check" });
+      }
       else if (k === "n" || k === "]") step(1);
       else if (k === "b" || k === "[") step(-1);
       else if (k === "l") toggleLoop();

@@ -9,7 +9,7 @@
     return [PROFILE_INFO[p], st.length ? `strength from the spine: ${st.join(", ")}` : "", lay.length ? `layers: ${lay.join("; ")}` : ""].filter(Boolean).join(" · ");
   };
   const M = { older: false, key: null, take: 0, prof: null, level: null, stack: false, fade: "bar", quant: false, enter: "start",
-              deck: null, pendingAt: 0, raf: 0, gen: 0 };  // (gen: bumped by every start, switch and stop; a stale load gives up)
+              deck: null, prev: null, swapAt: 0, pendingAt: 0, raf: 0, gen: 0 };  // (gen: bumped by every start, switch and stop; a stale load gives up)
   const { icon, esc } = Lab, $ = id => document.getElementById(id);
   const bufs = new Map(), shapes = new Map(), MAX_BUFS = 18;  // (a 42 s level decodes to about 16 MB)
   const out = Lab.actx.createGain(), an = Lab.actx.createAnalyser();
@@ -21,6 +21,10 @@
   const beatS = () => 60 / mesh().bpm, barS = () => beatS() * mesh().bar_beats, loopS = () => barS() * mesh().bars;
   const set = (k = M.key) => mesh().contexts[k];
   const keys = () => Object.keys(mesh().contexts).sort((a, b) => a.localeCompare(b));
+  // A set keeps the takes of every run, newest batch first. Only the set's newest batch is out; its earlier takes (voted
+  // on or not) fold under "Earlier takes". A take made before takes carried their round belongs to the set's round.
+  const isCurrent = (t, k = M.key) => (t.round ?? set(k).round ?? "") === (set(k).round ?? "");
+  const current = (k = M.key) => set(k).takes.filter(t => isCurrent(t, k));
   const voteId = (k = M.key, t = set().takes[M.take].id, p = M.prof) => `mesh_${k}.${t}.${p}`;
   function buf(rel) {
     if (bufs.has(rel)) { const b = bufs.get(rel); bufs.delete(rel); bufs.set(rel, b); return b; }
@@ -43,7 +47,7 @@
   // Rounds: each `music generate` run. Only the newest round's sets show; the rest fold under "Earlier rounds"
   // (liked sets first, then each round, newest first; opened when the set playing is one of them).
   const roundOf = k => set(k).round || "";
-  const newest = () => keys().reduce((r, k) => roundOf(k) > r ? roundOf(k) : r, "");
+  const newest = () => { const r = mesh().rounds || []; return r.length ? r[r.length - 1].id : keys().reduce((m, k) => roundOf(k) > m ? roundOf(k) : m, ""); };
   function roundLabel(r, title = "Round") {  // "Round · bed · anthem · full", then its time, muted
     if (!r) return "The first score";
     const x = (mesh().rounds || []).find(o => o.id === r), when = new Date(r.replace(" ", "T"));
@@ -71,14 +75,14 @@
   }
   const isNew = (k, t, p) => !seenSet().has(`${k}|${t}|${p}`);
   const takeNew = (k, t) => Object.keys(t.profiles).some(p => isNew(k, t.id, p));
-  const setNew = k => set(k).takes.filter(t => takeNew(k, t)).length;
+  const setNew = k => current(k).filter(t => takeNew(k, t)).length;
   const NEW = `<span class="newb">new</span>`, MIXES = `<span class="newb mixes" data-tip="New mixes of takes you've heard">+ mixes</span>`;
-  const setAllNew = k => set(k).takes.every(t => Object.keys(t.profiles).every(p => isNew(k, t.id, p)));  // (never opened)
+  const setAllNew = k => current(k).every(t => Object.keys(t.profiles).every(p => isNew(k, t.id, p)));  // (never opened)
 
   function setChip(k) {
     const sc = mesh().contexts[k], n = ships(k).liked, fresh = setNew(k);
     return `<button class="setc ${k === M.key ? "on" : ""}" data-key="${esc(k)}">
-        <b>${esc(k.replace(/[.~]/g, " · "))}${!fresh ? "" : setAllNew(k) ? NEW : MIXES}</b><small><span>${esc(sc.mode)}</span><span>${sc.takes.length} take${sc.takes.length === 1 ? "" : "s"}</span>${n ? `<span class="liked">${n} liked</span>` : ""}</small></button>`;
+        <b>${esc(k.replace(/[.~]/g, " · "))}${!fresh ? "" : setAllNew(k) ? NEW : MIXES}</b><small><span>${esc(sc.mode)}</span><span>${current(k).length} take${current(k).length === 1 ? "" : "s"}${sc.takes.length > current(k).length ? ` · ${sc.takes.length - current(k).length} earlier` : ""}</span>${n ? `<span class="liked">${n} liked</span>` : ""}</small></button>`;
   }
   // Only the newest round is out; everything older is folded away: what you liked first, then each round.
   function setList() {
@@ -88,7 +92,8 @@
     const group = (title, ks, cls = "") => ks.length ? `<div class="round ${cls}"><div class="roundh">${title}</div>
         <div class="sets">${ks.map(setChip).join("")}</div></div>` : "";
     const rounds = [...new Set(rest.map(roundOf))].sort().reverse(), oldNew = old.filter(setNew).length;
-    return group(roundLabel(newest(), "Newest round"), top, "now")
+    return (top.length ? group(roundLabel(newest(), "Newest round"), top, "now")
+        : newest() ? `<div class="round now"><div class="roundh">${roundLabel(newest(), "Newest round")}</div><p class="lede">No take passed in this round: every seed was rejected. The sets below are from earlier rounds.</p></div>` : "")
       + (old.length ? `<div class="sets"><button class="setc older ${M.older ? "on" : ""}" id="molder" data-tip="Everything from earlier rounds">
           <b>${icon("right")}Earlier rounds</b><small><span>${old.length} set${old.length === 1 ? "" : "s"}</span>${liked.length ? `<span class="liked">${liked.length} liked</span>` : ""}${oldNew ? `<span>${oldNew} with new mixes</span>` : ""}</small></button></div>
       ${M.older ? group("Liked", liked) + rounds.map(r => group(roundLabel(r), rest.filter(k => roundOf(k) === r))).join("") : ""}` : "");
@@ -97,16 +102,16 @@
     return set(k).takes.flatMap(t => Object.keys(t.profiles).filter(p => (Lab.V.clips[voteId(k, t.id, p)] || 0) > 0).map(p => `${t.id} · ${p}`));
   }
   function ships(k) {
-    const c = set(k), takes = c.takes, p0 = profile0(k), liked = likedIn(k);
+    const c = set(k), takes = current(k), p0 = profile0(k), liked = likedIn(k);  // (liked: any round; the fallback: the newest batch)
     const sibling = keys().some(o => o !== k && set(o).context === c.context && set(o).biome === c.biome && likedIn(o).length);
     const fallback = c.style || sibling ? [] : takes.filter(t => (Lab.V.clips[voteId(k, t.id, p0)] || 0) >= 0).map(t => `${t.id} · ${p0}`);
-    return { liked: liked.length, list: liked.length ? liked : fallback };
+    return { liked: liked.length, list: liked.length ? liked : fallback, sibling };
   }
 
   function hold(param, at) {  // keep the value an automation has reached at `at` (cancelling would jump back)
     if (param.cancelAndHoldAtTime) { param.cancelAndHoldAtTime(at); return; }
-    const v = param.value;
-    param.cancelScheduledValues(at); param.setValueAtTime(v, at);
+    const v = param.value;  // (clearing all of it: a curve already running would make a later event throw)
+    try { param.cancelScheduledValues(0); param.setValueAtTime(v, Math.min(at, Lab.actx.currentTime)); } catch { /* (the ramp below still sets the target) */ }
   }
   function ramp(param, target, at, dur) {  // equal power, from the value held at `at`
     const from = param.value;
@@ -114,7 +119,7 @@
     if (dur <= 0.02) { param.setValueAtTime(target, at); return; }
     const c = new Float32Array(64);
     for (let i = 0; i < 64; i++) { const x = i / 63; c[i] = Math.sqrt(from * from * (1 - x) + target * target * x); }
-    param.setValueCurveAtTime(c, at, dur);
+    try { param.setValueCurveAtTime(c, at, dur); } catch { param.setValueAtTime(target, at); }
   }
   function nextBar(deck = M.deck) {
     const now = Lab.actx.currentTime, b = barS();
@@ -154,11 +159,17 @@
     if (g !== M.gen) return;  // (stopped, or something newer started, while it loaded)
     const at = Lab.actx.currentTime + 0.06, d = makeDeck(loaded, at, offset);
     if (M.deck) kill(M.deck, at, 0.03);
+    dropPrev(at);
     M.deck = d; M.pendingAt = 0;
     cancelAnimationFrame(M.raf); tick(); paint();
   }
+  function dropPrev(at) {  // (a switch's outgoing deck, still sounding until the new one enters)
+    if (M.prev && Lab.actx.currentTime < M.swapAt) kill(M.prev, at, 0.03);
+    M.prev = null; M.swapAt = 0;
+  }
   function stop() {
     M.gen++;
+    dropPrev(Lab.actx.currentTime);
     if (M.deck) { kill(M.deck, Lab.actx.currentTime, 0.05); M.deck = null; }
     M.pendingAt = 0; cancelAnimationFrame(M.raf); M.raf = 0; paint(); idle();
   }
@@ -176,6 +187,7 @@
     paint(); drawTimeline();
   }
   async function switchTo(change) {  // a new take, profile or set enters on the next bar line
+    if (change.key && change.key !== M.key) M.olderTakes = false;  // (another set: its earlier takes fold again)
     Object.assign(M, change);
     if (!set() || !set().takes.length) { stop(); render(); return; }
     M.take = Lab.clamp(M.take, 0, set().takes.length - 1);
@@ -192,23 +204,30 @@
     const xf = M.fade === "cut" ? 0 : beatS(), d = makeDeck(loaded, at, offset);
     if (xf > 0.02) { d.out.gain.setValueAtTime(0, Lab.actx.currentTime); d.out.gain.setValueAtTime(0, at); d.out.gain.linearRampToValueAtTime(1, at + xf); }
     kill(old, at, xf);
-    M.deck = d; M.pendingAt = at;
+    M.deck = d; M.pendingAt = at; M.prev = old; M.swapAt = at;
     paint();
   }
 
   // ---- drawing: the clock, the timeline (the shape of the level you hear), meters and a spectrum
   function shape(rel) {
-    if (!shapes.has(rel)) shapes.set(rel, buf(rel).then(b => {
-      const n = b.length, d = new Float32Array(n);
-      for (let c = 0; c < b.numberOfChannels; c++) { const x = b.getChannelData(c); for (let i = 0; i < n; i++) d[i] += x[i] / b.numberOfChannels; }
-      return Lab.buckets(d, 1200);
-    }));
+    if (!shapes.has(rel)) {
+      const p = buf(rel).then(b => {
+        const n = b.length, d = new Float32Array(n);
+        for (let c = 0; c < b.numberOfChannels; c++) { const x = b.getChannelData(c); for (let i = 0; i < n; i++) d[i] += x[i] / b.numberOfChannels; }
+        return Lab.buckets(d, 1200);
+      });
+      shapes.set(rel, p); p.catch(() => { if (shapes.get(rel) === p) shapes.delete(rel); });  // (a failure isn't kept: it can load later)
+    }
     return shapes.get(rel);
   }
+  const shapeFile = () => { try { return files()[M.stack ? mesh().levels[mesh().levels.length - 1] : M.level]; } catch { return null; } };
   async function loadShape() {
-    const want = files()[M.stack ? mesh().levels[mesh().levels.length - 1] : M.level], key = M.key;
-    try { M.shape = await shape(want); M.shapeFor = want; } catch { M.shape = null; }
-    if (key === M.key) drawTimeline();
+    const want = shapeFile();
+    let got = null;
+    try { got = await shape(want); } catch { /* (no waveform) */ }
+    if (want !== shapeFile()) return;  // (the take, level or profile moved on while this loaded)
+    M.shape = got; M.shapeFor = got ? want : null;
+    drawTimeline();
   }
   function drawTimeline(prog = -1) {
     const tl = $("tl");
@@ -257,9 +276,11 @@
     document.querySelectorAll("#tl .barnums span").forEach(s => s.classList.remove("now"));
   }
   function tick() {
-    const d = M.deck;
-    if (!d) return;
-    const now = Lab.actx.currentTime, pos = posOf(d), m = mesh();
+    if (!M.deck) return;
+    const now = Lab.actx.currentTime;
+    if (M.prev && now >= M.swapAt) { M.prev = null; M.swapAt = 0; }
+    const d = M.prev || M.deck;  // (a switch waiting for its bar: keep showing the deck you hear)
+    const pos = posOf(d), m = mesh();
     const bar = Math.floor(pos / barS()), beat = Math.floor(pos / beatS()) % m.bar_beats, started = now >= d.t0;
     const clock = $("clock");
     if (clock) clock.innerHTML = started ? `${bar + 1}.${beat + 1}<small>/ ${m.bars}</small>` : "…";
@@ -286,8 +307,11 @@
     if (!mesh() || !keys().length) { Lab.showEmpty("layers", "No music yet", `<p>Make some with <code>soundlab music generate --contexts …</code>.</p>`); return; }
     if (arg && mesh().contexts[arg] && arg !== M.key && M.deck && Lab.tab === "music") { switchTo({ key: arg, take: 0 }); return; }  // (playing: enter on the bar)
     if (arg && mesh().contexts[arg]) { if (arg !== M.key) M.take = 0; M.key = arg; }
-    if (!M.key || !set()) M.key = keys().find(k => roundOf(k) === newest()) || keys()[0];
-    M.take = Math.min(M.take, set().takes.length - 1);
+    if (!M.key || !set()) {  // (a set that has takes: generating can leave one with none, when every seed was rejected)
+      const full = keys().filter(k => set(k).takes.length);
+      M.key = full.find(k => roundOf(k) === newest()) || full[0] || keys()[0];
+    }
+    M.take = Math.max(0, Math.min(M.take, set().takes.length - 1));
     M.level = M.level && mesh().levels.includes(M.level) ? M.level : mesh().levels[Math.floor(mesh().levels.length / 2)];
     const def = mesh().profiles.includes(Lab.project.default_profile) ? Lab.project.default_profile : mesh().profiles[mesh().profiles.length - 1];
     M.prof = M.prof && mesh().profiles.includes(M.prof) ? M.prof : def;
@@ -297,17 +321,28 @@
   function render() {
     if (M.seenKey !== M.key) {  // entering a set: note what's new in it (dots for this visit), then mark it all seen
       const all = setAllNew(M.key);
-      M.fresh = new Set(all ? [] : set().takes.flatMap(t => Object.keys(t.profiles).map(p => `${M.key}|${t.id}|${p}`)).filter(id => !seenSet().has(id)));
+      M.fresh = new Set(all ? [] : current().flatMap(t => Object.keys(t.profiles).map(p => `${M.key}|${t.id}|${p}`)).filter(id => !seenSet().has(id)));
       markSetSeen(M.key); M.seenKey = M.key;
     }
     const m = mesh(), c = set();
-    if (!c.takes.length) { Lab.showEmpty("layers", `No takes passed for ${M.key}`, ""); return; }
+    if (!c.takes.length) {  // (the set chips stay, so another set is one click away)
+      Lab.view().innerHTML = `<div class="page music"><div class="wrap">
+        <div class="page-head"><div><div class="eyebrow">${m.bpm} BPM · ${m.bar_beats}/4 · ${m.bars}-bar loops · ${loopS().toFixed(1)} s</div><h1>Music</h1></div></div>
+        ${setList()}<div class="empty"><div class="glyph">${icon("layers")}</div><b>No takes passed for ${esc(M.key)}</b>
+          <p>Every seed was rejected (tempo, beat lock or the quality gate). Run <code>soundlab music generate</code> again for it.</p></div></div></div>`;
+      Lab.view().querySelectorAll("[data-key]").forEach(b => b.onclick = () => switchTo({ key: b.dataset.key, take: 0 }));
+      if ($("molder")) $("molder").onclick = () => { M.older = !M.older; render(); };
+      return;
+    }
     M.take = Lab.clamp(M.take, 0, c.takes.length - 1);
     if (!c.takes[M.take].profiles[M.prof]) M.prof = Object.keys(c.takes[M.take].profiles)[0];
     const take = c.takes[M.take], info = (take.profiles[M.prof] || {}).info || {}, v = Lab.V.clips[voteId()], sh = ships(M.key);
     const qual = lv => ((take.quality || {})[(take.profiles[M.prof] || {}).levels?.[lv]]);  // (music check's report)
     const warned = t => { const L = (t.profiles[M.prof] || {}).levels || {}; return Object.values(L).some(f => ((t.quality || {})[f] || {}).flags?.length); };
     const dot = t => { const x = Lab.V.clips[voteId(M.key, t.id)]; return x === 1 ? `<span class="vote up">${icon("up")}</span>` : x === -1 ? `<span class="vote down">${icon("down")}</span>` : ""; };  // (this profile's vote)
+    const cur = c.takes.filter(t => isCurrent(t)), olderT = c.takes.filter(t => !isCurrent(t)), showOld = M.olderTakes || olderT.includes(take);
+    const likedTake = t => Object.keys(t.profiles).some(p => (Lab.V.clips[voteId(M.key, t.id, p)] || 0) > 0);
+    const takeSeg = ts => Lab.seg(ts.map(t => [String(c.takes.indexOf(t)), `${dot(t)}${esc(t.id)}${warned(t) ? `<span class="qwarn" data-tip="A level of this take is flagged">${icon("flag")}</span>` : ""}`]), String(M.take), "take");
     const page = document.querySelector(".page.music"), y = page ? page.scrollTop : 0;
     Lab.view().innerHTML = `<div class="page music"><div class="wrap">
       <div class="page-head"><div><div class="eyebrow">${m.bpm} BPM · ${m.bar_beats}/4 · ${m.bars}-bar loops · ${loopS().toFixed(1)} s</div><h1>Music</h1>
@@ -333,11 +368,11 @@
           <button class="btn stackbtn ${M.stack ? "on" : ""}" id="mstack" data-tip="Every level at once: do they clash? (S)">${icon("layers")}<span>Stack</span></button></div>
       </section>
       <div class="mtake">
-        <div class="field"><label>Take</label>${Lab.seg(c.takes.map((t, i) => [String(i), `${dot(t)}${esc(t.id)}${warned(t) ? `<span class="qwarn" data-tip="A level of this take is flagged">${icon("flag")}</span>` : ""}`]), String(M.take), "take")}</div>
+        <div class="field"><label>Take</label>${takeSeg(cur)}${olderT.length ? `<button class="btn" id="molderT" data-tip="Takes from earlier runs of this set: hidden once a new batch exists">${icon("right")}<span>Earlier takes · ${olderT.length}${olderT.filter(t => likedTake(t)).length ? ` · ${olderT.filter(t => likedTake(t)).length} liked` : ""}</span></button>` : ""}${showOld ? takeSeg(olderT) : ""}</div>
         <div class="field"><label>Profile</label>${Lab.seg(m.profiles.filter(p => take.profiles[p]).map(p => [p, `${esc(p)}${M.fresh.has(`${M.key}|${take.id}|${p}`) ? `<span class="newtag">new</span>` : ""}`, false, profTip(take, p)]), M.prof, "prof")}</div>
         <div class="field grow"><label>Plays</label><div class="lineup">${Object.entries(take.instruments || {}).map(([r, n]) =>
           `<span class="chip" data-tip="${esc(r.replace(/_/g, " "))}">${esc(n)}</span>`).join("")}${Object.entries(take.layers || {}).map(([n, l]) =>
-          `<button class="chip layer" data-stem="${esc(l.file)}" data-tip="Layer: hear it alone. ${esc(l.prompt)}">${icon("play")}${esc(n)} layer</button>`).join("")}</div></div>
+          `<button class="chip layer" data-stem="${esc(l.file)}" data-play-id="stem:${esc(l.file)}" data-tip="Layer: hear it alone. ${esc(l.prompt)}">${icon("play")}${esc(n)} layer</button>`).join("")}</div></div>
         <div class="field"><label>This take</label><div class="row">
           <button class="btn good ${v === 1 ? "on" : ""}" id="mup" data-tip="Liked takes ship as tracks in rotation (U)">${icon("up")}Like</button>
           <button class="btn bad ${v === -1 ? "on" : ""}" id="mdown" data-tip="Dislike (D)">${icon("down")}</button></div></div>
@@ -349,7 +384,7 @@
       </div>
       <div class="facts"><span>tempo <b>${take.measured_bpm} → ${take.corrected_bpm} BPM</b></span>${take.beat_spread_ms != null ? `<span>beat spread <b>${take.beat_spread_ms} ms</b></span>` : ""}
         <span>beat lock <b>${esc(m.levels.map(lv => info[lv] ? `${lv} ${info[lv].lock}` : "").filter(Boolean).join(", "))}</b></span>
-        <span>ships <b>${sh.list.length ? esc(sh.list.join(", ")) : "nothing"}</b>${sh.liked ? "" : sh.list.length ? " (none liked yet: every take not thumbed down, at its default profile)" : c.style ? " (a style's takes ship only when liked)" : " (a style of this set is liked instead)"}</span></div>
+        <span>ships <b>${sh.list.length ? esc(sh.list.join(", ")) : "nothing"}</b>${sh.liked ? "" : sh.list.length ? " (none liked yet: every take of the newest batch not thumbed down, at its default profile)" : c.style ? " (a style's takes ship only when liked)" : sh.sibling ? " (a style of this set is liked instead)" : current().length ? " (every take of the newest batch is thumbed down)" : ""}</span></div>
       <div class="notebox ${Lab.V.notes["mesh_" + M.key] ? "has" : ""}">${icon("pen")}<textarea id="mnote" rows="1"
         placeholder="Notes on ${esc(M.key)}: do the levels mesh? Which lineups work?">${esc(Lab.V.notes["mesh_" + M.key] || "")}</textarea><span class="saved">${icon("check")}saved</span></div>
       <details class="prompts"><summary>${icon("right")}Prompts</summary>
@@ -358,7 +393,13 @@
     const vw = Lab.view();
     vw.querySelectorAll("[data-key]").forEach(b => b.onclick = () => switchTo({ key: b.dataset.key, take: 0 }));
     if ($("molder")) $("molder").onclick = () => { M.older = !M.older; render(); };
-    vw.querySelectorAll("[data-stem]").forEach(b => b.onclick = () => { if (M.deck) stop(); Lab.play("/clips/" + b.dataset.stem, { id: "stem:" + b.dataset.stem }); });
+    if ($("molderT")) $("molderT").onclick = () => { M.olderTakes = !M.olderTakes; render(); };
+    vw.querySelectorAll("[data-stem]").forEach(b => b.onclick = () => {  // (a layer alone; click it again to stop)
+      const id = "stem:" + b.dataset.stem;
+      if (Lab.player.current === id) { Lab.stop(); paint(); return; }
+      if (M.deck) stop();
+      Lab.play("/clips/" + b.dataset.stem, { id, onEnd: paint }); paint();
+    });
     vw.querySelectorAll("[data-take]").forEach(b => b.onclick = () => switchTo({ take: +b.dataset.take }));
     vw.querySelectorAll("[data-prof]").forEach(b => b.onclick = () => switchTo({ prof: b.dataset.prof }));
     vw.querySelectorAll("[data-fade]").forEach(b => b.onclick = () => { M.fade = b.dataset.fade; render(); });
@@ -380,7 +421,7 @@
     tl.onclick = e => { const b = barAt(e); if (e.shiftKey) play((Math.floor(b * m.bar_beats) / m.bar_beats) * barS()); else seekBar(Math.floor(b)); };
     tl.dataset.tip = "Click to jump to a bar · Shift-click for a beat";
     paint();
-    if (M.shapeFor !== files()[M.stack ? m.levels[m.levels.length - 1] : M.level]) M.shape = null;
+    if (M.shapeFor !== shapeFile()) M.shape = null;
     loadShape();
     if (!M.deck) idle(); else { cancelAnimationFrame(M.raf); tick(); }
   }
@@ -391,6 +432,7 @@
     document.querySelectorAll(".lvl").forEach(b => b.classList.toggle("on", !M.stack && b.dataset.lv === M.level));
     const st = $("mstack");
     if (st) st.classList.toggle("on", M.stack);
+    document.querySelectorAll("[data-stem]").forEach(b => { const on = Lab.player.current === "stem:" + b.dataset.stem; b.classList.toggle("on", on); b.innerHTML = b.innerHTML.replace(/<svg[\s\S]*?<\/svg>/, icon(on ? "stop" : "play")); });
     const pend = M.pendingAt && M.deck ? Math.floor(((((M.pendingAt - M.deck.t0) % loopS()) + loopS()) % loopS()) / barS()) : -1;
     document.querySelectorAll("#tl .barnums span").forEach((el, i) => el.classList.toggle("pend", i === pend));
   }
@@ -406,16 +448,22 @@
            ["[ ]", "previous / next take"], ["P", "next profile"], ["U", "like this take"], ["D", "dislike this take"], ["Esc", "stop"]],
     onKey(e) {
       if (!mesh() || !M.key || !set().takes.length) return;
-      const k = e.key, n = set().takes.length;
+      const k = e.key;
       if (k === " ") { e.preventDefault(); M.deck ? stop() : play(); }
       else if (/^[1-9]$/.test(k) && mesh().levels[+k - 1]) { M.stack = false; setLevel(mesh().levels[+k - 1]); loadShape(); }
       else if (k === "s" || k === "S") { M.stack = !M.stack; setLevel(); loadShape(); }
       else if (k === "ArrowLeft" || k === "ArrowRight") { e.preventDefault(); const b = M.deck ? Math.floor(posOf(M.deck) / barS()) : 0; seekBar(b + (k === "ArrowRight" ? 1 : -1)); }
-      else if (k === "[" || k === "]") switchTo({ take: (M.take + (k === "]" ? 1 : -1) + n) % n });
-      else if (k === "p" || k === "P") switchTo({ prof: mesh().profiles[(mesh().profiles.indexOf(M.prof) + 1) % mesh().profiles.length] });
-      else if (k === "u") vote(1);
-      else if (k === "d") vote(-1);
-      else if (k === "Escape") stop();
+      else if (k === "[" || k === "]") {  // (the takes on show: the newest batch, and the earlier ones when opened)
+        const vis = set().takes.map((t, i) => i).filter(i => isCurrent(set().takes[i]) || M.olderTakes || i === M.take), at = vis.indexOf(M.take);
+        switchTo({ take: vis[(at + (k === "]" ? 1 : -1) + vis.length) % vis.length] });
+      }
+      else if (k === "p" || k === "P") {  // (among the profiles this take has)
+        const have = mesh().profiles.filter(p => set().takes[M.take].profiles[p]);
+        if (have.length) switchTo({ prof: have[(have.indexOf(M.prof) + 1) % have.length] });
+      }
+      else if (k === "u" || k === "U") vote(1);
+      else if (k === "d" || k === "D") vote(-1);
+      else if (k === "Escape") { stop(); Lab.stop(); paint(); }
     },
   });
 })();
