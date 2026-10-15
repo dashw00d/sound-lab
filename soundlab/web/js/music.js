@@ -3,6 +3,11 @@
 (() => {
   const FADES = { cut: ["cut", 0], beat: ["1 beat", 1], bar: ["1 bar", 4], two: ["2 bars", 8] };  // in beats
   const PROFILE_INFO = { close: "levels keep the spine's chords; gentler contrast", contrast: "clearer contrast; chords drift more" };
+  const profTip = (take, p) => {  // (what a profile is: its note, and the take's audio-to-audio strengths)
+    const i = (take.profiles[p] || {}).info || {}, st = Object.entries(i).filter(([, x]) => x.noise != null).map(([lv, x]) => `${lv} ${x.noise}`);
+    const lay = Object.entries(i).filter(([, x]) => x.layers).map(([lv, x]) => `${lv}: ${Object.entries(x.layers).map(([n, g]) => `${n} ${g > 0 ? "+" : ""}${g} dB`).join(", ")}`);
+    return [PROFILE_INFO[p], st.length ? `strength from the spine: ${st.join(", ")}` : "", lay.length ? `layers: ${lay.join("; ")}` : ""].filter(Boolean).join(" · ");
+  };
   const M = { older: false, key: null, take: 0, prof: null, level: null, stack: false, fade: "bar", quant: false, enter: "start",
               deck: null, pendingAt: 0, raf: 0, gen: 0 };  // (gen: bumped by every start, switch and stop; a stale load gives up)
   const { icon, esc } = Lab, $ = id => document.getElementById(id);
@@ -35,31 +40,58 @@
     const t = set(k).takes[0], ps = t ? Object.keys(t.profiles) : [], d = Lab.project.default_profile;
     return ps.includes(d) ? d : ps.includes("contrast") ? "contrast" : ps[0];
   }
-  // Rounds: each `music generate` run. The newest round's sets show, with any set that has a liked take; the rest
-  // fold under "Earlier rounds", newest first (opened when the set playing is one of them).
+  // Rounds: each `music generate` run. Only the newest round's sets show; the rest fold under "Earlier rounds"
+  // (liked sets first, then each round, newest first; opened when the set playing is one of them).
   const roundOf = k => set(k).round || "";
   const newest = () => keys().reduce((r, k) => roundOf(k) > r ? roundOf(k) : r, "");
-  const shown = k => roundOf(k) === newest() || likedIn(k).length > 0;
-  function roundLabel(r) {
-    if (!r) return "Before rounds";
-    const x = (mesh().rounds || []).find(o => o.id === r);
-    return `Round ${r}` + (x && x.styles && x.styles.length ? ` · ${x.styles.join(", ")}` : "");
+  function roundLabel(r, title = "Round") {  // "Round · bed · anthem · full", then its time, muted
+    if (!r) return "The first score";
+    const x = (mesh().rounds || []).find(o => o.id === r), when = new Date(r.replace(" ", "T"));
+    const time = isNaN(when) ? r : when.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    return `${title}${x && x.styles && x.styles.length ? ` · ${x.styles.map(esc).join(" · ")}` : ""}<span class="when">${esc(time)}</span>`;
   }
+  // What's new to you: what was added since you last opened a set (remembered in this browser). A set never opened
+  // is "new"; one opened before that has gained takes or profiles since (e.g. layered mixes added to old takes) has
+  // "new mixes", and those profiles are tagged "new". New is blue; green (a thumb on a take) means liked. Opening a set marks all of it seen. The first time,
+  // everything older than the newest round counts as seen, except profiles other than the default and contrast.
+  let seen = null, SEEN = null;
+  function seenSet() {
+    if (seen) return seen;
+    SEEN = `soundlab.music.seen.${Lab.project.name}`;  // (Lab.project is loaded after this file runs)
+    const got = localStorage.getItem(SEEN);
+    seen = new Set(got ? JSON.parse(got) : keys().filter(k => roundOf(k) !== newest()).flatMap(k => set(k).takes.flatMap(t =>
+      Object.keys(t.profiles).filter(p => p === Lab.project.default_profile || p === "contrast").map(p => `${k}|${t.id}|${p}`))));
+    if (!got) localStorage.setItem(SEEN, JSON.stringify([...seen]));
+    return seen;
+  }
+  function markSetSeen(k) {
+    const ids = set(k).takes.flatMap(t => Object.keys(t.profiles).map(p => `${k}|${t.id}|${p}`)).filter(id => !seenSet().has(id));
+    if (!ids.length) return;
+    ids.forEach(id => seen.add(id)); localStorage.setItem(SEEN, JSON.stringify([...seen]));
+  }
+  const isNew = (k, t, p) => !seenSet().has(`${k}|${t}|${p}`);
+  const takeNew = (k, t) => Object.keys(t.profiles).some(p => isNew(k, t.id, p));
+  const setNew = k => set(k).takes.filter(t => takeNew(k, t)).length;
+  const NEW = `<span class="newb">new</span>`, MIXES = `<span class="newb mixes" data-tip="New mixes of takes you've heard">+ mixes</span>`;
+  const setAllNew = k => set(k).takes.every(t => Object.keys(t.profiles).every(p => isNew(k, t.id, p)));  // (never opened)
+
   function setChip(k) {
-    const sc = mesh().contexts[k], n = ships(k).liked;
+    const sc = mesh().contexts[k], n = ships(k).liked, fresh = setNew(k);
     return `<button class="setc ${k === M.key ? "on" : ""}" data-key="${esc(k)}">
-        <b>${esc(k.replace(/[.~]/g, " · "))}</b><small><span>${esc(sc.mode)}</span><span>${sc.takes.length} take${sc.takes.length === 1 ? "" : "s"}</span>${n ? `<span class="liked">${n} liked</span>` : ""}</small></button>`;
+        <b>${esc(k.replace(/[.~]/g, " · "))}${!fresh ? "" : setAllNew(k) ? NEW : MIXES}</b><small><span>${esc(sc.mode)}</span><span>${sc.takes.length} take${sc.takes.length === 1 ? "" : "s"}</span>${n ? `<span class="liked">${n} liked</span>` : ""}</small></button>`;
   }
+  // Only the newest round is out; everything older is folded away: what you liked first, then each round.
   function setList() {
-    const now = keys().filter(shown), old = keys().filter(k => !shown(k));
+    const top = keys().filter(k => roundOf(k) === newest()), old = keys().filter(k => roundOf(k) !== newest());
+    const liked = old.filter(k => likedIn(k).length), rest = old.filter(k => !likedIn(k).length);
     if (old.includes(M.key) && M.openedFor !== M.key) { M.older = true; M.openedFor = M.key; }  // (once per set)
-    if (!old.length) return `<div class="sets">${now.map(setChip).join("")}</div>`;
-    const rounds = [...new Set(old.map(roundOf))].sort().reverse();
-    return `<div class="sets">${now.map(setChip).join("")}
-        <button class="setc older ${M.older ? "on" : ""}" id="molder" data-tip="Sets from earlier rounds with nothing liked">
-          <b>${icon("right")}Earlier rounds</b><small><span>${old.length} set${old.length === 1 ? "" : "s"}</span></small></button></div>
-      ${M.older ? rounds.map(r => `<div class="round"><div class="roundh">${esc(roundLabel(r))}</div>
-        <div class="sets">${old.filter(k => roundOf(k) === r).map(setChip).join("")}</div></div>`).join("") : ""}`;
+    const group = (title, ks, cls = "") => ks.length ? `<div class="round ${cls}"><div class="roundh">${title}</div>
+        <div class="sets">${ks.map(setChip).join("")}</div></div>` : "";
+    const rounds = [...new Set(rest.map(roundOf))].sort().reverse(), oldNew = old.filter(setNew).length;
+    return group(roundLabel(newest(), "Newest round"), top, "now")
+      + (old.length ? `<div class="sets"><button class="setc older ${M.older ? "on" : ""}" id="molder" data-tip="Everything from earlier rounds">
+          <b>${icon("right")}Earlier rounds</b><small><span>${old.length} set${old.length === 1 ? "" : "s"}</span>${liked.length ? `<span class="liked">${liked.length} liked</span>` : ""}${oldNew ? `<span>${oldNew} with new mixes</span>` : ""}</small></button></div>
+      ${M.older ? group("Liked", liked) + rounds.map(r => group(roundLabel(r), rest.filter(k => roundOf(k) === r))).join("") : ""}` : "");
   }
   function likedIn(k) {
     return set(k).takes.flatMap(t => Object.keys(t.profiles).filter(p => (Lab.V.clips[voteId(k, t.id, p)] || 0) > 0).map(p => `${t.id} · ${p}`));
@@ -254,7 +286,7 @@
     if (!mesh() || !keys().length) { Lab.showEmpty("layers", "No music yet", `<p>Make some with <code>soundlab music generate --contexts …</code>.</p>`); return; }
     if (arg && mesh().contexts[arg] && arg !== M.key && M.deck && Lab.tab === "music") { switchTo({ key: arg, take: 0 }); return; }  // (playing: enter on the bar)
     if (arg && mesh().contexts[arg]) { if (arg !== M.key) M.take = 0; M.key = arg; }
-    if (!M.key || !set()) M.key = keys().find(shown) || keys()[0];
+    if (!M.key || !set()) M.key = keys().find(k => roundOf(k) === newest()) || keys()[0];
     M.take = Math.min(M.take, set().takes.length - 1);
     M.level = M.level && mesh().levels.includes(M.level) ? M.level : mesh().levels[Math.floor(mesh().levels.length / 2)];
     const def = mesh().profiles.includes(Lab.project.default_profile) ? Lab.project.default_profile : mesh().profiles[mesh().profiles.length - 1];
@@ -263,12 +295,19 @@
     render();
   }
   function render() {
+    if (M.seenKey !== M.key) {  // entering a set: note what's new in it (dots for this visit), then mark it all seen
+      const all = setAllNew(M.key);
+      M.fresh = new Set(all ? [] : set().takes.flatMap(t => Object.keys(t.profiles).map(p => `${M.key}|${t.id}|${p}`)).filter(id => !seenSet().has(id)));
+      markSetSeen(M.key); M.seenKey = M.key;
+    }
     const m = mesh(), c = set();
     if (!c.takes.length) { Lab.showEmpty("layers", `No takes passed for ${M.key}`, ""); return; }
     M.take = Lab.clamp(M.take, 0, c.takes.length - 1);
     if (!c.takes[M.take].profiles[M.prof]) M.prof = Object.keys(c.takes[M.take].profiles)[0];
     const take = c.takes[M.take], info = (take.profiles[M.prof] || {}).info || {}, v = Lab.V.clips[voteId()], sh = ships(M.key);
-    const dot = t => { const x = Lab.V.clips[voteId(M.key, t.id)]; return x === 1 ? `<span class="dot"></span>` : x === -1 ? `<span class="dot bad"></span>` : ""; };
+    const qual = lv => ((take.quality || {})[(take.profiles[M.prof] || {}).levels?.[lv]]);  // (music check's report)
+    const warned = t => { const L = (t.profiles[M.prof] || {}).levels || {}; return Object.values(L).some(f => ((t.quality || {})[f] || {}).flags?.length); };
+    const dot = t => { const x = Lab.V.clips[voteId(M.key, t.id)]; return x === 1 ? `<span class="vote up">${icon("up")}</span>` : x === -1 ? `<span class="vote down">${icon("down")}</span>` : ""; };  // (this profile's vote)
     const page = document.querySelector(".page.music"), y = page ? page.scrollTop : 0;
     Lab.view().innerHTML = `<div class="page music"><div class="wrap">
       <div class="page-head"><div><div class="eyebrow">${m.bpm} BPM · ${m.bar_beats}/4 · ${m.bars}-bar loops · ${loopS().toFixed(1)} s</div><h1>Music</h1>
@@ -288,15 +327,17 @@
           <div class="barnums" style="grid-template-columns:repeat(${m.bars},1fr)">${Array.from({ length: m.bars }, (_, i) => `<span>${i + 1}</span>`).join("")}</div></div>
         <div class="levels">${m.levels.map((lv, i) => `<button class="lvl ${!M.stack && M.level === lv ? "on" : ""}" data-lv="${esc(lv)}">
             <span class="t"><b>${esc(lv)}</b><kbd>${i + 1}</kbd></span>
-            <small>${info[lv] && info[lv].noise ? `derived at ${info[lv].noise}` : "the spine"}${info[lv] && info[lv].lock != null ? ` · lock ${info[lv].lock}` : ""}</small>
+            <small>${info[lv] && info[lv].noise ? `derived at ${info[lv].noise}` : "the spine"}${info[lv] && info[lv].layers ? ` + ${Object.keys(info[lv].layers).join(" + ")}` : ""}${qual(lv) && qual(lv).aes ? ` · rated ${qual(lv).aes.CE.toFixed(1)}` : ""}</small>
+            ${qual(lv) && qual(lv).flags && qual(lv).flags.length ? `<span class="qflag" data-tip="Measured by music check; a warning, not a verdict">${icon("flag")}${esc(qual(lv).flags.join(" · "))}</span>` : ""}
             <div class="vu"><div></div></div><div class="mix"><div></div></div></button>`).join("")}
           <button class="btn stackbtn ${M.stack ? "on" : ""}" id="mstack" data-tip="Every level at once: do they clash? (S)">${icon("layers")}<span>Stack</span></button></div>
       </section>
       <div class="mtake">
-        <div class="field"><label>Take</label>${Lab.seg(c.takes.map((t, i) => [String(i), `${dot(t)}${esc(t.id)}`]), String(M.take), "take")}</div>
-        <div class="field"><label>Profile</label>${Lab.seg(m.profiles.map(p => [p, esc(p), !take.profiles[p], PROFILE_INFO[p]]), M.prof, "prof")}</div>
+        <div class="field"><label>Take</label>${Lab.seg(c.takes.map((t, i) => [String(i), `${dot(t)}${esc(t.id)}${warned(t) ? `<span class="qwarn" data-tip="A level of this take is flagged">${icon("flag")}</span>` : ""}`]), String(M.take), "take")}</div>
+        <div class="field"><label>Profile</label>${Lab.seg(m.profiles.filter(p => take.profiles[p]).map(p => [p, `${esc(p)}${M.fresh.has(`${M.key}|${take.id}|${p}`) ? `<span class="newtag">new</span>` : ""}`, false, profTip(take, p)]), M.prof, "prof")}</div>
         <div class="field grow"><label>Plays</label><div class="lineup">${Object.entries(take.instruments || {}).map(([r, n]) =>
-          `<span class="chip" data-tip="${esc(r.replace(/_/g, " "))}">${esc(n)}</span>`).join("")}</div></div>
+          `<span class="chip" data-tip="${esc(r.replace(/_/g, " "))}">${esc(n)}</span>`).join("")}${Object.entries(take.layers || {}).map(([n, l]) =>
+          `<button class="chip layer" data-stem="${esc(l.file)}" data-tip="Layer: hear it alone. ${esc(l.prompt)}">${icon("play")}${esc(n)} layer</button>`).join("")}</div></div>
         <div class="field"><label>This take</label><div class="row">
           <button class="btn good ${v === 1 ? "on" : ""}" id="mup" data-tip="Liked takes ship as tracks in rotation (U)">${icon("up")}Like</button>
           <button class="btn bad ${v === -1 ? "on" : ""}" id="mdown" data-tip="Dislike (D)">${icon("down")}</button></div></div>
@@ -317,6 +358,7 @@
     const vw = Lab.view();
     vw.querySelectorAll("[data-key]").forEach(b => b.onclick = () => switchTo({ key: b.dataset.key, take: 0 }));
     if ($("molder")) $("molder").onclick = () => { M.older = !M.older; render(); };
+    vw.querySelectorAll("[data-stem]").forEach(b => b.onclick = () => { if (M.deck) stop(); Lab.play("/clips/" + b.dataset.stem, { id: "stem:" + b.dataset.stem }); });
     vw.querySelectorAll("[data-take]").forEach(b => b.onclick = () => switchTo({ take: +b.dataset.take }));
     vw.querySelectorAll("[data-prof]").forEach(b => b.onclick = () => switchTo({ prof: b.dataset.prof }));
     vw.querySelectorAll("[data-fade]").forEach(b => b.onclick = () => { M.fade = b.dataset.fade; render(); });

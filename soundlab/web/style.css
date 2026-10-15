@@ -170,6 +170,10 @@ h3::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .seg button:disabled { opacity: .3; pointer-events: none; }
 .seg button .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--good); }
 .seg button .dot.bad { background: var(--bad); }
+.seg button .vote { display: inline-flex; margin-right: 4px; }
+.seg button .vote svg { width: 12px; height: 12px; }
+.seg button .vote.up { color: var(--good); }
+.seg button .vote.down { color: var(--bad); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {
   display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 99px; font-size: 12px;
@@ -420,11 +424,23 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .setc small { font: 500 10.5px var(--mono); color: var(--faint); display: flex; gap: 8px; }
 .setc small .liked { color: var(--good); }
 .setc.on { border-color: var(--accent-line); background: linear-gradient(180deg, rgba(148, 134, 255, .12), rgba(148, 134, 255, .03)); box-shadow: 0 8px 26px -14px rgba(139, 123, 255, .8); }
+.chip.layer { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; border-style: dashed; }
+.chip.layer svg { width: 11px; height: 11px; }
+.lvl .qflag { display: flex; align-items: center; gap: 5px; margin-top: 4px; font: 500 10.5px var(--mono); color: var(--pick); }
+.lvl .qflag svg { width: 11px; height: 11px; flex: none; }
+.seg button .qwarn { display: inline-flex; margin-left: 4px; color: var(--pick); }
+.seg button .qwarn svg { width: 11px; height: 11px; }
+.newb { display: inline-block; margin-left: 8px; padding: 2px 7px; border-radius: 999px; font: 600 9px var(--mono); text-transform: uppercase; letter-spacing: .08em; color: #06222c; background: var(--accent-2); box-shadow: 0 0 12px -2px rgba(91, 214, 255, .55); vertical-align: 2px; }
+.newb.mixes { background: rgba(91, 214, 255, .08); color: var(--accent-2); box-shadow: inset 0 0 0 1px rgba(91, 214, 255, .45); text-transform: none; letter-spacing: .02em; }
+.roundh .when { margin-left: 10px; color: var(--faint); text-transform: none; letter-spacing: 0; }
+.newtag { margin-left: 5px; font: 600 9px var(--mono); text-transform: uppercase; letter-spacing: .04em; color: var(--accent-2); vertical-align: 1px; }
+.round.now .roundh { color: var(--accent-2); }
 .setc.older { justify-content: center; border-style: dashed; }
 .setc.older b { display: flex; align-items: center; gap: 4px; color: var(--dim); }
 .setc.older b svg { width: 13px; height: 13px; transition: transform .15s; }
 .setc.older.on b svg { transform: rotate(90deg); }
-.round { margin: -6px 0 18px; padding-left: 10px; border-left: 2px solid var(--line-2); }
+.round { margin: 0 0 16px; padding-left: 10px; border-left: 2px solid var(--line-2); }
+.round.now { border-left-color: var(--accent-2); }
 .round .sets { margin-bottom: 0; }
 .roundh { font: 500 10.5px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
 .transport { padding: 18px 20px 20px; max-width: 1320px; }

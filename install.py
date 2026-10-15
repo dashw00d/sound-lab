@@ -149,7 +149,8 @@ def main() -> int:
     run([uv, "pip", "install", "--python", PY, f"torch=={TORCH}", f"torchaudio=={TORCH}",
          "--index-url", f"https://download.pytorch.org/whl/{a.cuda}"], env=env)
     say("installing Stable Audio 3 and the lab's libraries")
-    run([uv, "pip", "install", "--python", PY, "-e", SA3, "librosa", "soundfile", "requests", "huggingface_hub[hf_xet]"], env=env)
+    run([uv, "pip", "install", "--python", PY, "-e", SA3, "librosa", "soundfile", "requests", "huggingface_hub[hf_xet]",
+         "audiobox_aesthetics"], env=env)  # (audiobox_aesthetics: music check and the quality gate)
     if not a.no_flash_attn:
         say("flash-attn (optional: a faster attention kernel)")
         wheel = flash_attn_wheel(a.cuda)

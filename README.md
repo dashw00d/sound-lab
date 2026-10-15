@@ -55,7 +55,7 @@ A project is a game folder containing `soundlab_project.py`, which describes the
 | **Sounds** | Every sound's takes in prompt variants × seeds, next to the file the game ships now. 👍 / 👎 / ★ pick, with notes. A/B a take against the shipped file at the same moment. |
 | **Alerts** | Whole alert families side by side (one kit per row, each alert a mini waveform), to judge consistency, not single sounds. |
 | **Instruments** | Solo auditions of the music's candidate instruments. Picked ones form the pool every track draws from. |
-| **Music** | A track's intensity levels playing in sync. Crossfade them live, stack them to hear clashes, switch takes on the bar, and click the timeline to jump to a bar. Liked takes ship as tracks. Each `music generate` run is a round: the page shows the newest round and anything liked, and folds the rest under Earlier rounds. |
+| **Music** | A track's intensity levels playing in sync. Crossfade them live, stack them to hear clashes, switch takes on the bar, and click the timeline to jump to a bar. Liked takes ship as tracks. A profile can mix layers (drum stems made on the same grid) into tension and action; click a layer chip to hear it alone. Each `music generate` run is a round: the page shows only the newest round and folds everything older under Earlier rounds (liked sets first). |
 | **Balance** | Every sound and music level at its in-game loudness. Trim it, A/B it against a reference, and save to the game's mix file, which the running game reloads live. |
 | **Tuning** | How each model wants its prompts, which model makes what, and your taste, with the evidence from your votes (which prompt styles win, per model). Agents start every prompt from it. |
 
@@ -77,6 +77,7 @@ Generating and shipping happen on the command line:
 ./soundlab.sh --project P music audition                     # the instrument candidates
 ./soundlab.sh --project P music generate --contexts day night --biomes any fjords
 ./soundlab.sh --project P music generate --contexts day --styles story tune --profiles close   # compare prompt styles
+./soundlab.sh --project P music derive --profiles drive          # a new profile for the newest round's takes
 ./soundlab.sh --project P music promote --apply
 ./soundlab.sh --project P balance measure
 ./soundlab.sh --project P tuning --task sfx                 # how to prompt the model that makes sound effects

@@ -164,8 +164,8 @@
     },
     {
      "id": "r12",
-     "text": "Calm and action are derived from the tension spine (audio-to-audio at about 0.5), so they inherit its material: give the spine a clear theme, and ask calm for a theme too, never \"sparse, lots of space\" (it comes out a quiet loop with nothing in it).",
-     "why": "music.py derives the non-spine levels from the spine. Emberhold, 2026-10-14: the designer found the plain prompts' calm (\"sparse… lots of space\" over a spine that \"repeats a short figure\") dull.",
+     "text": "Derived levels can't add intensity: audio-to-audio from the spine keeps its density at every strength, so calm, tension and action come out the same music at different volumes. Raising action's strength (0.65, 0.8) only loosens it (fewer onsets, less low end). Intensity has to be added another way (a layer over the level), and the spine must already carry a theme; never prompt calm as \"sparse, lots of space\".",
+     "why": "Emberhold 2026-10-14, round 3 (35 takes): at 0.5 the three levels matched within ~3% in onsets/s (11.8-14.3), punch (~7 dB crest) and energy under 150 Hz; action at 0.65/0.8: onsets/s down 0.5-1.7 in 3 of 4 styles, low end 0.16 -> 0.10. The designer: action \"rarely intense enough\", \"always missing a layer, either a melody or intense rhythm\".",
      "tasks": [
       "music"
      ],
@@ -184,6 +184,39 @@
      "by": "agent",
      "added": "2026-10-14",
      "pinned": false
+    },
+    {
+     "id": "r14",
+     "text": "Music: name every part of the arrangement, as a film cue has them: the theme's instrument, a counter-line or ostinato, the bass, and the percussion section. Three parts (strings, brass, one drum) leave it thin.",
+     "why": "Emberhold 2026-10-14, round 3: 13 likes over 35 takes, the designer \"kinda meh\"; note on bloodmoon~war: \"always missing a layer, either a melody or intense rhythm\". Styles named 2-4 parts.",
+     "tasks": [
+      "music"
+     ],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": false
+    },
+    {
+     "id": "r15",
+     "text": "Music in SA3's own prompt-assistant shape (one flowing sentence: \"Dark cinematic war score in D aeolian with trombones playing a grim theme, low strings driving a dark ostinato and a drum ensemble pounding a heavy martial rhythm, creating ominous, dark tension. BPM: 90.\") does at least as well as the tag shape, and made the designer's favourite. Genres that won: cinematic war, orchestral; choir and horror trailed.",
+     "why": "Emberhold 2026-10-14, round 3, likes per style (3 contexts, ~9 takes each): trailer 5 (incl. the favourite), war 5 (tags, same content), horror 2, choir 1. Choir also fails the beat check (day: 2 of 14 seeds passed).",
+     "tasks": [
+      "music"
+     ],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": false
+    },
+    {
+     "id": "r16",
+     "text": "Off-sounding takes can be caught before the user hears them: Meta's Audiobox Aesthetics content enjoyment (CE) predicts the user's music likes; `music generate` rejects a take with a level under quality.GATE (calm 6.3, tension 6.8, action 6.3) and `music check` flags weak levels, long pauses, drift and noise on the Music page. Hand-made measures (key fit, sudden-change novelty) didn't predict likes; long pauses can be composed breaks.",
+     "why": "Emberhold 2026-10-14, round 3 (35 takes, 13 liked): CE on the spine AUC 0.82, calm 0.79; within choir and horror the liked takes were the top-rated; no liked take under 6.74 calm / 6.94 tension / 6.37 action, while 9 of 22 unliked were. Drift AUC 0.35, key ~0.5. Round 4's takes the designer called weird (bloodmoon~anthem k0, k1) rated 6.4-6.5 or had 7.7 s of calm dropouts.",
+     "tasks": [
+      "music"
+     ],
+     "by": "agent",
+     "added": "2026-10-14",
+     "pinned": true
     }
    ],
    "templates": {
@@ -224,6 +257,14 @@
      "why": "The second half is a mixing-engineer tail: words, not sound.",
      "task": "sfx",
      "take": "horn_alarm.el.s0"
+    },
+    {
+     "id": "e_music_1",
+     "task": "music",
+     "verdict": "good",
+     "take": "mesh_night~trailer.k2.close",
+     "prompt": "TrackType: Music, VocalType: Instrumental, Dark cinematic war score in D aeolian with trombones playing a grim theme, low strings driving a dark ostinato and a drum ensemble pounding a heavy martial rhythm, creating ominous, dark tension. BPM: 90.",
+     "why": "The spine of the designer's favourite (\"by far my favorite so far\", \"bangs hard\"), shipped 2026-10-14 as night.any.trailer.k2.close."
     }
    ]
   },

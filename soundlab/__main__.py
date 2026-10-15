@@ -10,7 +10,9 @@
   soundlab [--project PATH] music audition [--seeds 4]
   soundlab [--project PATH] music generate --contexts C ... [--biomes B ...] [--styles S ...] [--profiles P ...]
                                            [--takes 3] [--tries 14]
-  soundlab [--project PATH] music promote [--apply]
+  soundlab [--project PATH] music derive --profiles P ... [--sets KEY ...]   new profiles for existing takes
+  soundlab [--project PATH] music check [--sets KEY ...]                    measure takes for what sounds off
+  soundlab [--project PATH] music promote [--apply] [--add SET.TAKE.PROFILE ...]
   soundlab [--project PATH] balance measure
 
 --project is a game folder holding soundlab_project.py, or the file itself (default: SOUNDLAB_PROJECT, else the
@@ -159,8 +161,15 @@ def main() -> int:
     p.add_argument("--tries", type=int, default=14)
     p.add_argument("--styles", nargs="*", help="the project's alternative prompt styles (music.styles), for a tuning round")
     p.add_argument("--profiles", nargs="*", help="only these profiles (default: all)")
+    p = mu.add_parser("derive")
+    p.add_argument("--profiles", nargs="+", required=True)
+    p.add_argument("--sets", nargs="*", help="music set keys (default: the newest round's)")
+    p = mu.add_parser("check")
+    p.add_argument("--sets", nargs="*", help="music set keys (default: all)")
     p = mu.add_parser("promote")
     p.add_argument("--apply", action="store_true")
+    p.add_argument("--add", nargs="+", metavar="SET.TAKE.PROFILE",
+                   help="ship just these takes beside what has shipped (nothing is removed)")
     ba = sub.add_parser("balance").add_subparsers(dest="action", required=True)
     ba.add_parser("measure")
     a = ap.parse_args()
@@ -209,7 +218,14 @@ def main() -> int:
             if bad:
                 raise SystemExit(f"unknown contexts/biomes/styles/profiles: {bad}")
             return music.generate(proj, a.contexts, a.biomes, a.takes, a.tries, a.styles, a.profiles)
-        return music.promote(proj, a.apply)
+        if a.action == "check":
+            return music.check(proj, a.sets)
+        if a.action == "derive":
+            bad = [p for p in a.profiles if p not in proj.music["profiles"]]
+            if bad:
+                raise SystemExit(f"unknown profiles: {bad}")
+            return music.derive(proj, a.profiles, a.sets)
+        return music.add(proj, a.add, a.apply) if a.add else music.promote(proj, a.apply)
     if a.cmd == "balance":
         from . import balance
 
