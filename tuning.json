@@ -250,6 +250,28 @@
      "by": "agent",
      "added": "2026-10-15",
      "pinned": true
+    },
+    {
+     "id": "r20",
+     "text": "Music, a solo violin (or any one named instrument) as the lead: round 6's phrasing did not produce a violin (the designer: nothing close), so don't reuse it as a recipe for one. What it did: \"a solo violin playing a short two-bar theme in fast, driving eighth notes that repeats\" inside the full orchestral sentence (Cinematic, Orchestral, Medieval, a low string, a drum, \"dark cinematic war score\"). Untested ideas, in order: audition the instrument alone first (TrackType: Instrument, Instruments: Violin, one sentence, 90 BPM, D minor) to see whether SA3 makes one at all; then a spine with the violin as the only melodic part and fewer competing parts, without \"war score\" and \"Genre: Orchestral\" (they may pull toward a string section); the pool names (take[\"instruments\"]) never listed a violin, so treat what the index says as unverified.",
+     "why": "Emberhold round 6, 2026-10-15: styles violin, violintags and violinbed in night and day, 4 takes each (24 passed, 4 of 28 seeds rejected, none by the quality gate: they are steady and on the grid). The designer liked them (\"every single one of these are amazing\") but, asked, heard nothing close to a violin. Steadiness and ratings say nothing about which instrument plays, and I can't hear. The cause isn't known: the prompt may have been outweighed by the ensemble words, or SA3 may not make a solo violin in this setting. Votes: violinbed 8 of 8 liked, violin 5 of 8, violintags 4 of 8 (all on the stack profile), so the drumless spine with layers is the style to extend, whatever instrument carries it. MODELS_LOG.md, round 6.",
+     "tasks": [
+      "music"
+     ],
+     "by": "agent",
+     "added": "2026-10-15",
+     "pinned": false
+    },
+    {
+     "id": "r21",
+     "text": "Music, a season or mood that needs its own sound (winter): swap the carrier of the theme and keep the drumless-spine frame (SA3's sentence shape, \"BPM: 90\", the key as \"D minor\", theme + ostinato + bass named, no drums in the spine: the layers bring them). For winter, a waterphone moaning over a brass line and a celesta playing a short icy theme both won; shivering tremolo strings mostly lost. A choir as the carrier is rejected far more (quality gate and tempo): give it many more tries, or use it as colour.",
+     "why": "Emberhold rounds 7 and 8, 2026-10-15: winterwater 5 of 5 liked, winterglass 5 of 5, winterstrings 1 of 4, winterchoir 0 of 1 (1 take in 14 tries: 12 seeds rejected, mostly calm 5.8 to 5.9 under 6.3 and tension 6.2 to 6.7 under 6.8). The drumless violinbed style: round 7 10 of 12 liked, with round 6 18 of 20, and no dislikes anywhere. One context, one round, and likes say nothing of what it sounds like; revise when more seasons are tried. MODELS_LOG.md, rounds 7 and 8.",
+     "tasks": [
+      "music"
+     ],
+     "by": "agent",
+     "added": "2026-10-15",
+     "pinned": false
     }
    ],
    "templates": {

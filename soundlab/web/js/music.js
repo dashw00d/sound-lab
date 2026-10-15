@@ -88,15 +88,15 @@
   function setList() {
     const top = keys().filter(k => roundOf(k) === newest()), old = keys().filter(k => roundOf(k) !== newest());
     const liked = old.filter(k => likedIn(k).length), rest = old.filter(k => !likedIn(k).length);
-    if (old.includes(M.key) && M.openedFor !== M.key) { M.older = true; M.openedFor = M.key; }  // (once per set)
     const group = (title, ks, cls = "") => ks.length ? `<div class="round ${cls}"><div class="roundh">${title}</div>
         <div class="sets">${ks.map(setChip).join("")}</div></div>` : "";
     const rounds = [...new Set(rest.map(roundOf))].sort().reverse(), oldNew = old.filter(setNew).length;
     return (top.length ? group(roundLabel(newest(), "Newest round"), top, "now")
         : newest() ? `<div class="round now"><div class="roundh">${roundLabel(newest(), "Newest round")}</div><p class="lede">No take passed in this round: every seed was rejected. The sets below are from earlier rounds.</p></div>` : "")
+      + (old.includes(M.key) ? group("The set playing, from an earlier round", [M.key]) : "")  // (so what's loaded is in view while the list is folded)
       + (old.length ? `<div class="sets"><button class="setc older ${M.older ? "on" : ""}" id="molder" data-tip="Everything from earlier rounds">
           <b>${icon("right")}Earlier rounds</b><small><span>${old.length} set${old.length === 1 ? "" : "s"}</span>${liked.length ? `<span class="liked">${liked.length} liked</span>` : ""}${oldNew ? `<span>${oldNew} with new mixes</span>` : ""}</small></button></div>
-      ${M.older ? group("Liked", liked) + rounds.map(r => group(roundLabel(r), rest.filter(k => roundOf(k) === r))).join("") : ""}` : "");
+      ${M.older ? `<div class="olderbox">${group("Liked", liked) + rounds.map(r => group(roundLabel(r), rest.filter(k => roundOf(k) === r))).join("")}</div>` : ""}` : "");
   }
   function likedIn(k) {
     return set(k).takes.flatMap(t => Object.keys(t.profiles).filter(p => (Lab.V.clips[voteId(k, t.id, p)] || 0) > 0).map(p => `${t.id} · ${p}`));

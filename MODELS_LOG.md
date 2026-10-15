@@ -11,6 +11,39 @@ How findings are graded:
 
 ## Stable Audio 3 Medium (SA3)
 
+### 2026-10-15: rounds 7 and 8, the drumless style in every season, and a winter power round
+
+Round 7: the two round 6 styles that won (violinbed, violin) in winter, bloodmoon and menu, 4 takes each, stack only. Round 8: four ways to carry a winter score on the same drumless spine (winterstrings: high tremolo strings; winterwater: a waterphone moaning over a brass line; winterglass: a celesta; winterchoir: a low male choir), 5 takes each, stack only. Styles are in Emberhold's `soundlab_project.py`.
+
+- **Solid. The drumless spine holds across seasons.** Round 7: violinbed 10 of 12 takes liked (bloodmoon 4 of 4, winter 4 of 4, menu 2 of 4); violin 5 of 12 (bloodmoon 3 of 4, winter 2 of 4, menu 0 of 4). With round 6 (8 of 8 in night and day) violinbed is 18 of 20, and it beat violin in every context. No take was disliked in either round. (`r20`)
+- **Leaning. In winter a waterphone or a celesta over the drumless spine won.** winterwater 5 of 5 liked, winterglass 5 of 5, winterstrings 1 of 4, winterchoir 0 of 1. The two icy, metallic or glassy carriers won; the shivering tremolo strings, the one carrier already in the instrument pool, mostly lost. One round, one context, and the likes can't say what the takes sound like (I can't hear), so this is a direction, not a rule. (`r21`)
+- **Measured. Choirs still struggle.** winterchoir made 1 take in 14 tries: 12 seeds rejected, most by the quality gate (calm rated 5.8 to 5.9 against 6.3; tension 6.2 to 6.7 against 6.8), one by the tempo check (95.5 BPM, beat spread 58 ms). The gate's thresholds were validated against likes in non-choir styles, so it may be too strict for a choir; untested.
+- **Measured. Everything else ran clean.** 2 to 4 seeds rejected per set at most, none by the quality gate outside the choir.
+- Shipped 2026-10-15: 17 takes from round 6 and 26 from rounds 7 and 8 (`music promote --add`, nothing removed): 67 tracks in the game, winter 3 to 20, bloodmoon 7 to 14, menu 3 to 5, night 2 to 11, day 6 to 14.
+
+### 2026-10-15: round 6, a solo violin as the pace and the hook (liked, but no violin heard)
+
+The ask: a catchy violin-like stringed instrument that is both the pace and the melody. Prompts written from the tuning (`r15` to `r19`), in three styles in `soundlab_project.py`: **violin** (SA3's sentence shape, a light pulse and a drum under the violin), **violintags** (the same in the tag shape) and **violinbed** (no drums in the spine; the stack's layers bring them). Run on night and day, 4 takes each, profiles stack and close (`music generate --contexts night day --styles violin violintags violinbed --takes 4 --profiles stack close`).
+
+How the prompts were written (the recipe, so it can be reused):
+
+- **Describe the playing, not the goal.** At cfg 1.0 the model takes words literally and has no way to know what "catchy" or "the pace" means. "Pace" became a fast repeating note value ("in fast, driving eighth notes", "fast staccato eighth notes"); "catchy" became a short theme that repeats ("a short two-bar theme that repeats"). The goal words themselves ("catchy", "memorable") were left out.
+- **Level by note value.** Calm: a slow, haunting two-bar theme that repeats. Tension (the spine): fast, driving eighth notes that set the pace. Action: sixteenth notes that race. One idea per prompt.
+- **The proven frame, unchanged.** SA3's one-sentence shape ("Dark cinematic war score in D minor with a solo violin playing ..., creating ominous, dark tension. BPM: 90."), Genre: Cinematic, Orchestral, Medieval (`r18`), "BPM: 90" always and the key as "D minor" (`r17`), every part named (`r14`), no "menacing", no negations.
+- **An orchestral soloist, not a fiddle.** "A solo violin", with no Folk or Nordic tag: the designer's no-folk rule (`tuning.json` taste) lists fiddles, and Audiobox rates folk fiddles high, so the quality gate wouldn't catch a drift to folk.
+- **Something rhythmic still under the lead.** The violin sets the pace, but the spine also names a low string pulse and a drum (violin, violintags). The probe found takes with rhythm parts hold tempo better and string sections less so (`r18`), so a lone violin risked the tempo check. violinbed is the version with no drums in the spine, and the layers (pulse, battle) bring them.
+- **Fix only the lead.** The violin is written into the style; the low string, the strings section and the drum are still drawn per take from the instrument pool, so the takes differ in more than the seed (`r19`, "same basic DNA").
+
+What was measured (Emberhold, 28 seeds tried):
+
+- **Solid. Clean takes.** 24 takes passed, 4 seeds were rejected (2 spine beat lock, 1 tempo, 1 level lock). The quality gate rejected none; every set made its 4 takes. Compare round 3, which threw out 45 seeds for 35 takes.
+- **Anecdote. The designer liked them, and heard no violin.** First reaction: "every single one of these are amazing." Asked whether any had something close to a violin: no. So the phrasing did not make SA3 play a violin. The takes are good music, but not the ask. (An earlier version of this entry called it "a recipe that worked"; that was wrong, and `r20` now says so.)
+- **Solid for the night and day. The votes: violinbed 8 of 8 takes liked, violin 5 of 8, violintags 4 of 8** (17 of 24 liked; every like was on the stack profile, none on close). The spine with no drums, where the layers bring the percussion, won every take. Whether a violin was in them is separate: none was heard. Shipped 2026-10-15 as 17 tracks beside the existing ones (`music promote --add`): day 6 to 17 tracks in rotation, night 2 to 11.
+- **Not known why.** Candidates: the violin was one part among an orchestral sentence ("dark cinematic war score", Genre: Orchestral, a low string, a drum) and was outweighed; SA3 may not make a solo violin in a full-score prompt; or at all. The index's per-take `instruments` list never named a violin (it only lists pool instruments), so it can't tell. Nobody measured whether a violin is in the audio, and I can't hear.
+- **Next, untested.** Audition a violin alone (TrackType: Instrument) to see if SA3 makes one; then a spine where it is the only melodic part with fewer competing words.
+
+To do: test the violin by itself (TrackType: Instrument), then a spine with it as the only melodic part. Round 7 (winter, bloodmoon, menu; violinbed and violin) fills the contexts this round didn't cover.
+
 ### 2026-10-15: round 5, the probe's rules applied ("way way better")
 
 Prompts written from the probe (`r17`, `r18`) and round 3's votes: SA3's sentence shape with Genre: Cinematic, Orchestral and Medieval; four named parts (theme, ostinato, bass line, rhythm); "BPM: 90" always; the key by its common name where one exists (night "D minor"); no "menacing"; no chant, bullroarer, bowed cymbal or hurdy-gurdy in the spine. Three styles: war2 (brass theme), bed2 (the same without drums, so the layers supply them), strings (the strings carry the theme). Levels as close, layered and stack.

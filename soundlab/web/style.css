@@ -453,6 +453,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .round { margin: 0 0 16px; padding-left: 10px; border-left: 2px solid var(--line-2); }
 .round.now { border-left-color: var(--accent-2); }
 .round .sets { margin-bottom: 0; }
+/* the folded rounds, opened: a capped box that scrolls, so a long list never pushes the player off the screen */
+.olderbox { max-height: 260px; overflow-y: auto; margin: 0 0 18px; padding: 14px 14px 2px; border: 1px solid var(--line-2); border-radius: 12px; background: rgba(255, 255, 255, .02); }
 .roundh { font: 500 10.5px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
 .transport { padding: 18px 20px 20px; max-width: 1320px; }
 .ttop { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
