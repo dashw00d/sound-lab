@@ -55,6 +55,8 @@ from .dsp import SR
 from .store import Store
 
 
+LEAD_IN, TAIL = 4, 6  # (bars of each generated spine left out before and after its loop: the opening and the ending)
+
 def key_of(context: str, biome: str, style: str | None = None) -> str:
     return (context if biome == "any" else f"{context}.{biome}") + (f"~{style}" if style else "")
 
@@ -340,13 +342,16 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
             roles = take_roles(pool, key, seed)
             prompts = make(ctx, mode, mood, {r: names[p] for r, p in roles.items()})
             first_prompts = first_prompts or prompts
-            spine = eng.generate(prompts[spine_lv], need + 2 * bar + 4.0, seed)  # room to find a downbeat
+            # The loop is cut from the middle of a longer piece: SA3 writes each take as a whole piece, opening and
+            # heading for an ending (a late crescendo, "weird stuff toward the end", the designer 2026-10-15), so the
+            # loop starts LEAD_IN bars after the first downbeat and stops TAIL bars before the end.
+            spine = eng.generate(prompts[spine_lv], need + (LEAD_IN + TAIL) * bar + 4.0, seed)
             got, wobble = dsp.tempo_of(spine, bpm)
             if abs(got / bpm - 1) > 0.06 or wobble > 40:
                 print(f"  {key} seed {seed}: rejected ({got:.1f} BPM, beat spread {wobble:.0f} ms)", flush=True)
                 continue
             spine = dsp.ffmpeg_filter(spine, f"rubberband=tempo={bpm / got:.6f}")  # onto the grid, same pitch
-            start = int(dsp.first_downbeat(spine, bpm, bar_beats) * SR)
+            start = int((dsp.first_downbeat(spine, bpm, bar_beats) + LEAD_IN * bar) * SR)
             spine = spine[start:start + int(round(need * SR))]
             if len(spine) < int(round(need * SR)):
                 print(f"  {key} seed {seed}: rejected (too short after the downbeat)", flush=True)
