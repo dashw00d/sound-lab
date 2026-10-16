@@ -23,6 +23,14 @@ The ask was more melodic variety. Tried in turn: MIDI-LLM (Llama 3.2 1B) writing
 
 ## Stable Audio 3 Medium (SA3)
 
+### 2026-10-15: round 9, melodic variety with a Nordic lead
+
+The variety probe's words in round 6's proven frame (violinbed: drumless spine, the layers bring the drums; SA3's sentence, "BPM: 90", D minor etc., every part named, no Folk tags), a Nordic instrument carrying the theme: **kantele** ("a theme built on a three-note motif"), **tagelharpa** (bowed, "a theme with wide leaps"), **nyckelharpa** ("a cold pentatonic theme"); day, night and bloodmoon, 4 takes each on the stack profile (40 takes: day~kantele has 8). The pulse layer plays "a half-time groove" (the probe: followed, away from the house drums, better rated). Not yet heard by the designer.
+
+- **Solid. "A syncopated groove" breaks the battle layer.** 11 of 39 seeds failed on it (battle drums at 112-120 BPM, beat spread 47-62 ms; the stretch allows 30%), against 2 of 24 with "a driving rhythm". Reverted; the half-time pulse stayed.
+- **Leaning. The nyckelharpa holds the beat least.** Its sets lost the most seeds to the spine's beat lock (0.57-0.76); kantele and tagelharpa spines locked at 90.0 BPM almost every time. No take failed the quality gate.
+- **Anecdote, a tool note.** `music generate --takes N` adds N new takes to a set; it doesn't top a set up to N. A stopped run loses the set in progress (the index is written per set).
+
 ### 2026-10-15: which words make new melodies and beats (variety probe)
 
 Method: `research/variety_probe.py` (results: `research/data/2026-10-15_variety_probe.jsonl`; audio kept locally only). 1302 clips of 20 s, one fixed instrument per layer kind (the designer: constrain by instrument): a solo violin melody, a solo cello bass line, a war drum ensemble. Random pattern words: motion, scale, note rhythm, meter, tempo, mood, a genre idiom, prompt shape. Measured tempo-normalised (in beats): the drum skeleton (accents repeated across cycles, low band weighted most: fills and extra hits over the same backbone don't count), the main notes (ornaments under a quarter beat dropped) as intervals, the note rhythm in beats, the scale, CLAP timbre. Similarities centred (what every clip of the kind shares removed). Only clips Audiobox rates as good count (CE floors: melody 6.0, bass 5.8, beat 5.5). The house is our 15 themes. A wide pilot with any instrument was set aside: timbre swamped everything. Each word appeared 4 to 25 times, so effects are **Leaning** unless stated (±0.15 to 0.3 sd).
