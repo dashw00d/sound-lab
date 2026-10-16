@@ -23,6 +23,14 @@ The ask was more melodic variety. Tried in turn: MIDI-LLM (Llama 3.2 1B) writing
 
 ## Stable Audio 3 Medium (SA3)
 
+### 2026-10-15: round 10, contrast and full-length consistency
+
+The designer, on round 9 ("kinda meh"): emphasise melodic contrast and full-length consistency; SA3 "will often slip some weird stuff in toward the end trying to reach a crescendo". Round 9's leads and frame with two wording changes ("a theme in question and answer phrases, a rising phrase answered by a falling one"; "at one steady level from beginning to end"), and the generator now cuts each loop from the middle of a longer piece (4 bars after the first downbeat, 6 before the end; music.py LEAD_IN/TAIL). Measured with `research/end_drift.py` on each take's spine (the calm level). Not yet heard by the designer.
+
+- **Solid. The late crescendo is real and common.** Round 9's loops end +3.7 dB louder than they run (mean over 9 sets; 43 of 60 loops over +1.5 dB, one +17 dB) and wander 4.3 dB bar to bar; round 6's liked violinbed: +1.6 dB, 1.5 dB.
+- **Leaning. The steady wording and the middle cut help, not enough.** Round 10: end rise +2.4 dB, wander 3.1 dB (9 sets, 36 takes); best on the tagelharpa (day wander 5.6 to 2.6 dB; night end rise +5.7 to +1.5 dB), none on day~kantele. Loops cut from the middle still rise: SA3 seems to build across the whole piece, not only at its end.
+- 15 seeds rejected in round 10: 6 spine beat lock, 7 layers off tempo, 1 tempo, 1 quality gate.
+
 ### 2026-10-15: round 9, melodic variety with a Nordic lead
 
 The variety probe's words in round 6's proven frame (violinbed: drumless spine, the layers bring the drums; SA3's sentence, "BPM: 90", D minor etc., every part named, no Folk tags), a Nordic instrument carrying the theme: **kantele** ("a theme built on a three-note motif"), **tagelharpa** (bowed, "a theme with wide leaps"), **nyckelharpa** ("a cold pentatonic theme"); day, night and bloodmoon, 4 takes each on the stack profile (40 takes: day~kantele has 8). The pulse layer plays "a half-time groove" (the probe: followed, away from the house drums, better rated). Not yet heard by the designer.
