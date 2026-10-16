@@ -9,7 +9,40 @@ How findings are graded:
 
 ---
 
+## Composing before SA3 (MIDI-LLM, MOSS-Music, sampled orchestras): abandoned
+
+### 2026-10-15: what the detour taught
+
+The ask was more melodic variety. Tried in turn: MIDI-LLM (Llama 3.2 1B) writing MIDI sketches, MOSS-Music-8B (4-bit) judging them, the MIDI orchestrated with free sample libraries (Sonatina Symphonic Orchestra, VCSL, Karoryfer Horse Pulse, Ajatar Kantele) through a small SFZ sampler, then SA3 audio-to-audio over that. **The designer's verdict: "this is not working. Basically none of it. SA3 is just very very good, and all this other stuff is just getting in the way."** The code stays on the sound-lab `themes` branch, unmerged; nothing of it is on main. Lessons:
+
+- **Solid. Don't put a pipeline in front of SA3.** Each stage before it (sketch, checks, sampled render) cost time and taste and didn't beat SA3 prompted well. Variety comes from the prompt words (variety probe, below), not from feeding it other audio.
+- **Solid. MIDI-LLM ignores the key.** 22 of 61 sketches came out major despite "D minor" in the prompt; about half were loose, played-in timing that can't loop on a grid.
+- **Solid. MOSS-Music is no composition judge.** 28 verdicts scored only 6, 7 or 8, on a template ("The piece opens with a N-second introduction..."), ~1 min to load and ~10 s a verdict.
+- **Solid. Sample-render polish doesn't register; instrument choice does.** Paired on the same 27 sketches (Audiobox): humanising, legato, glue and a better hall +0.04 (n.s.); a tonic drone under everything -0.12. Leads: **kantele +0.39** (the most Nordic and the best rated), a solo violin without vibrato +0.26, bowed psaltery -0.53; a chorus can't carry a melody (rated 3.7-6.9 as the lead).
+- **Nordic instruments to try as SA3 prompt words** (from this and the sample hunt): kantele, tagelharpa (bowed; bass tagelharpa plucked), jouhikko, nyckelharpa, hurdy-gurdy, a lur or bukkehorn (war horn), frame drums and bodhran, a low male choir as a pad (not a lead). Untested in SA3 prompts.
+
 ## Stable Audio 3 Medium (SA3)
+
+### 2026-10-15: which words make new melodies and beats (variety probe)
+
+Method: `research/variety_probe.py` (results: `research/data/2026-10-15_variety_probe.jsonl`; audio kept locally only). 1302 clips of 20 s, one fixed instrument per layer kind (the designer: constrain by instrument): a solo violin melody, a solo cello bass line, a war drum ensemble. Random pattern words: motion, scale, note rhythm, meter, tempo, mood, a genre idiom, prompt shape. Measured tempo-normalised (in beats): the drum skeleton (accents repeated across cycles, low band weighted most: fills and extra hits over the same backbone don't count), the main notes (ornaments under a quarter beat dropped) as intervals, the note rhythm in beats, the scale, CLAP timbre. Similarities centred (what every clip of the kind shares removed). Only clips Audiobox rates as good count (CE floors: melody 6.0, bass 5.8, beat 5.5). The house is our 15 themes. A wide pilot with any instrument was set aside: timbre swamped everything. Each word appeared 4 to 25 times, so effects are **Leaning** unless stated (±0.15 to 0.3 sd).
+
+- **Solid. SA3 doesn't reuse tunes.** The same prompt over different seeds gives different notes (centred interval similarity 0.14; random prompts 0). The repetition the designer hears is not the same melody again.
+- **Solid. It's the note rhythm and the scale that the prompt pins.** Same prompt, other seeds: note rhythm 0.38 to 0.40, scale 0.40, against 0 for random prompts. Our themes sit near the middle of that (nearest-house note rhythm 0.50 to 0.56, scale 0.47). Changing the seed doesn't change the feel; changing the words does.
+- **Solid. Drums follow the prompt but cluster on our sound.** Drum skeletons: same prompt 0.45, random prompts 0.25, nearest house 0.64 (the highest of any layer). Only a few pattern words are followed (clips sharing them more alike): a steady march, a three-against-two polyrhythm, a blast beat, a tresillo rhythm (+0.1 to 0.2).
+- **Drums, away from the house:** "a shuffle" (+0.82 sd, and better rated +0.64), "a stuttering rhythm", 6/8. Better rated: "a half-time groove" (+0.72), "a syncopated groove" (+0.73). **Rated junk:** "a slow heartbeat pulse" (-1.8 sd, solid), "sparse heavy hits" (-1.0), and "a driving eighth-note pulse" passes the gate less often (-0.51): our current drum vocabulary.
+- **Violin melodies, away from the house:** "built on a three-note motif", D minor pentatonic, "cold", "with wide leaps" (wide leaps also the most unique note rhythm, +0.6). **Closest to the house:** "built from arpeggios" (-0.97 sd), "in staccato eighth notes", 160 BPM. Arpeggios also rate highest (+0.61): Audiobox likes the house sound, so pleasant and new pull apart. **Junk:** "of repeated notes" (-0.83), a whole-tone scale, Genre: Horror.
+- **Cello bass lines:** "a pulsing pedal note" makes one thing every time and it is the house (-1.19 sd); "a walking bass line", "grim", "a slow bass line that answers itself" and "long held low notes" move away. The sentence shape rates better than tags for a bass line (+0.42 against -0.49).
+- **Anecdote (n 4 to 7). Genre words move a melody most** (Arabic maqam, tango, East Asian, industrial pull it furthest from the house) but risk the designer's no-folk rule; Gregorian and medieval rate well for the bass.
+- Not measured: whether a listener hears these as new. Next: a round built from the "away" words (and Nordic instruments), judged by ear.
+
+### 2026-10-15: whole-length layers (a bed, a melody, drums): what splits and what doesn't
+
+Method: `research/layers_probe.py` on four liked round-5/3 themes (night~trailer k2, day~strings k2, day~war2 k0, bloodmoon~bed2 k0). Demucs (htdemucs) for separation; then audio-to-audio from the drumless bed prompted for a solo cello or horn melody at strengths 0.4, 0.55, 0.7. Measured: harmony agreement with the bed per bar (chroma, as quality.drift), notes sounding at once per beat (a melody is ~1), Audiobox content enjoyment.
+
+- **Solid. Separation gives a bed and drums, not a melody.** On our orchestral takes Demucs puts the melody and the harmony together in "other"; vocals are near silent (-60 dB; -23 in the one with a choir-like part). Drums are a real layer even where the prompt asked for none (bed2: drums -7 dB under the mix: low booms). So bass + other is a drumless bed, and the drum stem is the take's own drum layer. About 0.5 s per take.
+- **Solid. A separate melody layer can't be derived from a bed.** No strength gives both: at 0.4 the result fits the bed (agreement 0.97) but is still a full texture (3-5 notes at once); at 0.7 it nears a single line (1.3-2.3) but clashes (agreement 0.4-0.6, bars down to 0.13), and the horn falls apart (CE 4.0). The same root limit as everywhere: the model doesn't follow given chords.
+- **Leaning. At 0.4, audio-to-audio re-orchestrates a whole theme and keeps its notes**: a new lead colour (cello, horn) at the bed's quality (CE 7.2-7.3 against 7.4). A theme can have several orchestrations. Needs the designer's ears.
 
 ### 2026-10-15: rounds 7 and 8, the drumless style in every season, and a winter power round
 
