@@ -31,7 +31,8 @@ const nodeTypes = { song: SongNode }
 const SCALE = 2.4
 /** A link's look: in its family's colour, faint while it's only the sort's suggestion; the selected song's family bright. */
 const edgeStyle = (kind: EdgeKind, c: string, lit: boolean): React.CSSProperties =>
-  kind === 'bad' ? { stroke: 'var(--bad)', strokeWidth: 1.5, strokeDasharray: '2 4', opacity: 0.7 }
+  kind === 'guess' ? { stroke: c, strokeWidth: 1.4, strokeDasharray: '1 5', strokeLinecap: 'round', opacity: 0.95 }
+    : kind === 'bad' ? { stroke: 'var(--bad)', strokeWidth: 1.5, strokeDasharray: '2 4', opacity: 0.7 }
     : kind === 'dup' ? { stroke: 'var(--pick)', strokeWidth: 2, strokeDasharray: '6 4' }
     : kind === 'match' ? { stroke: c, strokeWidth: lit ? 2.2 : 1.6, opacity: lit ? 1 : 0.75 }
     : { stroke: c, strokeWidth: 1, strokeDasharray: '3 4', opacity: lit ? 0.6 : 0.16 }
@@ -96,8 +97,11 @@ function Graph() {
   const edges: Edge[] = useMemo(() => {
     if (!fv) return []
     const selFam = sel ? fv.family(sel).id : null
-    return fv.edges().filter(l => showBad || l.kind !== 'bad' || l.a === sel || l.b === sel).map(l => {
-      const fid = fv.family(l.a).id
+    // (the guesses, for the family of the song chosen: the songs close to it, and the families the song is close to)
+    const guesses = !sel ? [] : [...fv.guesses(selFam!).map(g => ({ a: g.id, b: fv.family(sel).root, kind: 'guess' as const })),
+      ...fv.guessesFor(sel).map(g => ({ a: sel, b: g.family.root, kind: 'guess' as const }))]
+    return [...fv.edges().filter(l => showBad || l.kind !== 'bad' || l.a === sel || l.b === sel), ...guesses].map(l => {
+      const fid = l.kind === 'guess' ? fv.family(l.b).id : fv.family(l.a).id
       return { id: `${l.kind}:${l.a}|${l.b}`, source: l.a, target: l.b, sourceHandle: 'c', targetHandle: 'c', type: 'straight', data: { kind: l.kind },
                style: edgeStyle(l.kind, colour(hue(fid)), fid === selFam), interactionWidth: 12 }
     })
@@ -198,7 +202,8 @@ function Graph() {
           <button className={`btn ${showBad ? 'on' : ''}`} onClick={() => setShowBad(b => !b)}>Bad matches</button>
         </div>
         <p className="dim help">Each family is a star round its root: faint lines are the sort's guesses, solid ones you confirmed. Drag from a song to another: it
-          joins that song's family. Click a line: confirmed → near duplicate → out (a bad match) → none. Click a song to hear it;
+          joins that song's family; dotted lines are the guesses, songs that nearly splice with it. Click a line: confirmed → near duplicate →
+          out (a bad match) → none. Click a song to hear it;
           Shift-drag a box or Ctrl-click to choose several, then <kbd>Q</kbd> plays them in turn and <kbd>M</kbd> <kbd>N</kbd> <kbd>B</kbd> vote on each transition.
           Keys: <kbd>Space</kbd> play <kbd>1</kbd><kbd>2</kbd> mellow / intense <kbd>G</kbd> good <kbd>D</kbd> bad take <kbd>Y</kbd> new family.</p>
         {m?.queue && <QueueCard F={F} fv={fv} m={m} onVote={pairVote} onMerge={() => void linkAll()} onDrop={drop} onClear={() => { setPicked([]); m.setQueue(null) }} />}

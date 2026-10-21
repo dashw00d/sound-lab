@@ -31,7 +31,7 @@
 .fa-li small { font: 600 10px var(--mono); color: var(--faint); min-width: 16px; text-align: right; }
 .fa-li .lnk { color: var(--dim); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .fa-li .lnk:hover { color: var(--text); }
 .fa-li.now { background: var(--accent-soft); } .fa-li.now .lnk { color: var(--text); }
-.fa-li .x { background: none; border: 0; color: var(--faint); font-size: 15px; } .fa-li .x:hover { color: var(--bad); }
+.fa-li .x { background: none; border: 0; color: var(--faint); font-size: 15px; width: 18px; } .fa-li .x:hover { color: var(--bad); }
 .fa-pair { padding: 1px 0 1px 30px; }
 .fa-queue { border-color: var(--accent-line); }
 .fa-heard { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 8px; background: var(--bg-2); font-size: 12.5px; }
@@ -56,3 +56,4 @@
 .fa .song .hc { left: 11px !important; top: 50% !important; width: 1px; height: 1px; min-width: 0; min-height: 0; border: 0; background: none; opacity: 0; pointer-events: none; }
 .fa .fa-li .hub { display: grid; place-items: center; width: 15px; margin: 0 -1px 0 -3px; flex: none; } .fa .fa-li .hub .i { width: 15px; height: 15px; }
 .fa .fa-li.root { padding-top: 4px; padding-bottom: 4px; } .fa .fa-li.root .lnk { color: var(--text); font-weight: 600; }
+.fa .fa-li .sc { font: 500 10.5px var(--mono); color: var(--faint); min-width: 34px; text-align: right; }

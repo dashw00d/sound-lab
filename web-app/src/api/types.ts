@@ -36,6 +36,10 @@ export interface FamilyItem {
   next: string | null
   nearest: string[]
   xy: [number, number]
+  /** Its splice score with the songs it splices best with (the share of seamless cuts at their best offset). */
+  splice?: Record<string, number>
+  /** The families it nearly splices with: its worst splice with their members just under the bar. */
+  guess?: { family: string; worst: number; mean: number }[]
 }
 
 export interface Family {
@@ -43,6 +47,8 @@ export interface Family {
   medoid: string
   leads: string[]
   shipped: number
+  /** The songs that nearly splice with all of it, best first. */
+  guesses?: string[]
 }
 
 export interface QueueEntry {

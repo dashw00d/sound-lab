@@ -10,7 +10,7 @@
 import type { Families, FamilyItem, Votes } from '../../api/types'
 
 export type Link = 'match' | 'dup' | 'bad'
-export type EdgeKind = Link | 'suggested'
+export type EdgeKind = Link | 'suggested' | 'guess'
 export interface GraphLink { a: string; b: string; kind: EdgeKind }
 export interface Family { id: string; root: string; members: string[] }  // (the root first)
 /** Votes to write: [key, 1 | -1 | 0 (cleared)], only those that change. */
@@ -77,9 +77,10 @@ export class FamilyView {
   private fams = new Map<string, Family>()
   private L: Links
   private clips: Record<string, number>
+  private F: Families
 
   constructor(F: Families, votes: Votes) {
-    this.clips = votes.clips
+    this.clips = votes.clips; this.F = F
     const L = (this.L = new Links(votes.clips, F.items))
     for (const [id, it] of Object.entries(F.items)) this.famOf.set(id, it.family)
     // (the designer's groups: each whole, in the family of the song its links point to)
@@ -103,6 +104,22 @@ export class FamilyView {
   get(fid: string): Family | undefined { return this.fams.get(fid) }
   families(): Family[] { return [...this.fams.values()].sort((a, b) => b.members.length - a.members.length) }
   rootOf(id: string) { return this.family(id).root }
+  /** The songs that nearly splice with a family (the sort's guesses), not in it, not a bad match for its root. */
+  guesses(fid: string): { id: string; worst: number }[] {
+    const f = this.fams.get(fid)
+    if (!f) return []
+    const out: { id: string; worst: number }[] = []
+    for (const [id, it] of Object.entries(this.F.items))
+      for (const g of it.guess ?? []) if (g.family === fid && this.famOf.get(id) !== fid && !this.L.bad(id, f.root)) out.push({ id, worst: g.worst })
+    return out.sort((a, b) => b.worst - a.worst)
+  }
+  /** The families a song nearly splices with, other than its own. */
+  guessesFor(id: string): { family: Family; worst: number }[] {
+    return (this.F.items[id]?.guess ?? []).map(g => ({ family: this.fams.get(g.family)!, worst: g.worst }))
+      .filter(g => g.family && g.family.id !== this.famOf.get(id) && !this.L.bad(id, g.family.root))
+  }
+  /** Two songs' splice score, when the sort kept it (the songs each splices best with). */
+  splice(a: string, b: string): number | null { return this.F.items[a]?.splice?.[b] ?? this.F.items[b]?.splice?.[a] ?? null }
   /** Linked in by the designer (else the sort's suggestion). */
   confirmed(id: string) { return !!this.L.group(id) }
   /** What the designer has said about two songs: one family (near duplicates or not), a bad match, or nothing yet. */
@@ -178,9 +195,9 @@ export class FamilyView {
     return this.unlink(x)
   }
 }
-/** What a click on a link makes it: the sort's suggestion confirmed, a match a near duplicate, a near duplicate a bad
- * match (out of the family), a bad match nothing. */
-export const NEXT: Record<EdgeKind, Link | null> = { suggested: 'match', match: 'dup', dup: 'bad', bad: null }
+/** What a click on a link makes it: a guess or the sort's suggestion confirmed, a match a near duplicate, a near
+ * duplicate a bad match (out of the family), a bad match nothing. */
+export const NEXT: Record<EdgeKind, Link | null> = { guess: 'match', suggested: 'match', match: 'dup', dup: 'bad', bad: null }
 
 export const novelKey = (id: string, it: FamilyItem) => (it.set && it.take ? `novel_${it.set}.${it.take}` : `novel_${id}`)
 

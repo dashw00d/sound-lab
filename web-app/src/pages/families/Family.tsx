@@ -1,18 +1,23 @@
 // A song's family, the same from any member: its root first, then the members the designer confirmed, then the sort's
-// suggestions; each can be confirmed (or undone), marked a near duplicate of the root, or taken out. The family plays
-// as a queue; the songs most like this one outside it are one click from joining.
+// suggestions; each can be confirmed (or undone), marked a near duplicate of the root, or taken out. Then the guesses:
+// the songs that nearly splice with all of the family, and the families this song nearly splices with, each one click
+// from in (or a bad match); and the songs it splices best with. Scores: the share of seamless cuts at the best offset.
 import type { Families } from '../../api/types'
 import { Icon } from '../../shell/Icon'
 import { colour, hue, label, type FamilyView, type Link } from './model'
+
+const pct = (v: number | null) => (v == null ? null : <span className="sc" title="Splices: the share of cuts between them that are seamless at their best offset">{Math.round(100 * v)}%</span>)
 
 export function FamilyCard({ F, fv, sel, playing, onPlay, onSet, onOut, onConfirmAll, onQueue }: {
   F: Families; fv: FamilyView; sel: string; playing: string | null
   onPlay: (id: string) => void; onSet: (x: string, y: string, k: Link | null) => void; onOut: (id: string) => void
   onConfirmAll: (id: string) => void; onQueue: (ids: string[]) => void
 }) {
-  const f = fv.family(sel), it = F.items[sel], dot = (id: string) => colour(hue(fv.family(id).id))
+  const f = fv.family(sel), it = F.items[sel], dot = (id: string) => colour(hue(fv.family(id).id)), name = (id: string) => label(id, F.items[id])
   const sure = f.members.slice(1).filter(m => fv.relation(m, f.root)).length
-  const near = it.nearest.filter(o => F.items[o] && fv.family(o).id !== f.id)
+  const close = fv.guesses(f.id), elsewhere = fv.guessesFor(sel)
+  const shown = new Set([...f.members, ...close.map(g => g.id)])
+  const best = it.nearest.filter(o => F.items[o] && !shown.has(o)).slice(0, 4)
   return (
     <div className="fa-fam">
       <div className="lbl">{f.members.length > 1 ? `its family · ${f.members.length} songs · ${sure} confirmed` : 'on its own'}</div>
@@ -25,8 +30,9 @@ export function FamilyCard({ F, fv, sel, playing, onPlay, onSet, onOut, onConfir
                 <div key={x} className={`fa-li ${x === f.root ? 'root' : ''} ${x === sel ? 'sel' : ''} ${x === playing ? 'now' : ''} ${x !== f.root && !rel ? 'guess' : ''}`}>
                   {x === f.root ? <span className="hub" style={{ color: dot(x) }} title="The family's root: every member is linked to it"><Icon name="root" /></span>
                     : <span className="dot" style={{ background: dot(x) }} />}
-                  <button className="lnk" onClick={() => onPlay(x)}>{label(x, F.items[x])}</button>
+                  <button className="lnk" onClick={() => onPlay(x)}>{name(x)}</button>
                   {x !== f.root && <>
+                    {pct(fv.splice(x, f.root))}
                     <button className={`okb ${rel ? 'on' : ''}`} title={rel ? 'Confirmed: click to undo (back to the sort’s suggestion)' : 'The sort’s suggestion: click to confirm it belongs'}
                       onClick={() => onSet(x, f.root, rel ? null : 'match')}>✓</button>
                     <button className={`dupb ${rel === 'dup' ? 'on' : ''}`} title={rel === 'dup' ? 'A near duplicate of the root: click for just a match' : 'A near duplicate of the root'}
@@ -43,12 +49,36 @@ export function FamilyCard({ F, fv, sel, playing, onPlay, onSet, onOut, onConfir
           </div>
         </>
       )}
-      {near.length > 0 && <div className="lbl near">most like it{f.members.length > 1 ? ', outside the family' : ''}</div>}
-      {near.map(o => (
+      {close.length > 0 && <>
+        <div className="lbl near">close · {f.members.length > 1 ? 'they nearly splice with all of it' : 'they nearly splice with it'}</div>
+        {close.map(g => (
+          <div key={g.id} className={`fa-li ${g.id === playing ? 'now' : ''}`}>
+            <span className="dot" style={{ background: dot(g.id) }} />
+            <button className="lnk" onClick={() => onPlay(g.id)}>{name(g.id)}{fv.family(g.id).members.length > 1 ? <small> · in a family of {fv.family(g.id).members.length}</small> : null}</button>
+            <span className="sc" title="Its worst splice with the family's songs">≥{Math.round(100 * g.worst)}%</span>
+            <button className="addb" title={f.members.length > 1 ? 'Bring it into this family' : 'Make these two a family'} onClick={() => onSet(g.id, f.root, 'match')}>+</button>
+            <button className="x" title="A bad match: never guessed for this family again" onClick={() => onSet(g.id, f.root, 'bad')}>✗</button>
+          </div>
+        ))}
+      </>}
+      {elsewhere.length > 0 && <>
+        <div className="lbl near">it nearly splices with another family</div>
+        {elsewhere.map(g => (
+          <div key={g.family.id} className="fa-li">
+            <span className="hub" style={{ color: colour(hue(g.family.id)) }}><Icon name="root" /></span>
+            <button className="lnk" title="Hear that family's root" onClick={() => onPlay(g.family.root)}>{name(g.family.root)}<small> · a family of {g.family.members.length}</small></button>
+            <span className="sc" title="Its worst splice with that family's songs">≥{Math.round(100 * g.worst)}%</span>
+            <button className="addb" title="Move it into that family" onClick={() => onSet(sel, g.family.root, 'match')}>+</button>
+          </div>
+        ))}
+      </>}
+      {best.length > 0 && <div className="lbl near">splices best with{f.members.length > 1 ? ', outside the family' : ''}</div>}
+      {best.map(o => (
         <div key={o} className={`fa-li ${o === playing ? 'now' : ''}`}>
           <span className="dot" style={{ background: dot(o) }} />
-          <button className="lnk" onClick={() => onPlay(o)}>{label(o, F.items[o])}{fv.family(o).members.length > 1 ? <small> · family of {fv.family(o).members.length}</small> : null}</button>
-          <button className="addb" title="Bring it into this family" onClick={() => onSet(o, sel, 'match')}>+</button>
+          <button className="lnk" onClick={() => onPlay(o)}>{name(o)}{fv.family(o).members.length > 1 ? <small> · in a family of {fv.family(o).members.length}</small> : null}</button>
+          {pct(fv.splice(sel, o))}
+          <button className="addb" title="Bring it into this family" onClick={() => onSet(o, f.root, 'match')}>+</button>
         </div>
       ))}
     </div>
