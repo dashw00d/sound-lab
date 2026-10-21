@@ -11,6 +11,8 @@ How findings are graded:
 
 ## CLAP (LAION), used to group songs by similarity
 
+- **Changed 2026-10-21:** families are no longer grouped by CLAP likeness but by whether songs splice (see SA3, "families by whether songs splice"); CLAP places songs on the Families map and finds near duplicates.
+
 ### 2026-10-19: which checkpoint works, and what it groups by
 
 `research/song_groups.py` embeds the 98 liked music takes (each one's spine) and clusters them, so the designer can hear each group as one long stream (data: `research/data/song_groups.json`). Not yet heard by the designer.
@@ -31,6 +33,15 @@ The ask was more melodic variety. Tried in turn: MIDI-LLM (Llama 3.2 1B) writing
 - **Nordic instruments to try as SA3 prompt words** (from this and the sample hunt): kantele, tagelharpa (bowed; bass tagelharpa plucked), jouhikko, nyckelharpa, hurdy-gurdy, a lur or bukkehorn (war horn), frame drums and bodhran, a low male choir as a pad (not a lead). Untested in SA3 prompts.
 
 ## Stable Audio 3 Medium (SA3)
+
+### 2026-10-21: families by whether songs splice, not how related they sound
+
+The designer, on the Families graph: "These are often related, but I wouldn't consider most of them mid song sibling splicable." The sort (`music families`) joined songs by CLAP likeness and mean bar likeness at the best offset, plus the same style and lead: the style and lead bonuses alone (0.6 + 0.5) cleared its 0.9 bar, so families were "related" (sizes 77, 41, 39...). `research/splice_probe.py` (data: `research/data/splice_probe.json`), 306 songs:
+
+- **Leaning. A splice score separates siblings from related songs.** Two songs at an offset L: the cut from A after bar k into B's bar k+1+L is seamless when the lined-up bars either side are at least a natural bar step (0.785) alike and B's bar is within 3 dB of the bar of A it replaces; the score is the share of the 16 cuts that are seamless at the best offset. Siblings (43 pairs): median 0.56 (p25 0.34, p75 0.78); pairs the old sort put in one family, not siblings (5682): 0.19 (p75 0.31); the rest: 0.12. 91% of siblings splice best at offset 0, as "in step bar for bar" predicts. The mean lined-up likeness (music.same_piece) separates them too (siblings 0.82, one family 0.67, the rest 0.62), but it's a mean: a song that's alike for most bars and jars at a few passes it.
+- **Changed 2026-10-21: families are complete linkage on the splice score at 0.5** (every pair in a family splices at least that well; siblings, extensions and the designer's links together first, bad matches and new families kept apart), their roots the members that splice best with the rest, each song's nearest the songs it splices best with. 61 families of 2 or more (largest 9), 147 songs on their own. CLAP and the likeness only place the songs on the map and find near duplicates.
+- **Guesses:** a song whose worst splice with a family's members is 0.35 or more (about siblings' lowest quarter) is a guess for that family, shown dotted on the graph with its score, for the designer to bring in or call a bad match: 146 songs close to 163 families (each song's best 2, each family's best 6).
+- The designer, seeing the 0.5 families: "yeah that is what we want." Not yet checked by ear family by family.
 
 ### 2026-10-21: the tuning measurement and the retune were both wrong (corrects "SA3 takes weren't at one pitch")
 

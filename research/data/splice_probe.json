@@ -1,0 +1,291 @@
+{
+ "songs": 306,
+ "step": 0.785,
+ "loud": 3.0,
+ "own_step": {
+  "p10": 0.634,
+  "p25": 0.698,
+  "median": 0.757,
+  "p75": 0.81,
+  "p90": 0.838,
+  "n": 306
+ },
+ "splice": {
+  "siblings": {
+   "p10": 0.2,
+   "p25": 0.344,
+   "median": 0.562,
+   "p75": 0.781,
+   "p90": 0.925,
+   "n": 43
+  },
+  "one family, not siblings": {
+   "p10": 0.062,
+   "p25": 0.125,
+   "median": 0.188,
+   "p75": 0.312,
+   "p90": 0.438,
+   "n": 5682
+  },
+  "different families": {
+   "p10": 0.0,
+   "p25": 0.062,
+   "median": 0.125,
+   "p75": 0.188,
+   "p90": 0.312,
+   "n": 40940
+  }
+ },
+ "alike": {
+  "siblings": {
+   "p10": 0.695,
+   "p25": 0.74,
+   "median": 0.816,
+   "p75": 0.854,
+   "p90": 0.886,
+   "n": 43
+  },
+  "one family, not siblings": {
+   "p10": 0.565,
+   "p25": 0.624,
+   "median": 0.673,
+   "p75": 0.719,
+   "p90": 0.757,
+   "n": 5682
+  },
+  "different families": {
+   "p10": 0.0,
+   "p25": 0.537,
+   "median": 0.62,
+   "p75": 0.674,
+   "p90": 0.718,
+   "n": 40940
+  }
+ },
+ "sibling_lag0": 0.9069767441860465,
+ "families": {
+  "0.5": {
+   "count": 64,
+   "alone": 142,
+   "sizes": [
+    6,
+    5,
+    5,
+    5,
+    5,
+    4,
+    4,
+    4,
+    4,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3
+   ],
+   "examples": [
+    [
+     "day.any.violintags.k8.stack",
+     "night.any.violintags.k4.stack",
+     "night.any.violin.k8.stack",
+     "bloodmoon.any.violintags.k4.stack",
+     "day.any.strings.k6.stack",
+     "night.any.violin.k6.stack"
+    ],
+    [
+     "night.any.trailer.k2.close",
+     "day.any.war2.k2.stack",
+     "day.any.bed2.k2.stack",
+     "day.any.trailer.k7.stack",
+     "night.any.war2.k6.stack"
+    ],
+    [
+     "night.any.violintags.k3.stack",
+     "day.any.violintags.k3.stack",
+     "day.any.violintags.k5.stack",
+     "night.any.violintags.k6.stack",
+     "night.any.violintags.k5.stack"
+    ],
+    [
+     "night.any.violinbed.k0.stack",
+     "day.any.violinbed.k0.stack",
+     "winter.any.violinbed.k0.stack",
+     "bloodmoon.any.violinbed.k0.stack",
+     "menu.any.violinbed.k0.stack"
+    ],
+    [
+     "day.any.trailer.k5.stack",
+     "bloodmoon.any.violintags.k5.stack",
+     "bloodmoon.any.strings.k5.stack",
+     "bloodmoon.any.war2.k7.stack",
+     "bloodmoon.any.violin.k9.stack"
+    ],
+    [
+     "night.any.violinbed.k1.stack",
+     "day.any.violinbed.k1.stack",
+     "winter.any.violinbed.k1.stack",
+     "bloodmoon.any.violinbed.k1.stack"
+    ]
+   ]
+  },
+  "0.6": {
+   "count": 52,
+   "alone": 186,
+   "sizes": [
+    5,
+    4,
+    4,
+    4,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "examples": [
+    [
+     "night.any.violinbed.k0.stack",
+     "day.any.violinbed.k0.stack",
+     "winter.any.violinbed.k0.stack",
+     "bloodmoon.any.violinbed.k0.stack",
+     "menu.any.violinbed.k0.stack"
+    ],
+    [
+     "night.any.violinbed.k1.stack",
+     "day.any.violinbed.k1.stack",
+     "winter.any.violinbed.k1.stack",
+     "bloodmoon.any.violinbed.k1.stack"
+    ],
+    [
+     "day.any.nyckelharpa2.k2.stack",
+     "night.any.nyckelharpa2.k2.stack",
+     "bloodmoon.any.nyckelharpa2.k2.stack",
+     "bloodmoon.any.kantele2.k2.stack"
+    ],
+    [
+     "day.any.trailer.k5.stack",
+     "bloodmoon.any.violintags.k5.stack",
+     "bloodmoon.any.strings.k5.stack",
+     "bloodmoon.any.war2.k7.stack"
+    ],
+    [
+     "day.any.war.k3.close",
+     "night.any.war.k3.close",
+     "bloodmoon.any.war.k3.close"
+    ],
+    [
+     "night.any.trailer.k2.close",
+     "day.any.war2.k2.stack",
+     "day.any.bed2.k2.stack"
+    ]
+   ]
+  },
+  "0.7": {
+   "count": 36,
+   "alone": 223,
+   "sizes": [
+    5,
+    4,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+   ],
+   "examples": [
+    [
+     "night.any.violinbed.k0.stack",
+     "day.any.violinbed.k0.stack",
+     "winter.any.violinbed.k0.stack",
+     "bloodmoon.any.violinbed.k0.stack",
+     "menu.any.violinbed.k0.stack"
+    ],
+    [
+     "night.any.violinbed.k1.stack",
+     "day.any.violinbed.k1.stack",
+     "winter.any.violinbed.k1.stack",
+     "bloodmoon.any.violinbed.k1.stack"
+    ],
+    [
+     "day.any.war.k3.close",
+     "night.any.war.k3.close",
+     "bloodmoon.any.war.k3.close"
+    ],
+    [
+     "night.any.trailer.k2.close",
+     "day.any.war2.k2.stack",
+     "day.any.bed2.k2.stack"
+    ],
+    [
+     "night.any.violin.k2.stack",
+     "day.any.violin.k2.stack",
+     "bloodmoon.any.violin.k2.stack"
+    ],
+    [
+     "day.any.violinbed.k3.stack",
+     "bloodmoon.any.violinbed.k3.stack",
+     "menu.any.violinbed.k3.stack"
+    ]
+   ]
+  }
+ },
+ "sort_sizes": [
+  77,
+  41,
+  39,
+  34,
+  18,
+  18,
+  17,
+  17,
+  10,
+  9,
+  5,
+  4,
+  2,
+  2,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1
+ ]
+}

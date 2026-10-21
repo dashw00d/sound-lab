@@ -1,20 +1,26 @@
 """Families: every song (shipped, scored new takes, trial takes and their extensions) sorted into families, and a
 queue of what the designer should judge next (2026-10-21). A family is songs that could pass as sections of one long
-piece: one palette and feel, so moving inside one is a walk and moving between two a change of scene (the designer
-agreed this meaning). Built from what we know and how they sound:
+piece: songs the walk could cut between mid-song, as it swaps into a sibling at the same bar (the designer: "these are
+often related, but I wouldn't consider most of them mid song sibling splicable"; research/splice_probe.py).
 
-  sounds like   CLAP (candidates._clap), centred on all the items
-  same piece    bar fingerprints at the best offset (music.same_piece)
-  what it is    the same style, the same lead instrument (a drawn take's words, else its style's)
+  splices       two songs A and B at an offset L (B's bar k+L under A's bar k): the cut from A after bar k into B's
+                bar k+1+L is seamless when the lined-up bars either side of it (bar fingerprints, music._fingerprint)
+                are at least as alike as a natural bar step (STEP) and B's bar is within LOUD dB of the bar of A it
+                replaces; a pair's splice score is the share of the 16 cuts that are seamless at its best offset
+                (siblings: median 0.56; songs the old sort put in one family: 0.19; the rest: 0.12)
+  sounds like   CLAP (candidates._clap) and bar fingerprints at the best offset (music.same_piece), standardised and
+                averaged, with the same style and lead: only for the map and the near-duplicate checks
   must go together   siblings (one piece made for other contexts, music.families), an extension and its seed, and the
                      designer's own answers: "belongs here" (link_<a>|<b> = 1) and "near duplicate" (dup_<a>|<b> = 1)
-  must not           "bad match" (link_<a>|<b> = -1)
+  must not           "bad match" (link_<a>|<b> = -1); a take the designer called a new family takes in only its
+                     extensions and what they say belongs
 
-The two sound measures are standardised over all pairs and averaged, the style and lead add W_STYLE and W_LEAD; families
-merge by average linkage while the average likeness is over JOIN and no "bad match" lies between them. Each item gets
-a confidence: how much more it's like its own family than the next. The queue: new trial takes and extensions
-unanswered, then the least confident items, then the most alike pairs (where "near duplicate" starts). Writes
-work/families.json for the Families page; its answers are votes:
+Families merge by complete linkage: while every pair across two families splices at SPLICE or more (the must-links
+together first, whatever they score). Each item gets a confidence: how much better it splices with its own family than
+with the next; its nearest are the songs it splices best with; its guesses, the families it nearly splices with (its
+worst splice with their members CLOSE or more: siblings' lowest quarter is about there), for the designer to say. The queue: new trial takes and extensions unanswered,
+then the least confident items, then the most alike pairs (where "near duplicate" starts). Writes work/families.json
+for the Families page; its answers are votes:
 
   ok_<id>          1 good, -1 a bad take (on a shipped song: out of the walk only, never out of the game)
   link_<id>|<id>   1 belongs with that family's member shown, -1 good but a bad match for that family
@@ -32,7 +38,29 @@ import numpy as np
 from . import candidates, dsp, music, project as P
 from .store import Store
 
-W_STYLE, W_LEAD, JOIN = 0.6, 0.5, 0.9
+W_STYLE, W_LEAD = 0.6, 0.5  # (the map's likeness)
+STEP, LOUD, SPLICE = 0.785, 3.0, 0.5  # (a seamless cut: bars as alike as a natural step, within 3 dB; a family: every pair at 0.5)
+CLOSE, GUESSES = 0.35, 6  # (a guess: a song whose worst splice with a family's members is this or more, a family's best 6)
+
+
+def splice(F: np.ndarray, Ld: np.ndarray) -> np.ndarray:
+    """Each pair's splice score: the share of cuts from one into the other that are seamless at their best offset
+    (F: songs x bars x features, each bar a unit vector; Ld: songs x bars, the calm level's loudness in dB)."""
+    n, nb, _ = F.shape
+    best = np.zeros((n, n))
+    for L in range(nb):
+        s = np.einsum("ikd,jkd->ijk", F, np.roll(F, -L, axis=1))  # A's bar k against B's bar k+L
+        cut = 0.5 * (s + np.roll(s, -1, axis=2))  # the cut after A's bar k: the bars either side lined up
+        step = np.abs(np.roll(Ld, -1, axis=1)[:, None, :] - np.roll(np.roll(Ld, -L, axis=1), -1, axis=1)[None, :, :])
+        best = np.maximum(best, ((cut >= STEP) & (step <= LOUD)).mean(axis=2))
+    return best
+
+
+def _loud(x: np.ndarray, M: dict) -> list[float]:
+    """A level's loudness per bar (dB, RMS), as music trims measures it."""
+    bar = int(round(M["bar_beats"] * 60.0 / M["bpm"] * dsp.SR))
+    m = x.mean(axis=1) if x.ndim > 1 else x
+    return [round(float(20 * np.log10(np.sqrt(np.mean(m[k * bar:(k + 1) * bar] ** 2)) + 1e-9)), 2) for k in range(M["bars"])]
 LEADS = {"violin": "violin", "violintags": "violin", "violinbed": "violin", "kantele": "kantele", "kantele2": "kantele",
          "tagelharpa": "tagelharpa", "tagelharpa2": "tagelharpa", "nyckelharpa": "nyckelharpa", "nyckelharpa2": "nyckelharpa",
          "winterwater": "waterphone", "winterglass": "celesta", "winterstrings": "tremolo strings", "winterchoir": "choir",
@@ -59,7 +87,7 @@ def build(proj: P.Project) -> int:
     path = proj.work / "families.json"
     old = Store.read(path, {})
     lib = music.library(proj)
-    items, files, feats = {}, {}, {}
+    items, files, feats, louds = {}, {}, {}, {}
     for t in lib["tracks"]:
         m = t.get("measure") or {}
         if not m.get("feat") or "calm" not in t["files"]:
@@ -70,6 +98,8 @@ def build(proj: P.Project) -> int:
                               sibling=(t.get("family") or {}).get("key"))
         files[t["id"]] = Path(proj.assets) / t["files"]["calm"]
         feats[t["id"]] = np.array(m["feat"])[:M["bars"]]
+        if (m.get("loud") or {}).get("calm"):
+            louds[t["id"]] = list(m["loud"]["calm"])[:M["bars"]]
     cand = {r["id"]: r for r in Store.read(proj.work / "candidates.json", {}).get("takes", {}).values() if r.get("id")}
     for key, c in idx.get("mesh", {}).get("contexts", {}).items():
         for take in c["takes"]:
@@ -88,12 +118,22 @@ def build(proj: P.Project) -> int:
                             src={k: "/clips/" + (tuned[k]["file"] if k in tuned else lv[k]) for k in ("calm", "battle") if lv.get(k)},
                             **({"seed": mixer_id(c, {"id": take["grow"]["of"]}, prof)} if take.get("grow") else {}))
             files[i] = st.clips / lv["calm"]
+            had, x = old.get("items", {}).get(i) or {}, None
             if r.get("measure", {}).get("feat"):
                 feats[i] = np.array(r["measure"]["feat"])[:M["bars"]]
-            elif (old.get("items", {}).get(i) or {}).get("feat"):
-                feats[i] = np.array(old["items"][i]["feat"])
+            elif had.get("feat"):
+                feats[i] = np.array(had["feat"])
             else:
-                feats[i] = music._fingerprint(dsp.decode(files[i]), M)
+                feats[i] = music._fingerprint(x := dsp.decode(files[i]), M)
+            if (r.get("measure", {}).get("loud") or {}).get("calm"):
+                louds[i] = list(r["measure"]["loud"]["calm"])[:M["bars"]]
+            elif had.get("loud"):
+                louds[i] = had["loud"]
+            elif x is not None:
+                louds[i] = _loud(x, M)
+    for i in items:  # (a loudness per bar for every song: measured once, then kept in families.json)
+        if i not in louds:
+            louds[i] = _loud(dsp.decode(files[i]), M)
     ids = list(items)
     n = len(ids)
     print(f"{n} songs: " + ", ".join(f"{sum(1 for i in ids if items[i]['kind'] == k)} {k}" for k in ("shipped", "candidate", "trial", "extension")), flush=True)
@@ -108,8 +148,10 @@ def build(proj: P.Project) -> int:
     iu = np.triu_indices(n, 1)
     z = lambda S: (S - S[iu].mean()) / (S[iu].std() + 1e-9)
     same = lambda f: np.array([[items[a][f] == items[b][f] for b in ids] for a in ids], float)
-    S = 0.5 * (z(Sc) + z(Sf)) + W_STYLE * same("style") + W_LEAD * same("lead")
+    S = 0.5 * (z(Sc) + z(Sf)) + W_STYLE * same("style") + W_LEAD * same("lead")  # (likeness: the map, near duplicates)
     np.fill_diagonal(S, 0.0)
+    Sp = splice(F, np.array([louds[i][:M["bars"]] for i in ids], float))  # (spliceable: the families)
+    np.fill_diagonal(Sp, 0.0)
     pos = {i: k for k, i in enumerate(ids)}
 
     # the constraints: what must go together, what mustn't
@@ -145,26 +187,29 @@ def build(proj: P.Project) -> int:
     # (a take the designer called a new family starts its own: it takes in only its extensions and what they say belongs)
     novel = {pos[i] for i in ids if votes.get(f"novel_{i}", 0) > 0
              or (items[i].get("set") and votes.get(f"novel_{items[i]['set']}.{items[i]['take']}", 0) > 0)}
-    blocked = lambda A, B: (any(frozenset((ids[x], ids[y])) in cannot for x in A for y in B)
-                            or bool(novel & set(A)) or bool(novel & set(B)))
-    # average linkage: the likeliest pair of families merges while its average likeness is over JOIN
+    # complete linkage: the two families whose worst pair splices best merge, while that's SPLICE or more (D: the
+    # families' worst pair; X: what may not merge, a bad match between them or a new family in either)
+    f = len(fams)
+    D = np.array([[Sp[np.ix_(a, b)].min() for b in fams] for a in fams])
+    X = np.array([[any(frozenset((ids[x], ids[y])) in cannot for x in a for y in b) or bool(novel & set(a)) or bool(novel & set(b))
+                   for b in fams] for a in fams])
+    alive = np.ones(f, bool)
     while True:
-        best, bi, bj = JOIN, -1, -1
-        for x in range(len(fams)):
-            for y in range(x + 1, len(fams)):
-                v = S[np.ix_(fams[x], fams[y])].mean()
-                if v > best and not blocked(fams[x], fams[y]):
-                    best, bi, bj = v, x, y
-        if bi < 0:
+        W = np.where(X | ~alive[:, None] | ~alive[None, :] | np.eye(f, dtype=bool), -1.0, D)
+        x, y = np.unravel_index(np.argmax(W), W.shape)
+        if W[x, y] < SPLICE:
             break
-        fams[bi] = fams[bi] + fams[bj]
-        del fams[bj]
+        fams[x] = fams[x] + fams[y]
+        alive[y] = False
+        D[x, :] = D[:, x] = np.minimum(D[x], D[y])
+        X[x, :] = X[:, x] = X[x] | X[y]
+    fams = [fam for k, fam in enumerate(fams) if alive[k]]
     fams.sort(key=len, reverse=True)
     fam_of = {ids[k]: f"f{j + 1}" for j, fam in enumerate(fams) for k in fam}
     out_f = {}
     for j, fam in enumerate(fams):
         fid = f"f{j + 1}"
-        med = fam[int(np.argmax(S[np.ix_(fam, fam)].sum(axis=1)))] if len(fam) > 1 else fam[0]
+        med = fam[int(np.argmax(Sp[np.ix_(fam, fam)].sum(axis=1)))] if len(fam) > 1 else fam[0]
         leads = sorted({items[ids[k]]["lead"] for k in fam})
         out_f[fid] = dict(members=[ids[k] for k in fam], medoid=ids[med], leads=leads,
                           shipped=sum(1 for k in fam if items[ids[k]]["kind"] == "shipped"))
@@ -178,14 +223,35 @@ def build(proj: P.Project) -> int:
     w, V = np.linalg.eigh(B)
     XY = V[:, -2:] * np.sqrt(np.maximum(w[-2:], 1e-9))
     XY = (XY - XY.mean(axis=0)) / (np.abs(XY).max() + 1e-9) * 500
-    for i in ids:  # confidence: own family's average likeness against the next best family's
+    # guesses: the families a song nearly splices with (its worst pair CLOSE or more, no bad match with any member);
+    # each song's best two, each family's best GUESSES
+    guess: dict[str, list[dict]] = {i: [] for i in ids}
+    for fid, fm in out_f.items():
+        ms = [pos[m] for m in fm["members"]]
+        near_f = []
+        for i in ids:
+            k = pos[i]
+            if fam_of[i] == fid or any(frozenset((i, m)) in cannot for m in fm["members"]):
+                continue
+            worst = float(Sp[k, ms].min())
+            if worst >= CLOSE:
+                near_f.append((worst, float(Sp[k, ms].mean()), i))
+        near_f.sort(reverse=True)
+        fm["guesses"] = [i for _, _, i in near_f[:GUESSES]]
+        for worst, mean, i in near_f[:GUESSES]:
+            guess[i].append(dict(family=fid, worst=round(worst, 2), mean=round(mean, 2)))
+    near = Sp + 0.001 * (S - S.min()) / (S.max() - S.min() + 1e-9)  # (the songs it splices best with; likeness breaks ties)
+    np.fill_diagonal(near, -1.0)
+    for i in ids:  # confidence: how much better it splices with its own family than with the next best
         k, own = pos[i], fam_of[i]
         mine = [pos[m] for m in out_f[own]["members"] if m != i]
-        a = float(S[k, mine].mean()) if mine else 0.0
-        others = [(float(S[k, [pos[m] for m in f["members"]]].mean()), fid) for fid, f in out_f.items() if fid != own]
-        b, nxt = max(others) if others else (-9.0, None)
+        a = float(Sp[k, mine].mean()) if mine else 0.0
+        others = [(float(Sp[k, [pos[m] for m in fm["members"]]].mean()), fid) for fid, fm in out_f.items() if fid != own]
+        b, nxt = max(others) if others else (0.0, None)
         items[i].update(family=own, conf=round(a - b, 2), next=nxt, xy=[round(float(XY[k, 0]), 1), round(float(XY[k, 1]), 1)],
-                        nearest=[ids[x] for x in np.argsort(-S[k])[:6] if ids[x] != i][:5], feat=np.round(feats[i], 3).tolist())
+                        nearest=[ids[x] for x in np.argsort(-near[k])[:5]], feat=np.round(feats[i], 3).tolist(), loud=louds[i],
+                        guess=sorted(guess[i], key=lambda g: (-g["worst"], -g["mean"]))[:2],
+                        splice={ids[x]: round(float(Sp[k, x]), 2) for x in np.argsort(-near[k])[:12]})
 
     # the queue
     def answered(i, fam=None):
@@ -211,10 +277,11 @@ def build(proj: P.Project) -> int:
             q.append(dict(kind="uncertain", item=unsure[k], family=items[unsure[k]]["family"]))
         if k < len(dups):
             q.append(dict(kind="dup", item=dups[k][1], vs=dups[k][2], family=items[dups[k][2]]["family"], alike=round(dups[k][0], 2)))
-    st.write(path, dict(made=datetime.now().strftime("%Y-%m-%d %H:%M"), weights=dict(style=W_STYLE, lead=W_LEAD, join=JOIN),
+    st.write(path, dict(made=datetime.now().strftime("%Y-%m-%d %H:%M"), weights=dict(step=STEP, loud=LOUD, splice=SPLICE, style=W_STYLE, lead=W_LEAD),
                         items=items, families=out_f, queue=q))
     sizes = sorted((len(f["members"]) for f in out_f.values()), reverse=True)
     print(f"{len(out_f)} families (sizes {sizes[:12]}{' ...' if len(sizes) > 12 else ''}; {sum(1 for s in sizes if s == 1)} alone); "
+          f"guesses: {sum(1 for i in ids if items[i]['guess'])} songs close to {sum(1 for f in out_f.values() if f['guesses'])} families; "
           f"queue: {len(q)} ({sum(1 for x in q if x['kind'] in ('new', 'extension'))} new, {sum(1 for x in q if x['kind'] == 'uncertain')} unsure, "
           f"{sum(1 for x in q if x['kind'] == 'dup')} near-duplicate checks); {path}")
     for fid, f in list(out_f.items())[:10]:
