@@ -1,0 +1,22 @@
+.tl { position: relative; user-select: none; }
+.tl-view { position: relative; border-radius: var(--r-sm); overflow: hidden; background: #050508; box-shadow: inset 0 0 0 1px var(--line-2); cursor: pointer; }
+.tl-view canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .35s var(--ease); }
+.tl-view canvas.in { opacity: 1; }
+.tl-busy { position: absolute; inset: 0; display: grid; place-items: center; }
+.tl-busy span { width: 120px; height: 3px; border-radius: 3px; background: linear-gradient(90deg, transparent, var(--accent), transparent); background-size: 200% 100%; animation: tl-sweep 1.1s linear infinite; }
+@keyframes tl-sweep { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.tl-line { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255, 255, 255, .07); pointer-events: none; }
+.tl-line.four { background: rgba(255, 255, 255, .16); }
+.tl-out { position: absolute; top: 0; bottom: 0; background: rgba(5, 5, 8, .55); pointer-events: none; transition: left var(--t) var(--ease), width var(--t) var(--ease); }
+.tl-loop { position: absolute; top: 0; bottom: 0; box-shadow: inset 0 0 0 1.5px rgba(154, 140, 255, .7); border-radius: 3px; pointer-events: none; transition: left var(--t) var(--ease), width var(--t) var(--ease); }
+.tl-loop.mine { box-shadow: inset 0 0 0 1.5px rgba(91, 214, 255, .85); }
+.tl-loop::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--grad); opacity: .9; }
+.tl-h { position: absolute; top: 0; bottom: 0; width: 14px; cursor: ew-resize; pointer-events: auto; }
+.tl-h.l { left: -7px; } .tl-h.r { right: -7px; }
+.tl-h::after { content: ""; position: absolute; left: 5px; top: 50%; width: 4px; height: 28px; margin-top: -14px; border-radius: 3px; background: #fff; opacity: .85; box-shadow: 0 0 0 1px rgba(0, 0, 0, .4); transition: transform var(--t-fast); }
+.tl-h:hover::after { transform: scaleY(1.2); opacity: 1; }
+.tl-tick { position: absolute; bottom: 0; width: 2px; height: 10px; background: var(--pick); opacity: .8; pointer-events: none; }
+.tl-mark { position: absolute; top: 6px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(0, 0, 0, .55); opacity: .9; transform: translateY(0); }
+.tl-head { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 12px rgba(255, 255, 255, .8); pointer-events: none; opacity: 0; transition: opacity .2s; }
+.tl-bars { display: grid; margin-top: 4px; font: 500 10px var(--mono); color: var(--ghost); text-align: center; }
+.tl-bars span.in { color: var(--dim); }

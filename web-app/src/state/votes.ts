@@ -1,31 +1,24 @@
-// The designer's decisions (votes.json), one copy for every page: read when the file changes on the server, and
-// changed only through POST /api/vote (which returns the votes as saved).
-import { useSyncExternalStore } from 'react'
+// The designer's decisions (votes.json), one copy for every page (data/live.ts), changed only through POST /api/vote
+// (which returns the votes as saved, put straight in).
 import { api } from '../api/client'
 import type { Votes } from '../api/types'
+import { get, put, reload } from '../data/live'
+import { useVotesData, VOTES } from '../data/resources'
 
-let votes: Votes = { clips: {}, picks: {}, notes: {}, cues: {} }
-let stamp = ''
-const listeners = new Set<() => void>()
-const set = (v: Votes) => { votes = v; listeners.forEach(f => f()) }
-
-export const getVotes = () => votes
+const NONE: Votes = { clips: {}, picks: {}, notes: {}, cues: {} }
+export const getVotes = (): Votes => get<Votes>(VOTES) ?? NONE
 export async function vote(clip: string, value: number): Promise<Votes> {
   const v = await api.vote(clip, value)
-  set(v)
+  put(VOTES, v)
   return v
 }
-export async function refreshVotes(force = false) {
-  try {
-    const s = await api.stamp()
-    if (force || s.votes !== stamp) { stamp = s.votes; set(await api.votes()) }
-  } catch { /* server restarting */ }
+/** A cue: a shipped track's mellow or intense loop, bars [start, end] (null: back to the guess). */
+export async function setCue(track: string, level: 'mellow' | 'intense', bars: [number, number] | null): Promise<Votes> {
+  const r = await fetch('/api/vote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cue: track, level, bars }) })
+  if (!r.ok) throw new Error(String(r.status))
+  const v = (await r.json()) as Votes
+  put(VOTES, v)
+  return v
 }
-let timer = 0
-export function useVotes(): Votes {
-  return useSyncExternalStore(f => {
-    listeners.add(f)
-    if (!timer) { void refreshVotes(true); timer = window.setInterval(() => void refreshVotes(), 3000) }
-    return () => { listeners.delete(f) }
-  }, () => votes)
-}
+export async function refreshVotes(_force = false) { await reload(VOTES) }
+export const useVotes = useVotesData

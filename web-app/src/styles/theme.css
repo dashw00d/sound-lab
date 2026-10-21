@@ -1,25 +1,44 @@
-/* The lab's look, as the old pages have it (soundlab/web/style.css :root). */
+/* The lab's design tokens and base. One dark theme: layered surfaces (bg < panel < raised < overlay), a violet-to-cyan
+   accent, semantic colours for votes (good, bad, pick), one type scale, one spacing scale, one motion curve. */
 @font-face { font-family: "Geist"; src: url("/web/fonts/geist.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
 @font-face { font-family: "Geist Mono"; src: url("/web/fonts/geist-mono.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
 :root {
   color-scheme: dark;
-  --bg: #0a0b0f; --bg-2: #0d0f14; --panel: #12141a; --raised: #171a21; --hover: #1d2029; --press: #232733;
-  --line: rgba(255, 255, 255, .055); --line-2: rgba(255, 255, 255, .09); --line-3: rgba(255, 255, 255, .15);
-  --text: #eceef4; --dim: #9196a7; --faint: #5f6475;
-  --accent: #9486ff; --accent-2: #5bd6ff; --grad: linear-gradient(100deg, #8b7bff 0%, #5bd6ff 100%); --accent-soft: rgba(148, 134, 255, .13); --accent-line: rgba(148, 134, 255, .5);
+  /* surfaces */
+  --bg: #07080b; --bg-2: #0b0d11; --panel: #101218; --raised: #161921; --overlay: #1b1f29; --hover: #1e222c; --press: #262b37;
+  --line: rgba(255, 255, 255, .06); --line-2: rgba(255, 255, 255, .095); --line-3: rgba(255, 255, 255, .16);
+  /* text */
+  --text: #eef0f6; --dim: #a0a5b6; --faint: #646a7d; --ghost: #3d4252;
+  /* accent and meaning */
+  --accent: #9a8cff; --accent-2: #5bd6ff; --grad: linear-gradient(100deg, #8f7dff 0%, #5bd6ff 100%);
+  --accent-soft: rgba(154, 140, 255, .13); --accent-line: rgba(154, 140, 255, .5); --accent-glow: 0 0 0 3px rgba(154, 140, 255, .22);
   --good: #4fdc9b; --good-soft: rgba(79, 220, 155, .12); --bad: #ff6b7f; --bad-soft: rgba(255, 107, 127, .12);
-  --pick: #ffc857; --pick-soft: rgba(255, 200, 87, .1); --pick-line: rgba(255, 200, 87, .55);
-  --r: 12px; --r-sm: 9px;
+  --pick: #ffc857; --pick-soft: rgba(255, 200, 87, .1); --pick-line: rgba(255, 200, 87, .55); --warm: #ff9f6b;
+  /* energy: chill to less chill */
+  --energy: linear-gradient(90deg, #5bd6ff 0%, #9a8cff 40%, #ffc857 72%, #ff6b7f 100%);
+  /* shape, depth, motion */
+  --r-xs: 5px; --r-sm: 8px; --r: 12px; --r-lg: 16px;
+  --shadow: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 12px 40px -12px rgba(0, 0, 0, .7);
+  --shadow-pop: 0 24px 70px -10px rgba(0, 0, 0, .75), 0 0 0 1px var(--line-3);
+  --ease: cubic-bezier(.2, .8, .2, 1); --t-fast: .12s; --t: .2s;
   --font: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
-body { font: 13.5px/1.5 var(--font); color: var(--text); background: var(--bg); letter-spacing: -.003em; }
+body { font: 13.5px/1.5 var(--font); color: var(--text); background: var(--bg); letter-spacing: -.004em; -webkit-font-smoothing: antialiased; }
+::selection { background: rgba(154, 140, 255, .35); }
 button { font: inherit; color: inherit; cursor: pointer; }
-kbd { font: 500 10.5px/16px var(--mono); color: var(--dim); padding: 0 5px; border: 1px solid var(--line-3); border-radius: 5px; margin-left: 6px; }
-.btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--r-sm); background: var(--raised); border: 1px solid var(--line-2); }
-.btn:hover { border-color: var(--line-3); } .btn.on { border-color: var(--accent-line); background: var(--accent-soft); }
-.btn.good { color: var(--good); } .btn.bad { color: var(--bad); } .btn.primary { background: var(--accent); color: #0a0b0f; border-color: transparent; }
+:focus-visible { outline: none; box-shadow: var(--accent-glow); }
+::-webkit-scrollbar { width: 10px; height: 10px; } ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .08); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, .16); } ::-webkit-scrollbar-track { background: none; }
+kbd { font: 500 10.5px/16px var(--mono); color: var(--dim); padding: 0 5px; border: 1px solid var(--line-3); border-bottom-width: 2px; border-radius: 5px; margin-left: 6px; background: rgba(255, 255, 255, .02); }
+.btn { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border-radius: var(--r-sm); background: var(--raised); border: 1px solid var(--line-2);
+  font-size: 13px; font-weight: 500; transition: border-color var(--t-fast), background var(--t-fast), color var(--t-fast), transform var(--t-fast); white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: var(--line-3); background: var(--hover); } .btn:active:not(:disabled) { transform: translateY(1px); }
+.btn.on { border-color: var(--accent-line); background: var(--accent-soft); }
+.btn.good { color: var(--good); } .btn.bad { color: var(--bad); }
+.btn.primary { background: var(--grad); color: #0a0b0f; border-color: transparent; font-weight: 600; } .btn.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--grad); }
+.btn.sm { height: 26px; padding: 0 9px; font-size: 12px; border-radius: 7px; }
 .dim { color: var(--faint); } .mono { font-family: var(--mono); }
-.lbl { font: 500 10.5px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }
+.lbl { font: 500 10.5px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .07em; }

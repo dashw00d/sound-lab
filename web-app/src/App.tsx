@@ -1,21 +1,24 @@
 import { useEffect, useState } from 'react'
 import { api } from './api/client'
+import { go, useRoute } from './data/route'
+import { useFamilies, useSongs } from './data/resources'
 import FamiliesPage from './pages/families/FamiliesPage'
+import LibraryPage from './pages/library/LibraryPage'
 import MixerPage from './pages/mixer/MixerPage'
-import { Shell, type PageDef } from './shell/Shell'
-import { useHash } from './shell/useHash'
+import { Shell } from './shell/Shell'
 
-// The pages moved to the new app so far (2026-10-21: the Families graph, then the Mixer; Songs and Music next, then the
-// rest). The old pages stay at / until each one is replaced.
-const PAGES: (PageDef & { view: () => React.JSX.Element })[] = [
-  { id: 'mixer', title: 'Mixer', view: () => <MixerPage /> },
-  { id: 'families', title: 'Families', view: () => <FamiliesPage /> },
-]
-
+// The app's sections (2026-10-21: Library, Scenes and the Mixer first; Inbox, Sessions, sound effects, the mix and
+// tuning next). The pages not moved yet stay in the old app, one link away.
 export default function App() {
-  const [hash] = useHash('mixer')
+  const route = useRoute(), songs = useSongs().data, fams = useFamilies().data
   const [project, setProject] = useState<string>()
   useEffect(() => { api.state().then(s => setProject(s.project.name)).catch(() => {}) }, [])
-  const page = PAGES.find(p => p.id === hash.split('/')[0]) ?? PAGES[0]
-  return <Shell pages={PAGES} current={page.id} project={project}>{page.view()}</Shell>
+  useEffect(() => { if (!route.section) go('library', null, true) }, [route.section])
+  const pages = [
+    { id: 'library', title: 'Library', count: songs ? songs.tracks.filter(t => !t.candidate).length : null, view: () => <LibraryPage /> },
+    { id: 'scenes', title: 'Scenes', count: fams ? Object.values(fams.families).filter(f => f.members.length > 1).length : null, view: () => <FamiliesPage /> },
+    { id: 'mixer', title: 'Mixer', view: () => <MixerPage /> },
+  ]
+  const page = pages.find(p => p.id === (route.section === 'families' ? 'scenes' : route.section)) ?? pages[0]
+  return <Shell pages={pages} current={page.id} project={project}>{page.view()}</Shell>
 }

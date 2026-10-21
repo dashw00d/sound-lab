@@ -227,7 +227,13 @@ export class Mixer {
   ensure(id: string, src: Record<string, string>) { if (!this.jd.track(id)) this.jd.byId.set(id, { id, files: {}, src }) }
   /** A song as the game plays it: from its first phrase start inside its cues, round them, nothing varying, until
    * stopped (Stay is the walk's and a queue's). */
-  playSong(tid: string, tag = tid) { void this.play(null, { track: tid, start: this.jd.entryOf(tid) }, { pin: true, tag }) }
+  playSong(tid: string, tag = tid, from?: number) { void this.play(null, { track: tid, start: from ?? this.jd.entryOf(tid) }, { pin: true, tag }) }
+  /** Where the player is in a song (bars from its start, 0-based, fractional), or null when it isn't playing it. */
+  positionIn(tid: string): number | null {
+    const c = this.playing ? this.nowChunk() : null
+    if (!c || c.track !== tid || (c.kind !== 'part' && c.kind !== 'fill')) return null
+    return c.bar - 1 + Math.max(0, Math.min(c.bars, (this.now() - c.T!) / this.jd.barS()))
+  }
   /** Songs in turn: each for exactly Stay bars from its first phrase start, as written, then straight into the next,
    * round and round. The
    * songs a page has that the library doesn't, it gives with ensure() first. */

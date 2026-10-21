@@ -14,6 +14,9 @@ const ICONS = {
   layers: <><path d="M12 3L2.5 8 12 13l9.5-5z" /><path d="M2.5 12.5L12 17.5l9.5-5" /><path d="M2.5 16.5L12 21.5l9.5-5" /></>,
   flag: <><path d="M5 21V4" /><path d="M5 4h12l-2.5 4.5L17 13H5" /></>,
   save: <><path d="M5 3.5h11l3.5 3.5v12.5a1 1 0 0 1-1 1H5a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 5 3.5z" /><path d="M7.5 3.5v5h8v-5M7.5 20.5v-6h9v6" /></>,
+  search: <><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4.2-4.2" /></>,
+  wave: <path d="M3 12h2l2-6 3 12 3-9 2 6 2-3h4" />,
+  link: <><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></>,
   // (the five ratings: remove, flag, fill, good, exceptional)
   trash: <><path d="M4.5 7h15M9.5 7V4.8h5V7M6.5 7l.9 12.2a1.5 1.5 0 0 0 1.5 1.3h6.2a1.5 1.5 0 0 0 1.5-1.3L17.5 7" /><path d="M10 11v6M14 11v6" /></>,
   fill: <><path d="M4 5.5h16M4 18.5h16" /><rect x="7" y="9" width="10" height="6" rx="1.5" /></>,
