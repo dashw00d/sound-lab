@@ -32,6 +32,29 @@ The ask was more melodic variety. Tried in turn: MIDI-LLM (Llama 3.2 1B) writing
 
 ## Stable Audio 3 Medium (SA3)
 
+### 2026-10-21: a song-level score: which shipped songs are the best (compatible, complex, calm, diverse)
+
+`research/song_scores.py` (data: research/data/song_scores.json). The designer's working definition of a very good song is diverse, complex, doesn't red-line, and plays nice often. Each of the 98 shipped songs' calm levels was scored on those terms, standardised (clipped at ±2.5 SD), and checked against the 18 songs in their saved Mixer sets (AUC; 0.5 = no relation).
+
+- **Solid. "Plays nice" is the strongest predictor.** The measure: the count of 80%+ transitions in and out, by the taste model with its audio alone (no song records, no votes, so nothing circular). Sets AUC 0.74. With the song records and votes added, 0.80 (and 0.93 on the songs' own vote records, which is circular).
+- **Leaning. Complexity is real and independent.** The measure, from Basic Pitch's notes: melody range, distinct pitches, the entropy of intervals and of note lengths. Sets AUC 0.68, with r = 0.0 to compatibility. Together, compatibility plus complexity: AUC 0.75; 8 of the 18 set songs are in the top 20 and 2 are in the bottom 20.
+- **Leaning. Calm, i.e. not red-lining, doesn't separate the mellows (0.48).** The measure: the loudest beat over the median beat, the 2-5 kHz share, and the strongest onsets over the median. Every file is mastered to -1 dBFS, and the calm levels are all calm enough. Abrasion is likely in the intense levels and the old middle levels (unmeasured here).
+- **Leaning. Bar-to-bar change counts against a song (0.26).** The measure: 1 minus the cosine of neighbouring bars. It isn't the crescendo (r = 0.11 to the loop's loudness swing). Songs that keep changing shape every bar don't get picked. The variety the designer wants comes from the walk between songs, not from within a 4-bar part.
+- **Anecdote. Uniqueness by CLAP, i.e. unlike its 5 nearest songs, is unrelated (0.52).** Use it to keep a batch diverse, not to rank. Audiobox CE is unrelated too (0.48), as before: it catches broken takes.
+- Score to use for filtering new takes: blind compatibility + complexity, with CE as the existing gate.
+- **Anecdote, from the designer: the top of that ranking struck them as "the weirdest, not the best".** Complexity as entropy rewards unpredictable notes, so don't filter on it without a listen.
+- **Catchiness, first pass (`research/catchy_probe.py`, research/data/catchy_probe.json; untested by ear).** It draws on hook and earworm research (Burgoyne and Van Balen's "Hooked"; Jakubowski 2017). The measures, from the same notes: a tune that stands out, a motif that recurs at 1, 2 or 4 bars (changed, not looped), steps more than leaps, a hook leap, a singable range, in key, home notes and a tonic at phrase ends, a repeating rhythm, 2 to 8 notes per bar.
+  - It ranks kantele, violintags and nyckelharpa songs on top, and the "close" war, trailer and horror songs at the bottom (atonal, no motif). It is independent of complexity (r = -0.11) and of the sets (0.57), which measure joinability, not tunes.
+  - Its top song, day.violintags.k3, has the worst transition record (4 good, 21 bad): a catchy, looping motif may be what clashes in a join.
+  - Bias: plucked notes transcribe cleanly, and pads and choirs don't. Next: the designer listens to the top and bottom of the list.
+  - **The designer, by ear: day.violintags.k3 is "amazing", it just won't mix.** Catchiness is a fair counterweight to plays-nice. Don't weight it high, for the clear-strings bias.
+  - **Leaning. In the transition votes, catchiness matters.** The two songs' catchiness gap: AUC 0.39 (the wider, the worse); the catchiness of the song left: 0.43.
+  - Added to the taste model (leave one out, 315 votes): audio features alone 0.69 → 0.71, with song records 0.726 → 0.730. Not added: a small gain, on a biased measure.
+  - The audio-only model puts day.violintags.k3 high on plays-nice (38 moves at 80%+) against its 4 good and 21 bad votes. So the model can't hear a tune's clash, and votes have to catch it.
+- **The score for filtering new takes (research/data/song_pick.json):** plays-nice (audio only) + 0.4 × catchiness, the latter standardised within the song's style (a style with under 3 songs gets 0), with Audiobox CE as the gate.
+  - Its top 20 span 14 styles, so it isn't string-biased.
+  - Sets AUC 0.70, against 0.74 for plays-nice alone. That's expected: the sets measure joinability, and the catchiness weight is the designer's call.
+
 ### 2026-10-21: note-level analysis of the transitions: real melodic signal, nothing new for the model
 
 `research/notes_probe.py` (data: research/data/notes_probe.json, notes_probe_loud.json). Each shipped track's calm "other" stem (retuned where the track was) transcribed to notes by Basic Pitch (Spotify, ICASSP 2022), on onnxruntime (basic-pitch installed --no-deps: its TensorFlow has no Python 3.12 build; 0.7 s a track; 360-600 notes per 43 s loop, mostly D, B flat, F, A). The melody: the highest strong note on a sixteenth grid, or the loudest. Measured around the designer's 315 voted transitions.
