@@ -6,7 +6,7 @@ import type { Families } from '../../api/types'
 import { Icon } from '../../shell/Icon'
 import { colour, hue, label, type FamilyView, type Link } from './model'
 
-const pct = (v: number | null) => (v == null ? null : <span className="sc" title="Splices: the share of cuts between them that are seamless at their best offset">{Math.round(100 * v)}%</span>)
+const pct = (v: number | null) => (v == null ? null : <span className="sc" title="Splices: the share of cuts between them that are seamless at their best offset, less that share at a typical offset (static loops splice anywhere; one piece, at one offset)">{Math.round(100 * v)}%</span>)
 
 export function FamilyCard({ F, fv, sel, playing, onPlay, onSet, onOut, onConfirmAll, onQueue }: {
   F: Families; fv: FamilyView; sel: string; playing: string | null

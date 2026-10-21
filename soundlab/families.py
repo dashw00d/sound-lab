@@ -6,8 +6,9 @@ often related, but I wouldn't consider most of them mid song sibling splicable";
   splices       two songs A and B at an offset L (B's bar k+L under A's bar k): the cut from A after bar k into B's
                 bar k+1+L is seamless when the lined-up bars either side of it (bar fingerprints, music._fingerprint)
                 are at least as alike as a natural bar step (STEP) and B's bar is within LOUD dB of the bar of A it
-                replaces; a pair's splice score is the share of the 16 cuts that are seamless at its best offset
-                (siblings: median 0.56; songs the old sort put in one family: 0.19; the rest: 0.12)
+                replaces; a pair's splice score is the share of the 16 cuts that are seamless at its best offset,
+                less that share at its median offset (two static loops splice at any offset, one piece in step at
+                one: siblings median 0.50, songs the old sort put in one family 0.33, the rest 0.06)
   sounds like   CLAP (candidates._clap) and bar fingerprints at the best offset (music.same_piece), standardised and
                 averaged, with the same style and lead: only for the map and the near-duplicate checks
   must go together   siblings (one piece made for other contexts, music.families), an extension and its seed, and the
@@ -18,7 +19,7 @@ often related, but I wouldn't consider most of them mid song sibling splicable";
 Families merge by complete linkage: while every pair across two families splices at SPLICE or more (the must-links
 together first, whatever they score). Each item gets a confidence: how much better it splices with its own family than
 with the next; its nearest are the songs it splices best with; its guesses, the families it nearly splices with (its
-worst splice with their members CLOSE or more: siblings' lowest quarter is about there), for the designer to say. The queue: new trial takes and extensions unanswered,
+worst splice with their members CLOSE or more: about siblings' lowest fifth), for the designer to say. The queue: new trial takes and extensions unanswered,
 then the least confident items, then the most alike pairs (where "near duplicate" starts). Writes work/families.json
 for the Families page; its answers are votes:
 
@@ -39,21 +40,24 @@ from . import candidates, dsp, music, project as P
 from .store import Store
 
 W_STYLE, W_LEAD = 0.6, 0.5  # (the map's likeness)
-STEP, LOUD, SPLICE = 0.785, 3.0, 0.5  # (a seamless cut: bars as alike as a natural step, within 3 dB; a family: every pair at 0.5)
-CLOSE, GUESSES = 0.35, 6  # (a guess: a song whose worst splice with a family's members is this or more, a family's best 6)
+STEP, LOUD, SPLICE = 0.785, 3.0, 0.35  # (a seamless cut: bars as alike as a natural step, within 3 dB; a family: every pair at 0.35)
+CLOSE, GUESSES = 0.25, 6  # (a guess: a song whose worst splice with a family's members is this or more, a family's best 6)
 
 
 def splice(F: np.ndarray, Ld: np.ndarray) -> np.ndarray:
-    """Each pair's splice score: the share of cuts from one into the other that are seamless at their best offset
-    (F: songs x bars x features, each bar a unit vector; Ld: songs x bars, the calm level's loudness in dB)."""
+    """Each pair's splice score: the share of cuts from one into the other that are seamless at their best offset, less
+    that share at their median offset (F: songs x bars x features, each bar a unit vector; Ld: songs x bars, the calm
+    level's loudness in dB). Two static loops splice at any offset; one piece in step, at one (2026-10-21, MODELS_LOG
+    "scouting": siblings against the old families, AUC 0.91 with the median taken off, 0.86 without)."""
     n, nb, _ = F.shape
-    best = np.zeros((n, n))
+    per = []
     for L in range(nb):
         s = np.einsum("ikd,jkd->ijk", F, np.roll(F, -L, axis=1))  # A's bar k against B's bar k+L
         cut = 0.5 * (s + np.roll(s, -1, axis=2))  # the cut after A's bar k: the bars either side lined up
         step = np.abs(np.roll(Ld, -1, axis=1)[:, None, :] - np.roll(np.roll(Ld, -L, axis=1), -1, axis=1)[None, :, :])
-        best = np.maximum(best, ((cut >= STEP) & (step <= LOUD)).mean(axis=2))
-    return best
+        per.append(((cut >= STEP) & (step <= LOUD)).mean(axis=2))
+    per = np.array(per)
+    return per.max(axis=0) - np.median(per, axis=0)
 
 
 def _loud(x: np.ndarray, M: dict) -> list[float]:
