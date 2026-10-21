@@ -1,6 +1,6 @@
 .fa { display: flex; height: 100%; }
 .fa-graph { flex: 1; min-width: 0; background: var(--bg); }
-.fa-side { width: 380px; flex: none; border-left: 1px solid var(--line); background: var(--bg-2); padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.fa-side { width: 480px; flex: none; border-left: 1px solid var(--line); background: var(--bg-2); padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
 .fa-side .row { display: flex; gap: 6px; flex-wrap: wrap; }
 .fa-side .help { font-size: 12px; margin: 0; } .fa-side .help kbd { margin: 0 2px; }
 .fa-sel { padding: 12px; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--panel); display: flex; flex-direction: column; gap: 8px; }
