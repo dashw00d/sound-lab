@@ -39,6 +39,7 @@ function Bar({ m }: { m: Mixer }) {
     if (k === 'x') { m.setState(m.state === 'mellow' ? 'intense' : 'mellow'); return true }
     if (k === 'Escape' && m.playing) { m.stop(); return true }
     if (k === 'm') { setMuted(x => !x); return true }
+    if (k === '.' && (m.walking || m.mode === 'queue')) { m.nextTransition(); return true }
     return false
   }, 0)
   const spec = useRef<HTMLCanvasElement>(null), meters = useRef<Record<string, HTMLDivElement | null>>({})
@@ -55,12 +56,12 @@ function Bar({ m }: { m: Mixer }) {
   const walk = snap.mode === 'walk', queue = !walk ? m.queue : null, inQueue = snap.mode === 'queue'
   return (
     <footer className="pbar">
-      <TimelineStrip m={m} />
       <div className="pb-row">
       <div className="pb-tr">
         <button className="iconbtn" disabled={!walk && !inQueue} title={inQueue ? 'Back: this song from its start; twice: the one before (←)' : 'Back: the transition into this block again; twice: the one before (←)'} onClick={() => m.back()}><Icon name="prev" /></button>
         <button className="playbtn" title={snap.playing ? 'Stop (Space)' : queue ? 'Play the queue (Space)' : 'Play the walk (Space)'} onClick={() => (snap.playing ? m.stop() : m.playDefault())}><Icon name={snap.playing ? 'stop' : 'play'} /></button>
         <button className="iconbtn" disabled={!walk && !inQueue} title={inQueue ? 'The next song (→)' : 'Skip to a new run (→)'} onClick={() => m.skip()}><Icon name="next" /></button>
+        <button className="iconbtn tr" disabled={!walk && !inQueue} title={inQueue ? 'To 2 bars before the next song (.)' : 'Move on at the next phrase end: to the next transition (.)'} onClick={() => m.nextTransition()}><Icon name="arrow" /></button>
       </div>
       <div className="pb-clock">
         <div className="big">{snap.clock.big}<small>{snap.clock.small}</small></div>
@@ -72,6 +73,7 @@ function Bar({ m }: { m: Mixer }) {
         <b>{snap.playing ? snap.now : queue ? `Space plays the queue: ${queue.length} songs` : 'Space plays the walk'}</b>
         {snap.playing && <small>next: {snap.next}</small>}
       </div>
+      <TimelineStrip m={m} />
       <div className="pb-levels">
         {STATES.map((st, i) => (
           <button key={st} className={`pb-lvl ${m.state === st ? 'on' : ''}`} title={`${st === 'mellow' ? 'calm' : m.prefs.intense} level (${i + 1}; X switches)`} onClick={() => m.setState(st)}>

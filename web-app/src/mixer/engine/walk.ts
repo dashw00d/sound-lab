@@ -28,6 +28,8 @@ export class Walk {
   private pin = false
   private queue: Part[] | null = null
   private qi = 0
+  /** Bars to skip into the first run (a queue's song, to just before it ends: the next transition). */
+  private ffw = 0
   private sinceGlue = 0
   private breath = 3
   // (the graph: the scene playing, bars walked, bars heard of each song, the scenes lately)
@@ -55,12 +57,15 @@ export class Walk {
 
   /** A fresh walk; `from` enters first, keeping what was heard lately (skip, replay). `pin`: stay in `from`'s song;
    * `queue`: its songs in turn, from the one at `at`. */
-  reset(from: Part | null, opts: { pin?: boolean; queue?: Part[]; at?: number } = {}) {
+  reset(from: Part | null, opts: { pin?: boolean; queue?: Part[]; at?: number; ffw?: number } = {}) {
+    this.ffw = opts.ffw ?? 0
     const queue = opts.queue?.length ? opts.queue : null, qi = queue ? (((opts.at ?? 0) % queue.length) + queue.length) % queue.length : 0
     Object.assign(this, { run: null, pendingEntry: queue ? queue[qi] : from, runs: 0, run0: null, sinceGlue: 0, breath: 3, pin: !!opts.pin && !!from, queue, qi })
     if (!from) { this.recent = []; this.recentTracks = []; this.scene = null; this.gbars = 0; this.heard = new Map(); this.scenes = [] }
   }
   setGraph(g: Graph | null) { this.graph = g }
+  /** The song playing is done: the walk moves on at its next chance (a phrase end; in the graph, at once). */
+  hurry() { if (this.run) this.run.played = Math.max(this.run.played!, 999) }
   get graphOn() { return this.prefs().scope === 'graph' && !!this.graph && !this.pin && !this.queue }
   /** Where the graph is: the scene, the energy aimed at, and the song's. */
   graphState() {
@@ -128,6 +133,11 @@ export class Walk {
                  qi: this.queue ? this.qi : undefined }
     this.recent.push(pkey(p)); this.recentTracks.push(p.track); this.run0 = p; this.sinceGlue++
     this.prefetch(this.upcoming(p.track))
+    if (this.ffw > 0) {  // (into the run: round its loop, counted as played)
+      const r = this.run!, len = r.hi! - r.lo! + 1
+      r.bar = r.lo! + ((((r.bar! - r.lo! + this.ffw) % len) + len) % len); r.played = this.ffw; r.lastBar = r.bar - 1; r.first = false
+      this.ffw = 0
+    }
   }
 
   /** The graph's next chunk: a scene's songs, cut into each other, then a rest and the next scene. */

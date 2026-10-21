@@ -1,6 +1,6 @@
 /* The player's bar at the foot of every page, and the blind rating (the bar's lane, the Mixer's session list). */
 .pbar { flex: none; display: flex; flex-direction: column; padding: 0 18px; border-top: 1px solid var(--line-2); background: linear-gradient(180deg, #0e1016, var(--bg-2)); position: relative; z-index: 4; }
-.pb-row { display: flex; align-items: center; gap: 20px; height: 64px; }
+.pb-row { display: flex; align-items: center; gap: 18px; height: 74px; }
 .pbar.off { flex-direction: row; align-items: center; }
 .pbar.off { height: 40px; font-size: 12px; }
 .pb-tr { display: flex; align-items: center; gap: 8px; }
@@ -13,7 +13,7 @@
 .beats i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, .1); transition: background .06s; }
 .beats i.on { background: var(--accent-2); box-shadow: 0 0 10px var(--accent-2); }
 .beats i.on:first-child { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-.pb-now { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.pb-now { display: flex; flex-direction: column; gap: 1px; width: 250px; flex: none; min-width: 0; }
 .pb-now b, .pb-now small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pb-now b { font: 500 12.5px var(--mono); } .pb-now small { font: 500 11px var(--mono); color: var(--faint); }
 .pb-lane { flex: 1; min-width: 0; overflow: hidden; }

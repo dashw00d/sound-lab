@@ -34,6 +34,8 @@ export class Mixer {
   private script: Chunk[] | null = null
   private replay: Chunk[] | null = null
   private tape: Chunk[] = []
+  /** What played before the plan was last begun again (a seek, Back, a skip): the timeline's history, 150 s of it. */
+  private past: Chunk[] = []
   private bseq = 0
   private gen = 0
   private timer = 0
@@ -154,11 +156,12 @@ export class Mixer {
   // ---- the transport
   /** The walk (a fresh session), or a script (auditions, training, review: no session). `from`: a part to enter first,
    * keeping the history (skip); with `pin`, the walk stays in its song (no session). `tag`: what the page asked for. */
-  async play(script: Chunk[] | null = null, from: Part | null = null, opts: { pin?: boolean; tag?: string; queue?: QueueItem[]; at?: number } = {}) {
+  async play(script: Chunk[] | null = null, from: Part | null = null, opts: { pin?: boolean; tag?: string; queue?: QueueItem[]; at?: number; ffw?: number } = {}) {
     ++this.gen
     const queue = !script && opts.queue?.length ? opts.queue : null, pin = !script && !queue && !!from && !!opts.pin
     if (!script && from && !pin) { let n = this.tape.length; while (n > 0 && !this.tape[n - 1].heard) n--; this.tape.length = n }
-    else if (!script) this.tape = []
+    else if (!script) { this.tape = []; this.past = [] }
+    if (script) this.past = []
     this.replay = null
     if (script || pin || queue) this.sess = null
     else if (!from || !this.sess) this.sess = new Session(() => this.prefs)
@@ -171,10 +174,15 @@ export class Mixer {
     this.heardRun = this.prevRun = null
     if (queue) this.queue = queue
     this.plan = []
-    this.walk.reset(from, { pin, queue: queue ? this.queueParts(queue) : undefined, at: opts.at })
+    this.walk.reset(from, { pin, queue: queue ? this.queueParts(queue) : undefined, at: opts.at, ffw: opts.ffw })
     this.start()
   }
-  private halt() { this.sched.halt(this.plan); this.plan = []; this.playing = false; clearInterval(this.timer) }
+  private halt() {
+    const now = this.now()  // (what had played joins the timeline's history)
+    this.past = [...this.past, ...this.plan.filter(c => c.scheduled && !c.skipped && c.T! < now).map(c => ({ ...c, end: Math.min(c.end!, now), nodes: undefined, bufs: undefined }))]
+      .filter(c => c.end! > now - 150)
+    this.sched.halt(this.plan); this.plan = []; this.playing = false; clearInterval(this.timer)
+  }
   stop() { this.gen++; this.halt(); this.script = null; this.tag = null; this.changed() }
   /** The listening volume (0..1, as the slider; heard as its square, so the low end is fine-grained), or muted. */
   setVolume(v: number, muted: boolean) {
@@ -222,7 +230,7 @@ export class Mixer {
    * where there's nothing to play from (a script: an audition has no tape). */
   seekTo(t: number): boolean {
     if (!this.playing || this.script) return false
-    const c = this.plan.find(x => !x.skipped && x.T! <= t && t < x.end! && x.tapeIdx != null)
+    const c = [...this.past, ...this.plan].find(x => !x.skipped && x.T! <= t && t < x.end! && x.tapeIdx != null)
     if (!c) return false
     this.replayFrom(c.tapeIdx!, Math.max(0, Math.floor((t - c.T!) / this.jd.barS())))
     return true
@@ -231,7 +239,7 @@ export class Mixer {
    * name (none while the walk is rated blind), its rating and the thumb on the transition after it; and in a queue the
    * songs after the plan, as ghosts of their length. */
   timeline() {
-    const bl = this.blocks(), sess = this.sess, blind = this.walking, barS = this.jd.barS()
+    const bl = this.blocks([...this.past, ...this.plan]), sess = this.sess, blind = this.walking, barS = this.jd.barS()
     const blocks = bl.map((b, i) => {
       const key = blockKey(b), t = this.jd.track(b.track)
       // (its shape: the loudness of each beat it plays, from the songs' own measures, 0..1: shows the music, names nothing)
@@ -259,6 +267,16 @@ export class Mixer {
       }
     }
     return { now: this.now(), barS, beats: this.lib.bar_beats, blocks, ghosts, origin: this.plan[0]?.T ?? this.now() }
+  }
+  /** To just before the next transition (2026-10-21, the designer: "easy to skip to right before transitions to save
+   * time"): in a queue, the song playing from 2 bars before it ends; on the walk, the song playing is done and the walk
+   * moves on at its next chance (a few seconds: what's planned plays first). */
+  nextTransition() {
+    if (this.mode === 'queue' && this.queue) {
+      const qi = this.heard().qi ?? 0
+      void this.play(null, null, { queue: this.queue, at: qi, ffw: Math.max(0, this.prefs.stay - 2) })
+      toast('Two bars before the next song', 'next')
+    } else if (this.walking) { this.walk.hurry(); toast('Moving on at the next phrase end', 'next') }
   }
   skip() {
     if (this.mode === 'queue') { this.playQueue(this.queue!, (this.heard().qi ?? 0) + 1); return }
@@ -355,9 +373,9 @@ export class Mixer {
   }
   /** The lane's blocks: a block per run, a song's visit with everything in it, so one is rated once (2026-10-21: a
    * block per fill and swap gave 1- to 7-bar boxes the designer couldn't keep up with); a glue or a rest its own. */
-  blocks(): Block[] {
+  blocks(chunks: Chunk[] = this.plan): Block[] {
     const out: Block[] = []
-    for (const c of this.plan.filter(c => !c.skipped)) {
+    for (const c of chunks.filter(c => !c.skipped)) {
       const b = out[out.length - 1], same = !!b && inRun(c) && b.kind === 'part' && b.run === c.run
       const lastBar = c.kind === 'fill' ? null : c.bar + c.bars - 1
       if (same) { b.bars += c.bars; b.end = c.end!; if (lastBar != null) b.last = lastBar; b.chunks.push(c); if (c.variant && c.variant !== 'full') b.vars.add(c.variant) }
