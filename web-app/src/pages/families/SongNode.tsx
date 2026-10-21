@@ -2,7 +2,7 @@ import { Handle, Position, type NodeProps, type Node } from '@xyflow/react'
 import { memo } from 'react'
 import { colour } from './model'
 
-export type SongData = { label: string; hue: number; kind: string; playing: boolean; dim: boolean; unsure: boolean; novel: boolean; bad: boolean; root: boolean }
+export type SongData = { label: string; hue: number; kind: string; playing: boolean; dim: boolean; unsure: boolean; novel: boolean; bad: boolean; root: boolean; scene?: boolean }
 export type SongNodeType = Node<SongData, 'song'>
 
 /** A song: a dot in its family's colour (a new take ringed, a new family starred, a family's root bigger), its name
@@ -10,7 +10,7 @@ export type SongNodeType = Node<SongData, 'song'>
 function SongNode({ data, selected }: NodeProps<SongNodeType>) {
   const c = colour(data.hue)
   return (
-    <div className={`song ${data.root ? 'root' : ''} ${selected ? 'sel' : ''} ${data.playing ? 'playing' : ''} ${data.dim ? 'dim' : ''} ${data.bad ? 'badtake' : ''}`} title={data.label}>
+    <div className={`song ${data.scene ? 'inscene' : ''} ${data.root ? 'root' : ''} ${selected ? 'sel' : ''} ${data.playing ? 'playing' : ''} ${data.dim ? 'dim' : ''} ${data.bad ? 'badtake' : ''}`} title={data.label}>
       <Handle type="target" position={Position.Left} className="h" />
       <span className={`dot ${data.kind !== 'shipped' ? 'new' : ''}`} style={{ background: c, borderColor: c }}>{data.novel ? '★' : ''}</span>
       <span className="nm">{data.label}</span>

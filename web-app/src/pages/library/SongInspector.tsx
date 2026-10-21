@@ -49,7 +49,7 @@ export function SongInspector({ row: r, all }: { row: SongRow; all: SongRow[] })
       <header className="insp-head">
         <div className="insp-kicker">
           <span className={`ctx c-${r.context}`}>{r.context}</span>
-          {r.scene && <button className="chip" onClick={() => go('scenes')} title="Its scene on the map"><span className="sw" style={{ background: colour(hue(r.scene)) }} />Scene {r.scene.replace(/^f/, '')} · {mates.length + 1} shipped{r.sceneSize > mates.length + 1 ? `, ${r.sceneSize - mates.length - 1} new` : ''}</button>}
+          {r.scene && <button className="chip" onClick={() => go('scenes', r.id)} title="Its scene on the map"><span className="sw" style={{ background: colour(hue(r.scene)) }} />Scene {r.scene.replace(/^f/, '')} · {mates.length + 1} shipped{r.sceneSize > mates.length + 1 ? `, ${r.sceneSize - mates.length - 1} new` : ''}</button>}
           {r.lead && <span className="chip">{r.lead}</span>}
         </div>
         <h2>{r.style} <span>{r.take}</span></h2>

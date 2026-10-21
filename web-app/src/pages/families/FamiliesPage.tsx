@@ -9,11 +9,11 @@
 // the songs chosen and the queue, and the families to look at one by one. The sort (music families) takes the answers
 // in when it runs again.
 import {
-  Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, useReactFlow,
+  Background, Controls, ReactFlow, ReactFlowProvider, useReactFlow,
   type Connection, type Edge, type EdgeMouseHandler, type NodeChange, type NodeMouseHandler,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../api/client'
 import type { Families, Votes } from '../../api/types'
 import { useEngine } from '../../player/hooks'
@@ -21,6 +21,9 @@ import { useKeys } from '../../player/keys'
 import { usePlayer } from '../../player/store'
 import { toast } from '../../shell/toast'
 import { useLive } from '../../shell/useLive'
+import { go, useRoute } from '../../data/route'
+import { Seg } from '../../ui/Seg'
+import { Icon } from '../../shell/Icon'
 import { FamilyCard } from './Family'
 import { colour, FamilyView, hue, label, NEXT, novelKey, type EdgeKind, type Link, type Ops } from './model'
 import { QueueCard } from './Queue'
@@ -28,6 +31,8 @@ import SongNode, { type SongNodeType } from './SongNode'
 import './families.css'
 
 const nodeTypes = { song: SongNode }
+/** Energy as a hue: chill cyan, through violet and magenta, to intense red (about -2..2). */
+const energyHue = (e: number | undefined) => (e == null ? -1 : (195 + 160 * Math.max(0, Math.min(1, (e + 1.6) / 3.2))) % 360)
 const SCALE = 2.4
 /** A link's look: in its family's colour, faint while it's only the sort's suggestion; the selected song's family bright. */
 const edgeStyle = (kind: EdgeKind, c: string, lit: boolean): React.CSSProperties =>
@@ -42,7 +47,10 @@ function Graph() {
   const live = useLive(api.votes, ['votes'])
   const [votes, setVotes] = useState<Votes | null>(null)
   useEffect(() => { if (live.data) setVotes(live.data) }, [live.data])
-  const [sel, setSel] = useState<string | null>(null)
+  // (the song chosen is the app's choice: #/scenes/<song>, so the Library's scene chip lands on it)
+  const route = useRoute(), sel = route.id
+  const setSel = useCallback((id: string | null) => go('scenes', id, true), [])
+  const [tint, setTint] = useState<'scene' | 'energy'>(() => (localStorage.getItem('scenes.tint') as 'scene' | 'energy') || 'scene')
   const [picked, setPicked] = useState<string[]>([])  // (the songs chosen, in the order chosen)
   const [focus, setFocus] = useState<string | null>(null)
   const [showBad, setShowBad] = useState(false)
@@ -50,7 +58,8 @@ function Graph() {
   const m = usePlayer().m
   useEngine(m)
   // (the song heard, when this page asked for it: one song, an extension framed by its seed, a queue)
-  const playing = m?.mode === 'queue' ? m.heard().track : m?.mode === 'song' || m?.mode === 'script' ? m.tag : null
+  const playing = m?.mode === 'queue' ? m.heard().track : m?.mode === 'song' || m?.mode === 'script' ? m.tag : m?.walking ? m.heard().track : null
+  const gs = m?.walking ? m.graphState() : null  // (the graph walking: its scene, lit)
   const flow = useReactFlow()
   const F = fam.data as Families | null
 
@@ -89,11 +98,11 @@ function Graph() {
     return Object.entries(F.items).map(([id, it]) => ({
       id, type: 'song' as const, position: { x: it.xy[0] * SCALE, y: it.xy[1] * SCALE }, selected: picked.includes(id),
       data: {
-        label: label(id, it), hue: hue(fv?.family(id).id ?? it.family), kind: it.kind, playing: playing === id, root: fv?.rootOf(id) === id && fv.family(id).members.length > 1, dim: !!focused && !focused.has(id),
+        label: label(id, it), hue: tint === 'energy' ? energyHue(it.energy) : hue(fv?.family(id).id ?? it.family), kind: it.kind, scene: gs?.scene != null && fv?.family(id).id === gs.scene, playing: playing === id, root: fv?.rootOf(id) === id && fv.family(id).members.length > 1, dim: !!focused && !focused.has(id),
         unsure: unsure.has(id), novel: !!(votes && votes.clips[novelKey(id, it)] > 0), bad: !!(votes && votes.clips[`ok_${id}`] < 0),
       },
     }))
-  }, [F, fv, picked, playing, focused, unsure, votes])
+  }, [F, fv, picked, playing, focused, unsure, votes, tint, gs?.scene])
   const edges: Edge[] = useMemo(() => {
     if (!fv) return []
     const selFam = sel ? fv.family(sel).id : null
@@ -172,6 +181,14 @@ function Graph() {
     return false
   })
 
+  // (arriving with a song chosen, from the Library: the map zooms to its scene)
+  const arrived = useRef(false)
+  useEffect(() => {
+    if (arrived.current || !sel || !fv || !F?.items[sel]) return
+    arrived.current = true
+    const ms = fv.family(sel).members
+    requestAnimationFrame(() => flow.fitView({ nodes: ms.map(id => ({ id })), duration: 500, padding: 0.35, maxZoom: 1.4 }))
+  }, [sel, fv, F, flow])
   const focusOn = (fid: string | null) => {
     setFocus(fid)
     if (fid && fv?.get(fid)) requestAnimationFrame(() => flow.fitView({ nodes: fv.get(fid)!.members.map(id => ({ id })), duration: 400, padding: 0.3 }))
@@ -188,24 +205,32 @@ function Graph() {
   return (
     <div className="fa">
       <div className="fa-graph">
+        <div className="fa-tools">
+          <button className={`btn ${gs ? 'on' : 'primary'}`} onClick={() => { if (!m) return; if (gs) { m.stop(); return } m.setPrefs({ scope: 'graph' }); void m.play() }}>
+            <Icon name={gs ? 'stop' : 'play'} />{gs ? 'Stop the walk' : 'Walk the graph'}</button>
+          {m && <>
+            <span className="lbl">Scene</span>
+            <Seg value={m.prefs.sceneBars} onChange={sceneBars => m.setPrefs({ sceneBars })} options={[24, 48, 96].map(k => ({ value: k, label: `${k}`, tip: `${k} bars in a scene before a rest and the next` }))} />
+            <span className="lbl">Wave</span>
+            <Seg value={m.prefs.wave} onChange={wave => m.setPrefs({ wave })} options={[4, 8, 16].map(k => ({ value: k, label: `${k}m`, tip: `From chill to less chill and back in ${k} minutes` }))} />
+          </>}
+          <span className="lbl">Colour</span>
+          <Seg value={tint} onChange={t => { setTint(t); localStorage.setItem('scenes.tint', t) }} options={[{ value: 'scene', label: 'scene' }, { value: 'energy', label: 'energy' }]} />
+          {gs && <span className="fa-now">scene {gs.scene.replace(/^f/, '')} · {gs.bars} of {m!.prefs.sceneBars} bars · aiming at {gs.target > 0 ? '+' : ''}{gs.target.toFixed(2)}</span>}
+        </div>
         <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onConnect={onConnect} onEdgeClick={onEdgeClick} onNodeClick={onNodeClick}
           onNodesChange={onNodesChange} multiSelectionKeyCode={['Control', 'Meta']} onPaneClick={() => setSel(null)} nodesDraggable={false} connectionRadius={28} minZoom={0.1} maxZoom={3} fitView proOptions={{ hideAttribution: true }}>
           <Background color="#1b1e27" gap={28} />
           <Controls showInteractive={false} />
-          <MiniMap pannable zoomable bgColor="#12141a" nodeColor={n => colour((n.data as { hue: number }).hue, 55)} maskColor="rgba(10,11,15,.7)" />
         </ReactFlow>
       </div>
       <aside className="fa-side">
-        <div className="lbl">{Object.keys(F.items).length} songs · {fams.length} families · sorted {F.made}</div>
+        <div className="lbl">{Object.keys(F.items).length} songs · {fams.length} scenes · sorted {F.made}</div>
         <div className="row">
           <button className="btn" onClick={resort} disabled={sorting}>{sorting ? 'Sorting…' : 'Re-sort now'}</button>
           <button className={`btn ${showBad ? 'on' : ''}`} onClick={() => setShowBad(b => !b)}>Bad matches</button>
         </div>
-        <p className="dim help">Each family is a star round its root: faint lines are the sort's guesses, solid ones you confirmed. Drag from a song to another: it
-          joins that song's family; dotted lines are the guesses, songs that nearly splice with it. Click a line: confirmed → near duplicate →
-          out (a bad match) → none. Click a song to hear it;
-          Shift-drag a box or Ctrl-click to choose several, then <kbd>Q</kbd> plays them in turn and <kbd>M</kbd> <kbd>N</kbd> <kbd>B</kbd> vote on each transition.
-          Keys: <kbd>Space</kbd> play <kbd>1</kbd><kbd>2</kbd> mellow / intense <kbd>G</kbd> good <kbd>D</kbd> bad take <kbd>Y</kbd> new family.</p>
+        <details className="fa-help"><summary>How it works</summary><p className="dim help">A scene is songs of one lead, beat and bass, amount of noise, that flow into each other; each is a star round its root (faint lines: the sort's guesses; solid: you confirmed). Drag from a song to another: it joins that song's scene. Click a line: confirmed → near duplicate → out (a bad match) → none. Click a song to hear it; Shift-drag a box or Ctrl-click to choose several, <kbd>Q</kbd> plays them in turn and <kbd>M</kbd> <kbd>N</kbd> <kbd>B</kbd> vote on each transition. Keys: <kbd>Space</kbd> play <kbd>1</kbd><kbd>2</kbd> mellow / intense <kbd>G</kbd> good <kbd>D</kbd> bad take <kbd>Y</kbd> new family.</p></details>
         {m?.queue && <QueueCard F={F} fv={fv} m={m} onVote={pairVote} onMerge={() => void linkAll()} onDrop={drop} onClear={() => { setPicked([]); m.setQueue(null) }} />}
         {it && sel ? (
           <section className="fa-sel">
@@ -225,9 +250,9 @@ function Graph() {
             <FamilyCard F={F} fv={fv} sel={sel} playing={playing} onPlay={o => { setSel(o); play(o) }} onSet={setLink} onOut={out} onConfirmAll={confirmAll} onQueue={playQueue} />
           </section>
         ) : <p className="dim">Click a song to hear it and see its links.</p>}
-        <div className="lbl famh">families</div>
+        <div className="lbl famh">scenes</div>
         <div className="fa-fams">
-          {focus && <button className="famb on" onClick={() => focusOn(null)}>All families ×</button>}
+          {focus && <button className="famb on" onClick={() => focusOn(null)}>All scenes ×</button>}
           {fams.map(f => {
             const sure = f.members.slice(1).filter(x => fv.relation(x, f.root)).length, shipped = f.members.filter(x => F.items[x].kind === 'shipped').length
             return (
