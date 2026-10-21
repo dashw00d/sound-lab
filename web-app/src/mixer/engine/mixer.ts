@@ -219,12 +219,14 @@ export class Mixer {
   // ---- songs, for any page
   /** A song that isn't in the library (a take on the Music page, a trial, an extension): its level files by url. */
   ensure(id: string, src: Record<string, string>) { if (!this.jd.track(id)) this.jd.byId.set(id, { id, files: {}, src }) }
-  /** A song as the game plays it: from its mellow cue's start, round its cues, nothing varying, until stopped. */
-  playSong(tid: string, tag = tid) { void this.play(null, { track: tid, start: this.jd.cueOf(tid)[0] }, { pin: true, tag }) }
-  /** Songs in turn: each for Stay bars from its cue, as written, then straight into the next, round and round. The
+  /** A song as the game plays it: from its first phrase start inside its cues, round them, nothing varying, until
+   * stopped (Stay is the walk's and a queue's). */
+  playSong(tid: string, tag = tid) { void this.play(null, { track: tid, start: this.jd.entryOf(tid) }, { pin: true, tag }) }
+  /** Songs in turn: each for exactly Stay bars from its first phrase start, as written, then straight into the next,
+   * round and round. The
    * songs a page has that the library doesn't, it gives with ensure() first. */
   playQueue(items: QueueItem[], at = 0) { if (items.length) void this.play(null, null, { queue: items, at }) }
-  private queueParts(items: QueueItem[]): Part[] { return items.map(q => ({ track: q.id, start: this.jd.cueOf(q.id)[0] })) }
+  private queueParts(items: QueueItem[]): Part[] { return items.map(q => ({ track: q.id, start: this.jd.entryOf(q.id) })) }
   /** The queue to play next (a page's choice), or none. A queue playing goes on in the new list. */
   setQueue(items: QueueItem[] | null) {
     this.queue = items?.length ? items : null

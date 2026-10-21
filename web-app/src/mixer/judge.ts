@@ -44,6 +44,13 @@ export class Judge {
     const g = this.track(tid)?.measure?.cuts?.calm?.[0]?.bars
     return g ?? [1, this.N]
   }
+  /** Where a song is entered on its own (a page playing it, a queue): the first phrase start inside its mellow cues. */
+  entryOf(tid: string): number {
+    const [lo, hi] = this.cueOf(tid), ph = this.track(tid)?.measure?.phrase
+    if (!ph || ph.contrast < 0.08) return lo
+    for (let b = lo; b <= hi; b++) if ((((b - ph.start) % LEN) + LEN) % LEN === 0) return b
+    return lo
+  }
   loopFor(tid: string, entry: number): [number, number] {
     const [ms, me] = this.cueOf(tid)
     return [Math.min(ms, entry), Math.min(this.N, Math.max(me, entry + LEN - 1))]

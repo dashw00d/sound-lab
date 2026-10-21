@@ -6,8 +6,8 @@
 // sibling at the same bars, stems (drums out, sparse, the battle drums in), a fill at the loop point.
 //
 // A page can also pin the walk to one song (played as written, round its cues, until stopped), or give it a queue:
-// each song in turn, as written, for Stay bars from its cue, then at a phrase end straight into the next (2026-10-21:
-// the designer queues songs from the Families graph to hear whether they match).
+// each song in turn, as written, for exactly Stay bars from its first phrase start, then straight into the next
+// (2026-10-21: the designer queues songs from the Families graph to hear whether they match; "I have it set to 4 bars").
 import { getVotes } from '../../state/votes'
 import { LEN, pkey, type Judge, type Judged } from '../judge'
 import type { Prefs } from '../prefs'
@@ -95,7 +95,7 @@ export class Walk {
     const jd = this.jd, pr = this.prefs(), clips = getVotes().clips
     if (!this.run) { const p = this.pendingEntry ?? this.pickEntry(null); this.pendingEntry = null; if (!p) return null; this.startRun(p) }
     const r = this.run!
-    if (this.queue && r.played! >= pr.stay && this.phraseEnd(r)) {  // (a queue: the next song, straight in)
+    if (this.queue && r.played! >= pr.stay) {  // (a queue: after exactly Stay bars, the next song, straight in)
       this.qi = (this.qi + 1) % this.queue.length
       this.startRun(this.queue[this.qi])
       return this.next()
