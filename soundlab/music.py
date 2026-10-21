@@ -813,6 +813,7 @@ def library(proj: P.Project) -> dict:
         if t["id"] in stem_index:
             t["stems"] = stem_index[t["id"]]["files"]
             t["stem_gain"] = stem_index[t["id"]].get("gain", {})  # (each variation's gain back to the full level, dB)
+            t["stem_loud"] = stem_index[t["id"]].get("loud", {})  # (the calm drums' loudness per bar: the taste model's drums_a)
         if t["id"] in fill_index:
             t["fills"] = {k: [dict(file=f["file"], bars=f["bars"], seed=f["seed"], beats=f.get("beats"), click=f.get("click")) for f in v] for k, v in fill_index[t["id"]].items()
                           if not k.endswith(".tried") and v}
@@ -1070,6 +1071,15 @@ def _stem_gains(proj: P.Project, st: "Store", t: dict, files: dict) -> dict:
     return out
 
 
+def _stem_loud(st: "Store", files: dict, M: dict) -> dict:
+    """The calm drum stem's loudness per bar (dB, RMS), for the taste model's drums_a (join_features)."""
+    if "calm.drums" not in files:
+        return {}
+    x = dsp.decode(st.clips / files["calm.drums"])
+    m, bar = x.mean(axis=1), int(round(M["bar_beats"] * 60.0 / M["bpm"] * dsp.SR))
+    return {"calm.drums": [round(float(20 * np.log10(np.sqrt(np.mean(m[k * bar:(k + 1) * bar] ** 2)) + 1e-9)), 2) for k in range(M["bars"])]}
+
+
 def stems(proj: P.Project, force: bool = False) -> int:
     """Stems of every shipped track, for the Mixer's variation over repeats (2026-10-21): Demucs (htdemucs) splits the
     calm level into drums, bass and the rest ("other": melody and harmony together, with vocals folded in), and the
@@ -1092,6 +1102,8 @@ def stems(proj: P.Project, force: bool = False) -> int:
             index[t["id"]] = old[t["id"]]
             if "gain" not in index[t["id"]]:  # (made before the variations were level-matched)
                 index[t["id"]]["gain"] = _stem_gains(proj, st, t, index[t["id"]]["files"])
+            if "loud" not in index[t["id"]]:  # (made before the taste model read the drums)
+                index[t["id"]]["loud"] = _stem_loud(st, index[t["id"]]["files"], proj.music)
         else:
             todo.append((t, sig))
     print(f"{len(todo)} tracks to split ({len(index)} unchanged)", flush=True)
@@ -1116,7 +1128,7 @@ def stems(proj: P.Project, force: bool = False) -> int:
                         rel = f"stems/{t['id']}/{lv}.{k}.ogg"
                         dsp.write(st.clips / rel, x)
                         files[f"{lv}.{k}"] = rel
-                index[t["id"]] = dict(sig=sig, files=files, gain=_stem_gains(proj, st, t, files))
+                index[t["id"]] = dict(sig=sig, files=files, gain=_stem_gains(proj, st, t, files), loud=_stem_loud(st, files, proj.music))
         st.write(path, index, sort=True)
         print(f"  split {min(i + 12, len(todo))} of {len(todo)}", flush=True)
     st.write(path, index, sort=True)
@@ -1379,7 +1391,7 @@ def glues(proj: P.Project, force: bool = False) -> int:
 JOIN_WEAK = 0.75  # (the Mixer's threshold for a straight transition: web/js/mixer.js WEAK)
 
 
-JOIN_FEATURES = ("level_a", "entry_phrase", "attack_b", "held_a", "rec_a", "rec_b")
+JOIN_FEATURES = ("level_a", "entry_phrase", "attack_b", "held_a", "rec_a", "rec_b")  # (drums_a measured, not used: below)
 
 
 def join_features(m: dict, a: str, e: int, b: str, s: int) -> dict:
@@ -1390,12 +1402,19 @@ def join_features(m: dict, a: str, e: int, b: str, s: int) -> dict:
       entry_phrase  1 when b is entered on a phrase start of its own grid
       attack_b      how clearly b starts: the onset at its entry beat against b's median busyness (log)
       held_a        a's last beat's busyness against the onset at a's next downbeat (log): high where a wasn't about
-                    to hit a strong beat itself, so leaving there steps on nothing"""
+                    to hit a strong beat itself, so leaving there steps on nothing
+      drums_a       a's calm drums building into the cut: their loudness in the bar after the exit less the bar before
+                    (dB; music stems; 0 for a song without stems). Drums fading out of a song are disliked (2026-10-21,
+                    MODELS_LOG "scouting": AUC 0.60, nearly independent of level_a). Not in JOIN_FEATURES: with the song
+                    records (rec_a, rec_b) in, it adds 0.003 AUC (0.711 -> 0.714 on 344 votes, leave-one-out); a song
+                    whose drums fade at its exit already has a bad record. Kept to try again with more votes."""
     A, B = m[a], m[b]
     ba, n = A["beats"]["calm"], len(A["beats"]["calm"])
     oa, ob = A["onset"], B["onset"]
     ia = [((e - 1) * 4 + k) % n for k in range(4)]
+    dr = (A.get("stem_loud") or {}).get("calm.drums")
     return dict(level_a=float(np.mean([ba[i] for i in ia]) - np.median(ba)),
+                drums_a=float(dr[e % len(dr)] - dr[(e - 2) % len(dr)]) if dr else 0.0,
                 entry_phrase=float((((s - B["phrase"]["start"]) % 4) + 4) % 4 == 0),
                 attack_b=float(np.log(ob["attack"][((s - 1) * 4) % len(ob["attack"])] / np.median(ob["busy"]))),
                 held_a=float(np.log(oa["busy"][ia[-1]] / (oa["attack"][(e * 4) % len(oa["attack"])] + 1e-6))))
@@ -1426,6 +1445,9 @@ def fit_joins(proj: P.Project) -> int:
     from . import candidates  # (votes on new takes' transitions, heard in the Mixer before they shipped)
 
     measured = Store.read(proj.work / "songs.json", {}) | candidates.measures(proj)
+    for i, x in Store.read(proj.work / "stems.json", {}).items():  # (the calm drums per bar: drums_a)
+        if i in measured and x.get("loud"):
+            measured[i] = dict(measured[i], stem_loud=x["loud"])
     rows, ys, songs = [], [], []
     for k, v in Store(proj).votes()["clips"].items():
         if not k.startswith("join_"):
