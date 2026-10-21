@@ -168,6 +168,11 @@ export class Mixer {
   }
   private halt() { this.sched.halt(this.plan); this.plan = []; this.playing = false; clearInterval(this.timer) }
   stop() { this.gen++; this.halt(); this.script = null; this.tag = null; this.changed() }
+  /** The listening volume (0..1, as the slider; heard as its square, so the low end is fine-grained), or muted. */
+  setVolume(v: number, muted: boolean) {
+    const g = muted ? 0 : Math.max(0, Math.min(1, v)) ** 2
+    this.sched.volume.gain.setTargetAtTime(g, audio().currentTime, 0.03)
+  }
   /** Done with (the library was read again): silent, and off the output. */
   dispose() { this.stop(); this.listeners.clear(); this.sched.out.disconnect() }
   /** Back (2026-10-21: the designer needs to hear a transition again, identically): the tape from 2 bars before the

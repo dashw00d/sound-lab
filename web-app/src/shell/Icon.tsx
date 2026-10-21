@@ -21,6 +21,8 @@ const ICONS = {
   trash: <><path d="M4.5 7h15M9.5 7V4.8h5V7M6.5 7l.9 12.2a1.5 1.5 0 0 0 1.5 1.3h6.2a1.5 1.5 0 0 0 1.5-1.3L17.5 7" /><path d="M10 11v6M14 11v6" /></>,
   fill: <><path d="M4 5.5h16M4 18.5h16" /><rect x="7" y="9" width="10" height="6" rx="1.5" /></>,
   sparkle: <><path {...FILL} d="M12 2.8l1.9 5.6 5.6 1.9-5.6 1.9L12 17.8l-1.9-5.6-5.6-1.9 5.6-1.9z" /><path d="M18.5 15.5v4M16.5 17.5h4" /></>,
+  volume: <><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" /><path d="M15.5 9a4 4 0 0 1 0 6" /><path d="M18.5 6.5a8 8 0 0 1 0 11" /></>,
+  mute: <><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" /><path d="M16 9.5l5 5M21 9.5l-5 5" /></>,
   sliders: <><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></>,
   // (a family's root: a hub, as the graph draws a family, a star round it)
   root: <><circle {...FILL} cx="12" cy="12" r="3.4" /><path d="M12 8.6V5.2M8.8 11L5.9 10M10 14.8l-1.9 2.6M14 14.8l1.9 2.6M15.2 11l2.9-1" />

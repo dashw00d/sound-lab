@@ -17,6 +17,8 @@ const chunkGains = (c: Chunk | undefined) => ((c?.nodes ?? []) as ChunkGain[]).f
 export class Scheduler {
   readonly out: GainNode
   readonly analyser: AnalyserNode
+  /** The listening volume: after the meters and the spectrum, so they show the music's own level at any volume. */
+  readonly volume: GainNode
   readonly bus: Record<Level, { g: GainNode; meter: AnalyserNode }>
   private glueBus: GainNode
   private bedVoice: BedVoice | null = null
@@ -31,7 +33,8 @@ export class Scheduler {
     const ctx = audio()
     this.out = ctx.createGain(); this.analyser = ctx.createAnalyser()
     this.out.gain.value = 0.9; this.analyser.fftSize = 4096; this.analyser.smoothingTimeConstant = 0.8
-    this.out.connect(this.analyser); this.analyser.connect(ctx.destination)
+    this.volume = ctx.createGain()
+    this.out.connect(this.analyser); this.analyser.connect(this.volume); this.volume.connect(ctx.destination)
     this.bus = Object.fromEntries(STATES.map(st => {
       const g = ctx.createGain(), meter = ctx.createAnalyser()
       meter.fftSize = 1024; g.gain.value = st === 'mellow' ? 1 : 0; g.connect(meter); meter.connect(this.out)

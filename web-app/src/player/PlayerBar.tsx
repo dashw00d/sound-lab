@@ -3,7 +3,7 @@
 // song to go to it; a page fills it, e.g. the songs chosen on the Families graph), the two levels (mellow, intense)
 // with their meters, and the spectrum. Space with nothing playing plays the queue when there is one, else the walk:
 // the game's music.
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { useLive } from '../shell/useLive'
 import { drawSpectrum } from '../audio/spectrum'
@@ -27,6 +27,9 @@ export function PlayerBar() {
 function Bar({ m }: { m: Mixer }) {
   const snap = useSnapshot(m)  // (only the bar redraws as the clock moves)
   useEngine(m)  // (and when a star or thumb changes)
+  const [vol, setVol] = useState(() => Number(localStorage.getItem('player.volume') ?? 0.95))
+  const [muted, setMuted] = useState(() => localStorage.getItem('player.muted') === '1')
+  useEffect(() => { m.setVolume(vol, muted); localStorage.setItem('player.volume', String(vol)); localStorage.setItem('player.muted', muted ? '1' : '0') }, [m, vol, muted])
   const fams = useLive(api.families, ['families'], 10000)  // (the graph follows the sort)
   useEffect(() => { if (fams.data) m.setGraph(fams.data) }, [fams.data, m])
   useKeys((k) => {
@@ -36,6 +39,7 @@ function Bar({ m }: { m: Mixer }) {
     if (k === '1' || k === '2') { m.setState(k === '1' ? 'mellow' : 'intense'); return true }
     if (k === 'x') { m.setState(m.state === 'mellow' ? 'intense' : 'mellow'); return true }
     if (k === 'Escape' && m.playing) { m.stop(); return true }
+    if (k === 'm') { setMuted(x => !x); return true }
     return false
   }, 0)
   const spec = useRef<HTMLCanvasElement>(null), meters = useRef<Record<string, HTMLDivElement | null>>({})
@@ -81,6 +85,12 @@ function Bar({ m }: { m: Mixer }) {
             <span>{st}</span><div className="vu"><div ref={el => { meters.current[st] = el }} /></div>
           </button>
         ))}
+      </div>
+      <div className={`pb-vol ${muted ? 'muted' : ''}`}>
+        <button title={muted ? 'Unmute (M)' : 'Mute (M)'} onClick={() => setMuted(x => !x)}><Icon name={muted || vol === 0 ? 'mute' : 'volume'} /></button>
+        <input type="range" min={0} max={1} step={0.01} value={vol} aria-label="Volume" title={`Volume ${Math.round(100 * vol)}%`}
+          style={{ ['--v' as string]: `${(muted ? 0 : vol) * 100}%` }}
+          onChange={e => { setVol(Number(e.target.value)); if (muted) setMuted(false) }} />
       </div>
       <canvas className="pb-spec" ref={spec} />
     </footer>

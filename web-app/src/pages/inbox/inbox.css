@@ -16,3 +16,8 @@
 .sw2 { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
 .insp .addb { width: 24px; height: 22px; padding: 0; border-radius: 6px; border: 1px solid var(--line-2); background: var(--raised); color: var(--good); font-size: 14px; line-height: 1; }
 .insp .addb:hover { border-color: rgba(79, 220, 155, .5); background: var(--good-soft); }
+.insp .mate .hear { display: inline-flex; gap: 3px; }
+.insp .mate .hear button { width: 26px; height: 22px; padding: 0; border-radius: 6px; border: 1px solid var(--line-2); background: var(--raised); color: var(--dim); display: grid; place-items: center; font-size: 12px; line-height: 1; }
+.insp .mate .hear button:hover { color: var(--text); border-color: var(--line-3); } .insp .mate .hear button.on { color: var(--accent-2); border-color: rgba(91, 214, 255, .5); background: rgba(91, 214, 255, .1); }
+.insp .mate .hear .i { width: 11px; height: 11px; }
+.insp .mate .nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
