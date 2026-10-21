@@ -29,16 +29,13 @@
 .blk small { font: 500 10px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .05em; }
 .blk.on { border-color: var(--accent-line); background: var(--accent-soft); } .blk.past { opacity: .45; }
 .blk.glue { background: rgba(91, 214, 255, .06); border-style: dashed; } .blk.rest { background: none; border-style: dotted; }
-.stars { display: inline-flex; }
-.star { width: 20px; height: 22px; padding: 0; border: 0; background: none; color: var(--line-3); font-size: 15px; line-height: 1; }
-.star.on, .stars:hover .star { color: var(--pick); } .stars .star:hover ~ .star { color: var(--line-3); }
 .thumbs { display: inline-flex; gap: 1px; }
 .thumbs button { width: 22px; height: 22px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--faint); }
 .thumbs button:hover { background: var(--hover); color: var(--text); } .thumbs .i { width: 12px; height: 12px; }
 .thumbs button.on.up { color: var(--good); } .thumbs button.on.down { color: var(--bad); }
 .sess .lbl { display: block; margin-bottom: 8px; }
 .sessr { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; max-height: 190px; overflow-y: auto; }
-.sessr .blk { padding: 5px 8px; gap: 6px; } .sessr .star { width: 18px; height: 20px; font-size: 14px; }
+.sessr .blk { padding: 5px 8px; gap: 6px; } .sessr .rate button { width: 20px; height: 20px; }
 
 /* ---- the queue */
 .pb-queue { display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none; }
@@ -47,3 +44,13 @@
 .pb-queue .chip.on { border-color: var(--accent-line); background: var(--accent-soft); color: var(--text); }
 .pb-clear { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line-2); background: none; color: var(--faint); display: grid; place-items: center; padding: 0; }
 .pb-clear:hover { color: var(--bad); border-color: var(--line-3); } .pb-clear .i { width: 12px; height: 12px; }
+
+/* ---- the five ratings: remove, flag, fill, good, exceptional (the one given lit in its colour) */
+.rate { display: inline-flex; gap: 1px; }
+.rate button { width: 22px; height: 22px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--faint); }
+.rate button .i { width: 13px; height: 13px; } .rate button:hover { background: var(--hover); color: var(--text); }
+.rate.set button:not(.on) { opacity: .6; }
+.rate .r1.on, .rvs.r1 { color: var(--bad); } .rate .r2.on, .rvs.r2 { color: #ff9f6b; } .rate .r3.on, .rvs.r3 { color: var(--dim); }
+.rate .r4.on, .rvs.r4 { color: var(--good); } .rate .r5.on, .rvs.r5 { color: var(--pick); }
+.rate button.on { background: rgba(255, 255, 255, .07); }
+.rvs .i { width: 14px; height: 14px; vertical-align: -2px; }

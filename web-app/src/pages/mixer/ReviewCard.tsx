@@ -4,6 +4,7 @@ import type { Mixer } from '../../mixer/engine/mixer'
 import { pieceLabel, piecesOf, shortName, VARIANT } from '../../mixer/engine/review'
 import type { StreamChunk } from '../../mixer/types'
 import { Icon } from '../../shell/Icon'
+import { RATING } from '../../player/Rating'
 import { useSnapshot } from '../../player/hooks'
 
 export function ReviewCard({ m, note, setNote }: { m: Mixer; note: Record<number, string>; setNote: (n: Record<number, string>) => void }) {
@@ -19,7 +20,7 @@ export function ReviewCard({ m, note, setNote }: { m: Mixer; note: Record<number
         return (
           <div key={`${it.sid}#${it.block}`} className={`rvitem ${on ? 'on' : ''}`}>
             <div className="rvh">
-              <b className="rvs">{'★'.repeat(w.stars ?? 0)}</b> {shortName(m.jd, w.track)}
+              <b className={`rvs r${w.stars}`} title={RATING[w.stars ?? 0]?.name}>{w.stars ? <Icon name={RATING[w.stars].icon} /> : null}</b> {shortName(m.jd, w.track)}
               <small>{it.sid} · {w.played ?? '?'} bars{w.variants?.length ? ` · ${w.variants.map(v => VARIANT[v]).join(', ')}` : ''}
                 {w.fills ? ` · ${w.fills.length} fill${w.fills.length > 1 ? 's' : ''}` : ''}{w.siblings ? ' · sibling' : ''}</small>
               {it.marked.length > 0 && <span className="rvm"><Icon name="check" />marked: {it.marked.map(x => x.label).join('; ')}</span>}

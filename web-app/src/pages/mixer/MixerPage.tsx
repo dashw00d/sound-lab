@@ -58,8 +58,8 @@ function Page({ m, mixes, setMixes }: { m: Mixer; mixes: Mixes; setMixes: (x: Mi
           <div className="lbl">{m.lib.bpm} BPM · {LEN}-bar parts · every song on one grid</div>
           <h1>Mixer</h1>
           <p className="dim">How the walk plays the songs, as the game would: endlessly, mellow or intense. Each song comes in at a part, plays on for at least
-            Stay bars, varying as it goes, then moves on where it joins well. The player's bar plays it (<kbd>Space</kbd>); rate as it plays: stars on
-            each block, a thumb on each transition.</p>
+            Stay bars, varying as it goes, then moves on where it joins well. The player's bar plays it (<kbd>Space</kbd>); rate as it plays: remove, flag, fill, good
+            or exceptional on each block, a thumb on each transition.</p>
         </header>
         <Session m={m} />
         <Settings m={m} reviewOpen={reviewOpen} onReview={toggleReview} />
