@@ -6,7 +6,7 @@
 // a target energy that rises and falls as a slow wave, never one heard lately; inside a scene, the member nearest the
 // target and heard least.
 import type { Families } from '../../api/types'
-import type { Judge } from '../judge'
+import { LEN, type Judge } from '../judge'
 
 export class Graph {
   readonly F: Families
@@ -56,9 +56,16 @@ export class Graph {
     return ms.map(m => ({ m, c: Math.abs(this.energy(m) - target) + 0.05 * Math.log1p(heard.get(m) ?? 0) + 0.1 * Math.random() }))
       .sort((a, b) => a.c - b.c)[0]?.m ?? null
   }
-  /** Where song `a`, just past its bar `e`, can cut seamlessly into another member of its scene: [song, its bar]. */
+  /** Where song `a`, just past its bar `e`, can cut seamlessly into another member of its scene: [song, its bar]. Only
+   * into the other's mellow loop with a part's room before its end, so it plays on round its own loop's seam (2026-10-21:
+   * the designer flagged two blocks entered at bar 11 and 15, outside their loops, that jumped back to the loop's start
+   * from bars the loop never reaches: 64% of the cuts landed like that). */
   cutsAt(a: string, e: number, clips: Record<string, number>): { to: string; bar: number }[] {
     const cuts = this.F.items[a]?.cuts ?? {}
-    return Object.entries(cuts).flatMap(([b, c]) => (this.playable(b, clips) ? c.at.filter(([x]) => x === e).map(([, s]) => ({ to: b, bar: s })) : []))
+    return Object.entries(cuts).flatMap(([b, c]) => {
+      if (!this.playable(b, clips)) return []
+      const [lo, hi] = this.jd.cueOf(b)
+      return c.at.filter(([x, s]) => x === e && s >= lo && s + LEN - 1 <= hi).map(([, s]) => ({ to: b, bar: s }))
+    })
   }
 }
