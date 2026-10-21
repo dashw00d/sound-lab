@@ -32,6 +32,15 @@ The ask was more melodic variety. Tried in turn: MIDI-LLM (Llama 3.2 1B) writing
 
 ## Stable Audio 3 Medium (SA3)
 
+### 2026-10-21: note-level analysis of the transitions: real melodic signal, nothing new for the model
+
+`research/notes_probe.py` (data: research/data/notes_probe.json, notes_probe_loud.json). Each shipped track's calm "other" stem (retuned where the track was) transcribed to notes by Basic Pitch (Spotify, ICASSP 2022), on onnxruntime (basic-pitch installed --no-deps: its TensorFlow has no Python 3.12 build; 0.7 s a track; 360-600 notes per 43 s loop, mostly D, B flat, F, A). The melody: the highest strong note on a sixteenth grid, or the loudest. Measured around the designer's 315 voted transitions.
+
+- **Leaning. Melodic continuity carries some signal on its own.** The melodies' registers sit closer in good transitions (8.2 against 10.1 semitones apart, AUC 0.41; under 0.5 = more is worse), the leap from a's last melody note to b's first is smaller (13 against 16 semitones, 0.42), fewer strong notes a semitone apart across the join (0.45), b's first melody note on a home note (D, F, A) a little more often (0.55-0.56).
+- **Solid for these votes. None of it improves the taste model.** Added to its four audio features, by leave-one-out: AUC 0.69-0.70, right 61-66%, against 0.69 and 66% without. The melodic signal overlaps what the model has (b's clear start, a's fuller bar) or is too noisy at this size.
+- **Solid. "Does the phrase sound finished" doesn't matter.** A line coming to rest before the cut, falling into it, ending on the tonic: AUC 0.51-0.55, with either melody definition. Instead, good transitions cut through a held note more often (32% against 22% with the loudest-note melody), which fits held_a: leaving during a sustained note covers the change; leaving just before the song's own strong attack exposes it.
+- What's left of the designer's taste (a third of the model's calls) isn't in loudness, onsets, harmony, timbre or the notes. Untested: how consistent the designer's own ratings are (the ceiling), and a learned embedding of the transition audio itself.
+
 ### 2026-10-21: 132 transition votes: a model of the designer's taste in transitions
 
 The designer rated 132 transitions (75 good, 57 bad), most in the Mixer's training mode. Asked "what does that tell you so far". Each measure judged by how well it separates good from bad (AUC), and models by leave-one-out (each vote predicted by a model fit without it). `music joins --fit`.
