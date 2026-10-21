@@ -11,8 +11,8 @@ choosing between "sounds alike", "one scene" and "splice partners": "one scene";
                 song's battle level is above its calm in 98% of songs (research/scene_probe.py). The graph's waves.
   must go together   siblings (one piece made for other contexts, music.families), an extension and its seed, and the
                      designer's own answers: "belongs here" (link_<a>|<b> = 1) and "near duplicate" (dup_<a>|<b> = 1)
-  must not           "bad match" (link_<a>|<b> = -1); a take the designer called a new family takes in only its
-                     extensions and what they say belongs
+  must not           "bad match" (link_<a>|<b> = -1); a take the designer called a new family merges only with other
+                     new families (that flow with it), its extensions and what the designer says belongs
 
 Scenes merge by average linkage while their songs' average likeness is SCENE or more (the must-links together first):
 21 scenes of 2 or more (by lead, then noise), 16 songs alone; transitions the designer voted on, inside one liked 67%
@@ -254,19 +254,21 @@ def build(proj: P.Project) -> int:
     for k in range(n):
         groups.setdefault(root(k), []).append(k)
     fams = list(groups.values())
-    # (a take the designer called a new family starts its own: it takes in only its extensions and what they say belongs)
+    # (a take the designer called a new family starts its own: no existing scene takes it in, nor it them; but new
+    # families that flow together are one new family, 2026-10-21: "several clearly belong together, but I worry I will
+    # create two families if I use the button")
     novel = {pos[i] for i in ids if votes.get(f"novel_{i}", 0) > 0
              or (items[i].get("set") and votes.get(f"novel_{items[i]['set']}.{items[i]['take']}", 0) > 0)}
     # average linkage: the two scenes whose songs flow best on average merge, while that's SCENE or more (D: the
-    # scenes' average flow; X: what may not merge, a bad match between them or a new family in either)
+    # scenes' average flow; X: a bad match between them; nov: a new family in it, which merges only with new families)
     f = len(fams)
     D = np.array([[Sw[np.ix_(a, b)].mean() for b in fams] for a in fams])
     size = np.array([len(a) for a in fams], float)
-    X = np.array([[any(frozenset((ids[x], ids[y])) in cannot for x in a for y in b) or bool(novel & set(a)) or bool(novel & set(b))
-                   for b in fams] for a in fams])
+    X = np.array([[any(frozenset((ids[x], ids[y])) in cannot for x in a for y in b) for b in fams] for a in fams])
+    nov = np.array([bool(novel & set(a)) for a in fams])
     alive = np.ones(f, bool)
     while True:
-        W = np.where(X | ~alive[:, None] | ~alive[None, :] | np.eye(f, dtype=bool), -1.0, D)
+        W = np.where(X | (nov[:, None] != nov[None, :]) | ~alive[:, None] | ~alive[None, :] | np.eye(f, dtype=bool), -1.0, D)
         x, y = np.unravel_index(np.argmax(W), W.shape)
         if W[x, y] < SCENE:
             break
@@ -275,6 +277,7 @@ def build(proj: P.Project) -> int:
         D[x, :] = D[:, x] = (D[x] * size[x] + D[y] * size[y]) / (size[x] + size[y])
         size[x] += size[y]
         X[x, :] = X[:, x] = X[x] | X[y]
+        nov[x] |= nov[y]
     fams = [fam for k, fam in enumerate(fams) if alive[k]]
     fams.sort(key=len, reverse=True)
     fam_of = {ids[k]: f"f{j + 1}" for j, fam in enumerate(fams) for k in fam}
