@@ -11,7 +11,7 @@ import type { Part } from '../../mixer/types'
 import { Icon } from '../../shell/Icon'
 import { toast } from '../../shell/toast'
 import { useVotes } from '../../state/votes'
-import { useFrame } from './hooks'
+import { useFrame } from '../../player/hooks'
 
 const overlaps = (a: Part, b: Part) => a.track === b.track && Math.abs(a.start - b.start) < LEN
 const Num = ({ v }: { v: number | null }) => (v == null || !isFinite(v) ? null : <span className={grade(v)}>{v.toFixed(2)}</span>)

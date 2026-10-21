@@ -1,7 +1,9 @@
-// The Mixer: the walk played on the audio clock (mixer.js, ported). It owns the plan (the chunks planned ahead, about 6
-// s), the tape (every chunk planned, in order, for Back), the pump (every 200 ms: plan ahead, schedule what's due within
-// 3 s), and the transport; the Walk decides what comes next, the Scheduler makes it sound, the Session records it.
-// Pages read snapshot() each frame and call the methods; onChange tells them when to redraw the rest.
+// The Mixer: the walk played on the audio clock (mixer.js, ported), and the app's one player (player/store): whatever a
+// page plays (a song, a part, a join, an extension) goes through it, so it sounds as the game plays it. It owns the plan
+// (the chunks planned ahead, about 6 s), the tape (every chunk planned, in order, for Back), the pump (every 200 ms: plan
+// ahead, schedule what's due within 3 s), and the transport; the Walk decides what comes next, the Scheduler makes it
+// sound, the Session records it. Pages read snapshot() each frame and call the methods; onChange tells them when to
+// redraw the rest.
 import { audio } from '../../audio/context'
 import { toast } from '../../shell/toast'
 import { getVotes, vote } from '../../state/votes'
@@ -15,6 +17,8 @@ import { blockKey, Session } from './session'
 import { freshTraining, trainPair, type Training } from './training'
 import { Walk } from './walk'
 
+/** A song in a queue, with the name the page gave it. */
+export interface QueueItem { id: string; label: string }
 const inRun = (c: Chunk) => (c.kind === 'part' || c.kind === 'fill') && !!c.run
 const PLAN_AHEAD = 6, SCHEDULE_AHEAD = 3, PUMP_MS = 200
 
@@ -31,7 +35,14 @@ export class Mixer {
   private gen = 0
   private timer = 0
   private starting = false
+  private pinned = false
   playing = false
+  /** What a page asked to play (a song's id), so it can light it; null for the walk. */
+  tag: string | null = null
+  /** The queue a page gave (kept when stopped, to play again). */
+  queue: QueueItem[] | null = null
+  private heardRun: Run | null = null
+  private prevRun: Run | null = null
   sess: Session | null = null
   train: Training = freshTraining()
   review: { items: ReviewItem[] | null; cur: { i: number; mode: 'exact' | 'pieces'; pieces: Piece[] } | null } = { items: null, cur: null }
@@ -48,8 +59,12 @@ export class Mixer {
   }
   get lib() { return this.jd.lib }
   get state(): Level { return this.sched.state }
-  /** Playing the walk (not an audition, training or the review). */
-  get walking() { return this.playing && !this.script }
+  /** What's playing: the walk, one song (playSong), a queue (playQueue), or a script (auditions, training, the review). */
+  get mode(): 'walk' | 'song' | 'queue' | 'script' | null {
+    return !this.playing ? null : this.script ? 'script' : this.pinned ? 'song' : this.queueOn ? 'queue' : 'walk'
+  }
+  private queueOn = false
+  get walking() { return this.mode === 'walk' }
   matrix(): PartMatrix { return (this.mx ??= new PartMatrix(this.jd)) }
   onChange(f: () => void) { this.listeners.add(f); return () => { this.listeners.delete(f) } }
   private changed() { this.listeners.forEach(f => f()) }
@@ -57,7 +72,7 @@ export class Mixer {
     const was = this.prefs
     this.prefs = { ...this.prefs, ...p }
     if (p.cands !== undefined && p.cands !== was.cands) this.mx = null  // (the parts the matrix covers changed)
-    if (p.bed !== undefined && this.walking) { const c = this.nowChunk(); this.sched.bedTo(c ? this.jd.glueOf(c.track) : null, audio().currentTime + 0.1) }
+    if (p.bed !== undefined && this.playing && !this.script) { const c = this.nowChunk(); this.sched.bedTo(c ? this.jd.glueOf(c.track) : null, audio().currentTime + 0.1) }
     savePrefs(this.prefs)
     if (p.intense !== undefined && p.intense !== was.intense && this.playing) {  // (the other files: the walk starts again in them)
       const walk = this.walking
@@ -114,6 +129,8 @@ export class Mixer {
     }
     for (const c of this.plan) if (c.scheduled && !c.skipped && c.T! <= now && c.tapeIdx != null && this.tape[c.tapeIdx]) this.tape[c.tapeIdx].heard = true
     this.record(now)
+    const run = this.nowChunk(now)?.run ?? null
+    if (run && run !== this.heardRun) { this.prevRun = this.heardRun; this.heardRun = run; this.changed() }  // (a new song heard: pages light it)
     this.plan = this.plan.filter(c => c.end! > now - 30)
     if (this.script && !this.script.length && this.plan.every(c => c.end! < now)) this.stop()
   }
@@ -126,30 +143,41 @@ export class Mixer {
 
   // ---- the transport
   /** The walk (a fresh session), or a script (auditions, training, review: no session). `from`: a part to enter first,
-   * keeping the history (skip). */
-  async play(script: Chunk[] | null = null, from: Part | null = null) {
+   * keeping the history (skip); with `pin`, the walk stays in its song (no session). `tag`: what the page asked for. */
+  async play(script: Chunk[] | null = null, from: Part | null = null, opts: { pin?: boolean; tag?: string; queue?: QueueItem[]; at?: number } = {}) {
     ++this.gen
-    if (!script && from) { let n = this.tape.length; while (n > 0 && !this.tape[n - 1].heard) n--; this.tape.length = n }
+    const queue = !script && opts.queue?.length ? opts.queue : null, pin = !script && !queue && !!from && !!opts.pin
+    if (!script && from && !pin) { let n = this.tape.length; while (n > 0 && !this.tape[n - 1].heard) n--; this.tape.length = n }
     else if (!script) this.tape = []
     this.replay = null
-    if (script) this.sess = null
+    if (script || pin || queue) this.sess = null
     else if (!from || !this.sess) this.sess = new Session(() => this.prefs)
     if (!script?.some(c => c.rev != null)) this.review.cur = null
     if (audio().state === 'suspended') await audio().resume()
     this.halt()
-    if (!script && !this.walk.pool().length) { toast('Add some parts first'); return }
+    if (!script && !pin && !queue && !this.walk.pool().length) { toast('Add some parts first'); return }
     this.script = script ? [...script] : null
+    this.pinned = pin; this.queueOn = !!queue; this.tag = opts.tag ?? null
+    this.heardRun = this.prevRun = null
+    if (!script) this.queue = queue
     this.plan = []
-    this.walk.reset(from)
+    this.walk.reset(from, { pin, queue: queue?.map(q => ({ track: q.id, start: this.jd.cueOf(q.id)[0] })), at: opts.at })
     this.start()
   }
   private halt() { this.sched.halt(this.plan); this.plan = []; this.playing = false; clearInterval(this.timer) }
-  stop() { this.gen++; this.halt(); this.script = null; this.changed() }
+  stop() { this.gen++; this.halt(); this.script = null; this.tag = null; this.changed() }
+  /** Done with (the library was read again): silent, and off the output. */
+  dispose() { this.stop(); this.listeners.clear(); this.sched.out.disconnect() }
   /** Back (2026-10-21: the designer needs to hear a transition again, identically): the tape from 2 bars before the
    * transition into the block playing, every chunk as it was, then the walk goes on from where it had got to. Pressed
    * again within 3 s of a block's start: the transition before that. A replayed chunk keeps its block's id. */
   back() {
-    if (!this.playing || this.script || !this.tape.length) return
+    if (this.mode === 'queue') {  // (a queue: this song from its start; within 3 s of it, the one before)
+      const cur = this.nowChunk(), began = this.plan.find(c => c.run === cur?.run && c.scheduled && !c.skipped)?.T ?? 0, qi = this.heard().qi ?? 0
+      this.playQueue(this.queue!, this.now() - began < 3 ? qi - 1 : qi)
+      return
+    }
+    if (!this.walking || !this.tape.length) return
     const now = this.now(), cur = this.nowChunk(now), T = this.tape
     if (!cur || cur.tapeIdx == null) return
     const startOf = (j: number) => { while (j > 0 && T[j - 1].bid === T[j].bid) j--; return j }
@@ -169,7 +197,8 @@ export class Mixer {
     toast(s === startOf(cur.tapeIdx) ? 'Again: the transition into this block' : 'Back: the transition before', 'undo')
   }
   skip() {
-    if (!this.playing || this.script) return
+    if (this.mode === 'queue') { this.playQueue(this.queue!, (this.heard().qi ?? 0) + 1); return }
+    if (!this.walking) return
     const p = this.walk.pickEntry(this.nowChunk()?.track ?? null)
     if (p) void this.play(null, p)
   }
@@ -186,6 +215,27 @@ export class Mixer {
   }
   playPart(p: Part) { void this.play([this.part(p)]) }
   playGlue(gid: string) { void this.play([{ kind: 'glue', bar: 1, glue: gid, bars: this.prefs.glueBars }]) }
+
+  // ---- songs, for any page
+  /** A song that isn't in the library (a take on the Music page, a trial, an extension): its level files by url. */
+  ensure(id: string, src: Record<string, string>) { if (!this.jd.track(id)) this.jd.byId.set(id, { id, files: {}, src }) }
+  /** A song as the game plays it: from its mellow cue's start, round its cues, nothing varying, until stopped. */
+  playSong(tid: string, tag = tid) { void this.play(null, { track: tid, start: this.jd.cueOf(tid)[0] }, { pin: true, tag }) }
+  /** Songs in turn: each for Stay bars from its cue, as written, then straight into the next, round and round. The
+   * songs a page has that the library doesn't, it gives with ensure() first. */
+  playQueue(items: QueueItem[], at = 0) { if (items.length) void this.play(null, null, { queue: items, at }) }
+  /** The song heard now (the walk's run, a pinned song, a queue's song), its place in the queue, and the song heard
+   * before it in this play (so a page can vote on the transition just heard). */
+  heard(): { track: string | null; qi: number | null; from: string | null } {
+    const c = this.playing ? this.nowChunk() : null, prev = this.prevRun
+    return { track: c?.run?.entry?.track ?? c?.track ?? null, qi: c?.run?.qi ?? null, from: c && prev ? prev.entry?.track ?? prev.track : null }
+  }
+  /** An extension (music grow) once, framed by its seed's last and first 4 bars, so both seams are heard. */
+  playFramed(seed: string, ext: string, tag = ext) {
+    const N = this.jd.N, entry = { track: seed, start: N - LEN + 1 }, run: Run = { entry, track: seed }
+    const c = (track: string, bar: number, bars: number): Chunk => ({ kind: 'part', track, bar, bars, variant: 'full', run, entry, first: track === seed && bar > 1 })
+    void this.play([c(seed, N - LEN + 1, LEN), c(ext, 1, N), c(seed, 1, LEN)], null, { tag })
+  }
 
   // ---- what's playing
   nowChunk(now = this.now()): Chunk | null { return this.plan.find(c => c.scheduled && !c.skipped && c.T! - XF <= now && now < c.end!) ?? null }
@@ -235,7 +285,7 @@ export class Mixer {
     const bl = this.blocks(), i = cur ? bl.findIndex(b => b.chunks.includes(cur)) : -1
     const lane = i < 0 ? [] : bl.slice(Math.max(0, i - 5), i + 1).map((b, j, a) => ({ id: blockKey(b), kind: b.kind, on: b.T <= now && now < b.end, past: b.end <= now, hasNext: j < a.length - 1 }))
     return {
-      playing: this.playing, clock, beat, now: nowL, next: nextL, lane, session: this.sess?.list(cur) ?? [],
+      playing: this.playing, mode: this.mode, tag: this.tag, qi: cur?.run?.qi ?? null, clock, beat, now: nowL, next: nextL, lane, session: this.sess?.list(cur) ?? [],
       entry: cur?.run?.entry ?? null, played: cur?.run?.played ?? 0, rev: this.review.cur && cur?.rev != null ? cur.rev : null,
     }
   }

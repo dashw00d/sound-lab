@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react'
+import { PlayerBar } from '../player/PlayerBar'
 import './shell.css'
 import { Toaster } from './toast'
 
 export interface PageDef { id: string; title: string }
 
-/** The top bar: the lab's name, the pages built in the new app, and the way back to the old one. */
+/** The top bar (the lab's name, the pages built in the new app, the way back to the old one), the page, and the player's
+ * bar at the foot, which stays as the pages change. */
 export function Shell({ pages, current, project, children }: { pages: PageDef[]; current: string; project?: string; children: ReactNode }) {
   return (
     <div className="shell">
@@ -17,6 +19,7 @@ export function Shell({ pages, current, project, children }: { pages: PageDef[];
         </nav>
       </header>
       <main>{children}</main>
+      <PlayerBar />
       <Toaster />
     </div>
   )

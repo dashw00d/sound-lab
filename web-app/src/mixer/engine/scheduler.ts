@@ -49,7 +49,7 @@ export class Scheduler {
     const jd = this.jd, P = this.prefs()
     if (c.kind === 'glue') return { glue: await file(this.glueUrl(c.glue!)) }
     if (c.kind === 'rest') return {}  // (silence: nothing to load)
-    const t = jd.track(c.track)!, clip = (u: string) => '/clips/' + u, st = t.stems ?? {}, level = (l: string) => t.src?.[l] ?? '/shipped/' + t.files[l]
+    const t = jd.track(c.track)!, clip = (u: string) => '/clips/' + u, st = t.stems ?? {}, level = (l: string) => t.src?.[l] ?? (t.files[l] ? '/shipped/' + t.files[l] : t.src?.calm ?? '/shipped/' + t.files.calm)  // (a take without that level: its calm)
     const gid = jd.glueOf(c.track), bed = P.bed !== 'off' && gid ? bedPad(gid, this.glueUrl(gid), this.barS()) : null
     const intense = sliced(level(P.intense), this.barS(), c.kind === 'fill' ? ((c.bar - 1 - c.bars + jd.N) % jd.N) + 1 : c.bar, c.bars)
     let mellow: Source[]

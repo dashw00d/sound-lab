@@ -4,7 +4,7 @@ import type { Mixer } from '../../mixer/engine/mixer'
 import { pieceLabel, piecesOf, shortName, VARIANT } from '../../mixer/engine/review'
 import type { StreamChunk } from '../../mixer/types'
 import { Icon } from '../../shell/Icon'
-import { useSnapshot } from './hooks'
+import { useSnapshot } from '../../player/hooks'
 
 export function ReviewCard({ m, note, setNote }: { m: Mixer; note: Record<number, string>; setNote: (n: Record<number, string>) => void }) {
   const snap = useSnapshot(m), items = m.review.items, cur = m.review.cur

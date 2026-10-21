@@ -1,9 +1,9 @@
 // Rating as it plays, blind (2026-10-21): each block (a song's visit, a glue, a rest) shows only its stars, and between
 // blocks a thumb for the transition. The lane: what's playing and the few before it; the session list: everything this
 // session played, in order, growing only at its end, so a block can be rated long after it passed.
-import type { Mixer, Snapshot } from '../../mixer/engine/mixer'
-import { STARS } from '../../mixer/engine/session'
-import { Icon } from '../../shell/Icon'
+import type { Mixer, Snapshot } from '../mixer/engine/mixer'
+import { STARS } from '../mixer/engine/session'
+import { Icon } from '../shell/Icon'
 
 function Stars({ m, id }: { m: Mixer; id: string }) {
   const n = m.sess?.stars.get(id) ?? 0

@@ -1,0 +1,47 @@
+/* The player's bar at the foot of every page, and the blind rating (the bar's lane, the Mixer's session list). */
+.pbar { flex: none; display: flex; align-items: center; gap: 20px; height: 74px; padding: 0 18px; border-top: 1px solid var(--line-2); background: var(--bg-2); }
+.pbar.off { height: 40px; font-size: 12px; }
+.pb-tr { display: flex; align-items: center; gap: 8px; }
+.pb-tr .playbtn { width: 46px; height: 46px; } .pb-tr .playbtn .i { width: 19px; height: 19px; }
+.pb-tr .iconbtn { width: 32px; height: 32px; }
+.pb-clock { display: flex; flex-direction: column; gap: 4px; min-width: 92px; }
+.pb-clock .big { font: 500 24px/1 var(--mono); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.pb-clock .big small { font-size: 12px; color: var(--faint); letter-spacing: 0; margin-left: 3px; }
+.beats { display: flex; gap: 5px; }
+.beats i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, .1); transition: background .06s; }
+.beats i.on { background: var(--accent-2); box-shadow: 0 0 10px var(--accent-2); }
+.beats i.on:first-child { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+.pb-now { display: flex; flex-direction: column; gap: 1px; width: 300px; min-width: 0; }
+.pb-now b, .pb-now small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-now b { font: 500 12.5px var(--mono); } .pb-now small { font: 500 11px var(--mono); color: var(--faint); }
+.pb-lane { flex: 1; min-width: 0; overflow: hidden; }
+.pb-levels { display: flex; gap: 6px; }
+.pb-lvl { width: 92px; display: flex; flex-direction: column; gap: 5px; padding: 6px 9px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--raised); text-align: left; font-size: 12px; color: var(--dim); }
+.pb-lvl.on { border-color: var(--accent-line); background: var(--accent-soft); color: var(--text); }
+.pb-lvl .vu { height: 3px; background: rgba(255, 255, 255, .06); border-radius: 3px; overflow: hidden; }
+.pb-lvl .vu div { height: 100%; width: 0; background: var(--grad); }
+.pb-spec { width: 180px; height: 44px; display: block; flex: none; }
+
+/* ---- rating: the lane (what plays now and the few before) and the session list */
+.lane { display: flex; gap: 6px; align-items: center; overflow: hidden; justify-content: flex-end; }
+.lanepair { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.blk { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 9px; background: var(--raised); border: 1px solid var(--line-2); white-space: nowrap; }
+.blk small { font: 500 10px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .05em; }
+.blk.on { border-color: var(--accent-line); background: var(--accent-soft); } .blk.past { opacity: .45; }
+.blk.glue { background: rgba(91, 214, 255, .06); border-style: dashed; } .blk.rest { background: none; border-style: dotted; }
+.stars { display: inline-flex; }
+.star { width: 20px; height: 22px; padding: 0; border: 0; background: none; color: var(--line-3); font-size: 15px; line-height: 1; }
+.star.on, .stars:hover .star { color: var(--pick); } .stars .star:hover ~ .star { color: var(--line-3); }
+.thumbs { display: inline-flex; gap: 1px; }
+.thumbs button { width: 22px; height: 22px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--faint); }
+.thumbs button:hover { background: var(--hover); color: var(--text); } .thumbs .i { width: 12px; height: 12px; }
+.thumbs button.on.up { color: var(--good); } .thumbs button.on.down { color: var(--bad); }
+.sess .lbl { display: block; margin-bottom: 8px; }
+.sessr { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; max-height: 190px; overflow-y: auto; }
+.sessr .blk { padding: 5px 8px; gap: 6px; } .sessr .star { width: 18px; height: 20px; font-size: 14px; }
+
+/* ---- the queue */
+.pb-queue { display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none; }
+.pb-queue .chip { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 99px; font-size: 12px; background: var(--raised); color: var(--dim); border: 1px solid var(--line-2); white-space: nowrap; }
+.pb-queue .chip small { font: 600 10px var(--mono); color: var(--faint); } .pb-queue .chip:hover { color: var(--text); }
+.pb-queue .chip.on { border-color: var(--accent-line); background: var(--accent-soft); color: var(--text); }

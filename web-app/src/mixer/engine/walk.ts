@@ -4,6 +4,10 @@
 // Stay bars; then, at a phrase end, it takes a transition the taste model puts over the taste bar (or settles for 50%
 // once forced), or goes through the glue (a rest: a taper into silence; or a pad). Each 4-bar phrase may vary: a
 // sibling at the same bars, stems (drums out, sparse, the battle drums in), a fill at the loop point.
+//
+// A page can also pin the walk to one song (played as written, round its cues, until stopped), or give it a queue:
+// each song in turn, as written, for Stay bars from its cue, then at a phrase end straight into the next (2026-10-21:
+// the designer queues songs from the Families graph to hear whether they match).
 import { getVotes } from '../../state/votes'
 import { LEN, pkey, type Judge, type Judged } from '../judge'
 import type { Prefs } from '../prefs'
@@ -16,6 +20,10 @@ export class Walk {
   private recent: string[] = []
   private recentTracks: string[] = []
   private run0: Part | null = null
+  /** One song, as it's written: the walk never leaves it and nothing varies (a page playing a song). */
+  private pin = false
+  private queue: Part[] | null = null
+  private qi = 0
   private sinceGlue = 0
   private breath = 3
 
@@ -23,9 +31,11 @@ export class Walk {
   private prefs: () => Prefs
   constructor(jd: Judge, prefs: () => Prefs) { this.jd = jd; this.prefs = prefs }
 
-  /** A fresh walk; `from` enters first, keeping what was heard lately (skip, replay). */
-  reset(from: Part | null) {
-    Object.assign(this, { run: null, pendingEntry: from, runs: 0, run0: null, sinceGlue: 0, breath: 3 })
+  /** A fresh walk; `from` enters first, keeping what was heard lately (skip, replay). `pin`: stay in `from`'s song;
+   * `queue`: its songs in turn, from the one at `at`. */
+  reset(from: Part | null, opts: { pin?: boolean; queue?: Part[]; at?: number } = {}) {
+    const queue = opts.queue?.length ? opts.queue : null, qi = queue ? (((opts.at ?? 0) % queue.length) + queue.length) % queue.length : 0
+    Object.assign(this, { run: null, pendingEntry: queue ? queue[qi] : from, runs: 0, run0: null, sinceGlue: 0, breath: 3, pin: !!opts.pin && !!from, queue, qi })
     if (!from) { this.recent = []; this.recentTracks = [] }
   }
   /** What the walk draws from: the set's parts, or every song's phrase starts. */
@@ -63,9 +73,12 @@ export class Walk {
     if (ph && ph.contrast >= 0.08) return (((r.lastBar! - ph.start) % LEN) + LEN) % LEN === LEN - 1
     return r.played! % LEN === 0
   }
+  /** As written: no exits of its own, no fills, no variations. */
+  private get plain() { return this.pin || !!this.queue }
   private startRun(p: Part) {
     const [lo, hi] = this.jd.loopFor(p.track, p.start)
-    this.run = { id: ++this.runs, track: p.track, entry: p, bar: p.start, lo, hi, played: 0, passes: 0, lastBar: p.start - 1, variant: 'full', lastFill: null, first: true }
+    this.run = { id: ++this.runs, track: p.track, entry: p, bar: p.start, lo, hi, played: 0, passes: 0, lastBar: p.start - 1, variant: 'full', lastFill: null, first: true,
+                 qi: this.queue ? this.qi : undefined }
     this.recent.push(pkey(p)); this.recentTracks.push(p.track); this.run0 = p; this.sinceGlue++
   }
 
@@ -74,7 +87,12 @@ export class Walk {
     const jd = this.jd, pr = this.prefs(), clips = getVotes().clips
     if (!this.run) { const p = this.pendingEntry ?? this.pickEntry(null); this.pendingEntry = null; if (!p) return null; this.startRun(p) }
     const r = this.run!
-    if (r.played! >= pr.stay && !r.afterFill) {
+    if (this.queue && r.played! >= pr.stay && this.phraseEnd(r)) {  // (a queue: the next song, straight in)
+      this.qi = (this.qi + 1) % this.queue.length
+      this.startRun(this.queue[this.qi])
+      return this.next()
+    }
+    if (!this.plain && r.played! >= pr.stay && !r.afterFill) {
       // A straight exit can be at any bar that joins well; the glue only at the end of a phrase, so it never cuts a phrase
       // off. A breath that's due waits for one; with no exit in 8 bars past Stay, the run goes at the next phrase end anyway.
       const rest = pr.glueKind === 'rest', gid = jd.glueOf(r.track), atPhrase = this.phraseEnd(r)
@@ -102,7 +120,7 @@ export class Walk {
       r.bar = r.lo; r.passes!++
       const swing = (f: { beats?: number[] | null }) => (f.beats?.length ? Math.max(...f.beats) - Math.min(...f.beats) : 0)  // (over 10 dB inside: a fill no leveling saves)
       const [ms, me] = jd.cueOf(r.track)
-      const fl = pr.vary.fills ? (jd.track(r.track)?.fills?.[`${ms}-${me}`] ?? [])
+      const fl = pr.vary.fills && !this.plain ? (jd.track(r.track)?.fills?.[`${ms}-${me}`] ?? [])
         .filter(f => (clips['fill_' + f.file] || 0) >= 0 && swing(f) <= 10 && (f.click || 0) <= 3) : []  // (3: dsp.CLICK)
       if (fl.length && r.lo === ms && r.hi === me) {
         const fresh = fl.filter(f => f.file !== r.lastFill), f = (fresh.length ? fresh : fl)[Math.floor(Math.random() * (fresh.length || fl.length))]
@@ -110,14 +128,14 @@ export class Walk {
         return { kind: 'fill', track: r.track, bar: r.lo!, bars: f.bars, fill: f.file, fillBeats: f.beats, hi: r.hi, run: r, entry: r.entry }
       }
     }
-    if (r.played! >= LEN && r.played! % LEN === 0) {  // a new phrase: perhaps a variation
+    if (!this.plain && r.played! >= LEN && r.played! % LEN === 0) {  // a new phrase: perhaps a variation
       const sib = jd.family(r.track)
       if (pr.vary.siblings && sib.length && Math.random() < 0.3) { r.track = sib[Math.floor(Math.random() * sib.length)]; r.swapped = true }
       const st = jd.track(r.track)?.stems ?? {}
       const ok = ['nodrums', 'sparse', 'pulse'].filter(v => v !== r.variant && (v === 'pulse' ? st['battle.drums'] : st['calm.other'] && st['calm.bass']))
       r.variant = pr.vary.stems && ok.length && Math.random() < 0.45 ? ok[Math.floor(Math.random() * ok.length)] : 'full'
     }
-    const len = r.played! < pr.stay ? Math.min(LEN - (r.played! % LEN), pr.stay - r.played!, r.hi! - r.bar! + 1) : 1
+    const len = this.pin ? Math.min(LEN, r.hi! - r.bar! + 1) : r.played! < pr.stay ? Math.min(LEN - (r.played! % LEN), pr.stay - r.played!, r.hi! - r.bar! + 1) : 1
     r.afterFill = false
     const c: Chunk = { kind: 'part', track: r.track, bar: r.bar!, bars: len, variant: r.variant, run: r, entry: r.entry, first: r.first }
     r.first = false; r.bar! += len; r.played! += len; r.lastBar = c.bar + len - 1

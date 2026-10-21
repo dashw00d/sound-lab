@@ -63,6 +63,8 @@ export interface Run {
   afterFill?: boolean
   first?: boolean
   swapped?: boolean
+  /** Its place in the queue, when the walk plays one. */
+  qi?: number
   gn?: Partial<Record<Level, GainNode>> | null
   match?: Partial<Record<Level, number>> | null
 }

@@ -30,3 +30,20 @@
 .song .h { width: 8px; height: 8px; background: var(--line-3); border: 0; opacity: 0; } .song:hover .h { opacity: 1; }
 .react-flow__handle { min-width: 8px; min-height: 8px; }
 .react-flow__controls button { background: var(--raised); border-color: var(--line-2); fill: var(--text); }
+/* the songs chosen and the queue */
+.fa-list { display: flex; flex-direction: column; gap: 1px; max-height: 300px; overflow-y: auto; }
+.fa-li { display: flex; align-items: center; gap: 7px; font-size: 12px; padding: 2px 4px; border-radius: 6px; }
+.fa-li small { font: 600 10px var(--mono); color: var(--faint); min-width: 16px; text-align: right; }
+.fa-li .lnk { color: var(--dim); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .fa-li .lnk:hover { color: var(--text); }
+.fa-li.now { background: var(--accent-soft); } .fa-li.now .lnk { color: var(--text); }
+.fa-li .x { background: none; border: 0; color: var(--faint); font-size: 15px; } .fa-li .x:hover { color: var(--bad); }
+.fa-pair { padding: 1px 0 1px 30px; }
+.fa-queue { border-color: var(--accent-line); }
+.fa-heard { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 8px; background: var(--bg-2); font-size: 12.5px; }
+.fa-heard .dim { font-size: 11px; } .fa-heard kbd { margin: 0 2px 0 6px; }
+.pv { display: inline-flex; gap: 2px; }
+.pv button { width: 24px; height: 20px; padding: 0; border-radius: 6px; border: 1px solid var(--line-2); background: var(--raised); color: var(--faint); font-size: 12px; line-height: 1; }
+.pv button:hover { color: var(--text); }
+.pv button.match.on { color: var(--good); border-color: var(--good); background: var(--good-soft); }
+.pv button.dup.on { color: var(--pick); border-color: var(--pick-line); background: var(--pick-soft); }
+.pv button.bad.on { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }

@@ -1,81 +1,55 @@
-// The Mixer: build a set of parts, cut from any songs, that go together in any order, and hear it as the game would play
-// it: endlessly, mellow or intense, each song coming in at a part and playing on for at least Stay bars, varying as it
-// goes, then moving on where it joins well. Rated blind as it plays (stars per block, thumbs per transition).
-import { useEffect, useRef, useState } from 'react'
+// The Mixer: build a set of parts, cut from any songs, that go together in any order, and tune how the walk plays them
+// (the player's bar plays it: endlessly, mellow or intense, each song coming in at a part and playing on for at least
+// Stay bars, varying as it goes, then moving on where it joins well). What the walk played this session, rated blind
+// (stars per block, thumbs per transition), and the two listening tools: training and the review of low-rated blocks.
+import { useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import type { Mixes } from '../../api/types'
-import { Mixer } from '../../mixer/engine/mixer'
+import type { Mixer } from '../../mixer/engine/mixer'
 import { LEN } from '../../mixer/judge'
-import { loadPrefs } from '../../mixer/prefs'
-import { refreshVotes } from '../../state/votes'
-import { useEngine } from './hooks'
+import { useEngine, useSnapshot } from '../../player/hooks'
+import { useKeys } from '../../player/keys'
+import { SessionList } from '../../player/Rating'
+import { loadPlayer, usePlayer } from '../../player/store'
 import { ReviewCard } from './ReviewCard'
 import { SetBuilder } from './SetBuilder'
 import { Settings } from './Settings'
 import { TrainingCard } from './TrainingCard'
-import { Transport } from './Transport'
 import './mixer.css'
 
-type Loaded = { m: Mixer; mixes: Mixes } | { error: string; hint?: string }
-
 export default function MixerPage() {
-  const [got, setGot] = useState<Loaded | null>(null)
+  const p = usePlayer()
+  const [mixes, setMixes] = useState<Mixes>({})
   useEffect(() => {
-    let alive = true, made: Mixer | null = null
-    void (async () => {
-      try {
-        const [lib, mixes, prefs] = await Promise.all([api.songs(), api.mixes().catch(() => ({})), loadPrefs(), refreshVotes(true)])
-        lib.tracks = [...lib.tracks, ...(lib.candidates ?? [])]  // (new takes join the walk when asked)
-        if (!alive) return
-        if (!lib.tracks.some(t => t.measure?.feat)) { setGot({ error: "The songs aren't measured", hint: 'Run soundlab music trims: the Mixer needs each song’s bar fingerprints.' }); return }
-        made = new Mixer(lib, prefs)
-        setGot({ m: made, mixes })
-      } catch (e) {
-        if (alive) setGot({ error: "Couldn't read the game's music", hint: `The server didn't give the shipped tracks (${(e as Error).message}). Check the terminal running soundlab serve.` })
-      }
-    })()
-    return () => { alive = false; made?.stop() }  // (leaving the page stops the music)
+    void loadPlayer(true)  // (each visit: stems, fills, glues and takes made since join, unless something plays)
+    api.mixes().then(setMixes).catch(() => {})
   }, [])
-  if (!got) return <div className="mx-msg dim">Reading the songs…</div>
-  if ('error' in got) return <div className="mx-msg"><b>{got.error}</b><p className="dim">{got.hint}</p></div>
-  return <Page m={got.m} mixes={got.mixes} />
+  if (p.status === 'error') return <div className="mx-msg"><b>No music to mix</b><p className="dim">{p.error}</p></div>
+  if (p.status === 'none') return <div className="mx-msg"><b>This project has no music</b></div>
+  if (p.status !== 'ready') return <div className="mx-msg dim">Reading the songs…</div>
+  return <Page m={p.m} mixes={mixes} setMixes={setMixes} />
 }
 
-function Page({ m, mixes: mixes0 }: { m: Mixer; mixes: Mixes }) {
+function Page({ m, mixes, setMixes }: { m: Mixer; mixes: Mixes; setMixes: (x: Mixes) => void }) {
   useEngine(m)
-  const [mixes, setMixes] = useState(mixes0)
   const [reviewOpen, setReviewOpen] = useState(false)
   const [note, setNote] = useState<Record<number, string>>({})
-  const noteRef = useRef(note)
-  noteRef.current = note
   const toggleReview = () => { const open = !reviewOpen; setReviewOpen(open); if (open) void m.reviewLoad() }
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement
-      if (e.ctrlKey || e.metaKey || e.altKey || el.closest('input, select, textarea')) return
-      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key, stop = () => e.preventDefault()
-      if (m.train.on) {  // (rating: one key each)
-        if (k === 'ArrowUp' || k === 'u') { stop(); void m.trainVote(1); return }
-        if (k === 'ArrowDown' || k === 'd') { stop(); void m.trainVote(-1); return }
-        if (k === 'ArrowRight' || k === 'n') { stop(); m.trainNext(); return }
-        if (k === 'r' || k === ' ') { stop(); m.trainPlay(); return }
-        if (k === 'Escape' || k === 't') { m.trainToggle(); return }
-      }
-      if (k === 'w' && m.review.cur) { stop(); void m.reviewMark(noteRef.current[m.review.cur.i] ?? ''); return }
-      if (k === 't') m.trainToggle()
-      else if (k === ' ') { stop(); if (m.playing) m.stop(); else void m.play() }
-      else if (k === '1') m.setState('mellow')
-      else if (k === '2') m.setState('intense')
-      else if (k === 'x') m.setState(m.state === 'mellow' ? 'intense' : 'mellow')
-      else if (k === 'o') m.setPrefs({ mode: m.prefs.mode === 'any' ? 'order' : 'any' })
-      else if (k === 'ArrowLeft') { stop(); m.back() }
-      else if (k === 'ArrowRight') { stop(); m.skip() }
-      else if (k === 'Escape') m.stop()
+  // (the player's keys are in its bar; these are the Mixer's own, and training's, which come first while it's on)
+  useKeys(k => {
+    if (m.train.on) {
+      if (k === 'ArrowUp' || k === 'u') { void m.trainVote(1); return true }
+      if (k === 'ArrowDown' || k === 'd') { void m.trainVote(-1); return true }
+      if (k === 'ArrowRight' || k === 'n') { m.trainNext(); return true }
+      if (k === 'r' || k === ' ') { m.trainPlay(); return true }
+      if (k === 'Escape' || k === 't') { m.trainToggle(); return true }
     }
-    addEventListener('keydown', onKey)
-    return () => removeEventListener('keydown', onKey)
-  }, [m])
+    if (k === 'w' && m.review.cur) { void m.reviewMark(note[m.review.cur.i] ?? ''); return true }
+    if (k === 't') { m.trainToggle(); return true }
+    if (k === 'o') { m.setPrefs({ mode: m.prefs.mode === 'any' ? 'order' : 'any' }); return true }
+    return false
+  })
 
   return (
     <div className="mx">
@@ -83,10 +57,11 @@ function Page({ m, mixes: mixes0 }: { m: Mixer; mixes: Mixes }) {
         <header className="mx-head">
           <div className="lbl">{m.lib.bpm} BPM · {LEN}-bar parts · every song on one grid</div>
           <h1>Mixer</h1>
-          <p className="dim">Hear the songs as the game would play them: endlessly, mellow or intense. Each song comes in at a part, plays on for at least
-            Stay bars, varying as it goes, then moves on where it joins well. Rate as it plays: stars on each block, a thumb on each transition.</p>
+          <p className="dim">How the walk plays the songs, as the game would: endlessly, mellow or intense. Each song comes in at a part, plays on for at least
+            Stay bars, varying as it goes, then moves on where it joins well. The player's bar plays it (<kbd>Space</kbd>); rate as it plays: stars on
+            each block, a thumb on each transition.</p>
         </header>
-        <Transport m={m} />
+        <Session m={m} />
         <Settings m={m} reviewOpen={reviewOpen} onReview={toggleReview} />
         {m.train.on && <TrainingCard m={m} />}
         {reviewOpen && <ReviewCard m={m} note={note} setNote={setNote} />}
@@ -98,4 +73,11 @@ function Page({ m, mixes: mixes0 }: { m: Mixer; mixes: Mixes }) {
       </div>
     </div>
   )
+}
+
+/** What the walk played this session, each block rated or not yet. */
+function Session({ m }: { m: Mixer }) {
+  const snap = useSnapshot(m)
+  if (!snap.session.length) return null
+  return <section className="card mx-sess"><SessionList m={m} snap={snap} /></section>
 }

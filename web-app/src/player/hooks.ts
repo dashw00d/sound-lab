@@ -1,10 +1,10 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
-import type { Mixer, Snapshot } from '../../mixer/engine/mixer'
+import type { Mixer, Snapshot } from '../mixer/engine/mixer'
 
-/** Redraws when the engine says something changed (playing, the session, training, the review, the settings). */
-export function useEngine(m: Mixer) {
+/** Redraws when the player says something changed (playing, the session, training, the review, the settings). */
+export function useEngine(m: Mixer | null) {
   const [, bump] = useReducer((n: number) => n + 1, 0)
-  useEffect(() => m.onChange(bump), [m])
+  useEffect(() => m?.onChange(bump), [m])
 }
 /** The engine's snapshot, kept current every frame (a new state only when it changed: the clock moves each beat). */
 export function useSnapshot(m: Mixer): Snapshot {
