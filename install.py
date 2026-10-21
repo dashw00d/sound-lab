@@ -150,8 +150,9 @@ def main() -> int:
          "--index-url", f"https://download.pytorch.org/whl/{a.cuda}"], env=env)
     say("installing Stable Audio 3 and the lab's libraries")
     run([uv, "pip", "install", "--python", PY, "-e", SA3, "librosa", "soundfile", "requests", "huggingface_hub[hf_xet]",
-         "audiobox_aesthetics", "pedalboard", "demucs", "transformers", "scikit-learn"], env=env)
-    # (audiobox_aesthetics: music check and the quality gate; pedalboard: retuning; demucs: stems; transformers: CLAP)
+         "audiobox_aesthetics", "pedalboard", "demucs", "transformers", "scikit-learn", "matplotlib"], env=env)
+    # (audiobox_aesthetics: music check and the quality gate; pedalboard: retuning; demucs: stems; transformers: CLAP;
+    # matplotlib: research/view.py, pictures of songs side by side)
     say("Basic Pitch (the catchiness score), on ONNX: its own requirements pull TensorFlow")
     run([uv, "pip", "install", "--python", PY, "onnxruntime", "pretty_midi", "mir_eval", "resampy"], env=env)
     run([uv, "pip", "install", "--python", PY, "--no-deps", "basic-pitch==0.4.0"], env=env)

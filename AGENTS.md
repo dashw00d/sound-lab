@@ -75,7 +75,7 @@ Rules:
 
 ## What we've learned: MODELS_LOG.md
 
-`MODELS_LOG.md` is the dated record of what each model does and doesn't do, with how it was measured and how sure we are (solid, leaning, anecdote), including what didn't work. Read it before a new kind of round. Add to it whenever a round, a probe or a measurement teaches something: the finding, the evidence, the date, and the `tuning.json` rule id it became. Experiments outside the app (like `research/music_probe.py`) live in `research/`, with their raw results in `research/data/`.
+`MODELS_LOG.md` is the dated record of what each model does and doesn't do, with how it was measured and how sure we are (solid, leaning, anecdote), including what didn't work. Read it before a new kind of round. Add to it whenever a round, a probe or a measurement teaches something: the finding, the evidence, the date, and the `tuning.json` rule id it became. Experiments outside the app (like `research/music_probe.py`) live in `research/`, with their raw results in `research/data/`. To see what a score is computed from, draw it: `runtime/venv/bin/python research/view.py --project P pair A B` (two songs on one bar grid at their best splice offset: spectrograms, loudness, cues, phrases, chroma, every cut against the natural step) or `... join KEY` (a voted transition as the player crosses it); it writes a PNG under work/<project>/views/ to look at. Then check what a picture suggests against the votes before acting on it.
 
 ## Prompt tuning: start here
 
