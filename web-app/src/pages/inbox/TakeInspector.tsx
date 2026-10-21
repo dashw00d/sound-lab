@@ -37,6 +37,14 @@ export function TakeInspector({ t, onPlay, onAnswer }: { t: Take; onPlay: () => 
     if (m.playing && m.tag === `${t.id}~${root}`) { m.stop(); return }
     m.playMeeting(t.id, root)
   }
+  const write = async (ops: [string, number][]) => {
+    let v = null
+    for (const [k, x] of ops) v = await api.vote(k, x)
+    if (v) put(VOTES, v)
+  }
+  // (the scene it's in now: put there by you (undo: back to the sort's guess), or the sort's guess)
+  const home = fv && F?.items[t.id] ? fv.family(t.id) : null, mine = !!fv?.confirmed(t.id)
+  const undo = async () => { if (!fv || !F) return; await write(fv.unlink(t.id)); toast(`${t.style} ${t.take}: back to the sort's guess`, 'undo') }
   const join = async (root: string) => {
     if (!fv || !F) return
     let v = null
@@ -92,9 +100,17 @@ export function TakeInspector({ t, onPlay, onAnswer }: { t: Take; onPlay: () => 
           <Meeting m={m} names={id => (id === t.id ? `${t.style} ${t.take}` : F?.items[id] ? label(id, F.items[id]) : id)} />
         </div>
       )}
-      {belongs.length > 0 && (
+      {(belongs.length > 0 || home) && (
         <div className="insp-sec">
           <span className="lbl">Belongs with</span>
+          {home && home.members.length === 1 && <div className="home"><span className="nm dim">On its own: in no scene yet</span></div>}
+          {home && home.members.length > 1 && (
+            <div className={`home ${mine ? 'mine' : ''}`}>
+              <span className="sw2" style={{ background: colour(hue(home.id)) }} />
+              <span className="nm">{mine ? 'You put it in' : 'The sort puts it in'} <b>{label(home.root, F!.items[home.root])}</b>’s scene <span className="dim">· {home.members.length} songs</span></span>
+              {mine ? <button className="btn sm" title="Take it out: back to where the sort puts it" onClick={() => void undo()}>Undo</button> : <span className="dim guess">guess</span>}
+            </div>
+          )}
           <div className="mates">{belongs.map(([fid, b]) => (
             <div key={fid} className="mate">
               <span className="nm"><span className="sw2" style={{ background: colour(hue(fid)) }} /><b>{label(b.root, F!.items[b.root])}</b> <span className="dim">scene of {b.size} · {b.why}</span></span>

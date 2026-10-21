@@ -21,3 +21,7 @@
 .insp .mate .hear button:hover { color: var(--text); border-color: var(--line-3); } .insp .mate .hear button.on { color: var(--accent-2); border-color: rgba(91, 214, 255, .5); background: rgba(91, 214, 255, .1); }
 .insp .mate .hear .i { width: 11px; height: 11px; }
 .insp .mate .nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--panel); border: 1px solid var(--line); font-size: 12.5px; }
+.home.mine { border-color: rgba(91, 214, 255, .35); background: linear-gradient(90deg, rgba(91, 214, 255, .07), var(--panel) 70%); }
+.home .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .home .nm b { font-weight: 600; }
+.home .sw2 { margin-right: 0; } .home .guess { font: 500 10.5px var(--mono); }
