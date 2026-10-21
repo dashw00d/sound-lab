@@ -45,3 +45,5 @@
 .pb-queue .chip { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 99px; font-size: 12px; background: var(--raised); color: var(--dim); border: 1px solid var(--line-2); white-space: nowrap; }
 .pb-queue .chip small { font: 600 10px var(--mono); color: var(--faint); } .pb-queue .chip:hover { color: var(--text); }
 .pb-queue .chip.on { border-color: var(--accent-line); background: var(--accent-soft); color: var(--text); }
+.pb-clear { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line-2); background: none; color: var(--faint); display: grid; place-items: center; padding: 0; }
+.pb-clear:hover { color: var(--bad); border-color: var(--line-3); } .pb-clear .i { width: 12px; height: 12px; }

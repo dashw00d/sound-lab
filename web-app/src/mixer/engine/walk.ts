@@ -73,6 +73,14 @@ export class Walk {
     if (ph && ph.contrast >= 0.08) return (((r.lastBar! - ph.start) % LEN) + LEN) % LEN === LEN - 1
     return r.played! % LEN === 0
   }
+  /** A new list for the queue playing (the page's choice changed): on in it from the song playing, or from where that
+   * song was when it's no longer in it. */
+  setQueue(parts: Part[]) {
+    if (!this.queue || !parts.length) return
+    const r = this.run, i = r ? parts.findIndex(p => p.track === r.entry.track) : -1
+    if (i >= 0) { this.qi = i; r!.qi = i } else { this.qi = Math.min(this.qi, parts.length) - 1; if (r) r.qi = undefined }
+    this.queue = parts
+  }
   /** As written: no exits of its own, no fills, no variations. */
   private get plain() { return this.pin || !!this.queue }
   private startRun(p: Part) {

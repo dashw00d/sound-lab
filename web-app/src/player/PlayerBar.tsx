@@ -1,7 +1,8 @@
 // The player's bar, at the foot of every page: back / play / skip, the clock and its beats, what plays now and next,
 // the blind lane while the walk plays (stars per block, a thumb per transition) or the queue while one plays (click a
-// song to go to it), the two levels (mellow, intense) with their meters, and the spectrum. Space with nothing playing
-// starts the walk: the game's music.
+// song to go to it; a page fills it, e.g. the songs chosen on the Families graph), the two levels (mellow, intense)
+// with their meters, and the spectrum. Space with nothing playing plays the queue when there is one, else the walk:
+// the game's music.
 import { useRef } from 'react'
 import { drawSpectrum } from '../audio/spectrum'
 import type { Mixer } from '../mixer/engine/mixer'
@@ -25,7 +26,7 @@ function Bar({ m }: { m: Mixer }) {
   const snap = useSnapshot(m)  // (only the bar redraws as the clock moves)
   useEngine(m)  // (and when a star or thumb changes)
   useKeys((k) => {
-    if (k === ' ') { if (m.playing) m.stop(); else void m.play(); return true }
+    if (k === ' ') { if (m.playing) m.stop(); else m.playDefault(); return true }
     if (k === 'ArrowLeft' && (m.walking || m.mode === 'queue')) { m.back(); return true }
     if (k === 'ArrowRight' && (m.walking || m.mode === 'queue')) { m.skip(); return true }
     if (k === '1' || k === '2') { m.setState(k === '1' ? 'mellow' : 'intense'); return true }
@@ -44,28 +45,29 @@ function Bar({ m }: { m: Mixer }) {
       el.style.width = `${Math.round(100 * Math.min(1, Math.max(0, (10 * Math.log10(s / 1024 + 1e-12) + 54) / 48)))}%`
     }
   })
-  const walk = snap.mode === 'walk', queue = snap.mode === 'queue' ? m.queue : null
+  const walk = snap.mode === 'walk', queue = !walk ? m.queue : null, inQueue = snap.mode === 'queue'
   return (
     <footer className="pbar">
       <div className="pb-tr">
-        <button className="iconbtn" disabled={!walk && !queue} title={queue ? 'Back: this song from its start; twice: the one before (←)' : 'Back: the transition into this block again; twice: the one before (←)'} onClick={() => m.back()}><Icon name="prev" /></button>
-        <button className="playbtn" title={snap.playing ? 'Stop (Space)' : 'Play the walk (Space)'} onClick={() => (snap.playing ? m.stop() : void m.play())}><Icon name={snap.playing ? 'stop' : 'play'} /></button>
-        <button className="iconbtn" disabled={!walk && !queue} title={queue ? 'The next song (→)' : 'Skip to a new run (→)'} onClick={() => m.skip()}><Icon name="next" /></button>
+        <button className="iconbtn" disabled={!walk && !inQueue} title={inQueue ? 'Back: this song from its start; twice: the one before (←)' : 'Back: the transition into this block again; twice: the one before (←)'} onClick={() => m.back()}><Icon name="prev" /></button>
+        <button className="playbtn" title={snap.playing ? 'Stop (Space)' : queue ? 'Play the queue (Space)' : 'Play the walk (Space)'} onClick={() => (snap.playing ? m.stop() : m.playDefault())}><Icon name={snap.playing ? 'stop' : 'play'} /></button>
+        <button className="iconbtn" disabled={!walk && !inQueue} title={inQueue ? 'The next song (→)' : 'Skip to a new run (→)'} onClick={() => m.skip()}><Icon name="next" /></button>
       </div>
       <div className="pb-clock">
         <div className="big">{snap.clock.big}<small>{snap.clock.small}</small></div>
         <div className="beats">{Array.from({ length: m.lib.bar_beats }, (_, i) => <i key={i} className={i === snap.beat ? 'on' : ''} />)}</div>
       </div>
       <div className="pb-now">
-        <span className="lbl">{snap.mode ? MODE[snap.mode] : 'Stopped'}{queue && snap.qi != null ? ` · ${snap.qi + 1} of ${queue.length}` : ''}</span>
-        <b>{snap.playing ? snap.now : 'Space plays the walk'}</b>
+        <span className="lbl">{snap.mode ? MODE[snap.mode] : 'Stopped'}{inQueue && queue && snap.qi != null ? ` · ${snap.qi + 1} of ${queue.length}` : ''}</span>
+        <b>{snap.playing ? snap.now : queue ? `Space plays the queue: ${queue.length} songs` : 'Space plays the walk'}</b>
         {snap.playing && <small>next: {snap.next}</small>}
       </div>
       <div className="pb-lane">
         {walk && <Lane m={m} snap={snap} />}
         {queue && (
           <div className="pb-queue">
-            {queue.map((q, i) => <button key={`${q.id}#${i}`} className={`chip ${i === snap.qi ? 'on' : ''}`} title={`Go to ${q.label}`} onClick={() => m.playQueue(queue, i)}><small>{i + 1}</small>{q.label}</button>)}
+            {queue.map((q, i) => <button key={`${q.id}#${i}`} className={`chip ${inQueue && i === snap.qi ? 'on' : ''}`} title={`Play from ${q.label}`} onClick={() => m.playQueue(queue, i)}><small>{i + 1}</small>{q.label}</button>)}
+            <button className="pb-clear" title="Clear the queue (Play then plays the walk)" onClick={() => m.setQueue(null)}><Icon name="x" /></button>
           </div>
         )}
       </div>

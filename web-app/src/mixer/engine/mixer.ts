@@ -39,7 +39,7 @@ export class Mixer {
   playing = false
   /** What a page asked to play (a song's id), so it can light it; null for the walk. */
   tag: string | null = null
-  /** The queue a page gave (kept when stopped, to play again). */
+  /** The queue (a page's choice of songs): Play plays it when there is one; kept when stopped, until cleared. */
   queue: QueueItem[] | null = null
   private heardRun: Run | null = null
   private prevRun: Run | null = null
@@ -159,9 +159,9 @@ export class Mixer {
     this.script = script ? [...script] : null
     this.pinned = pin; this.queueOn = !!queue; this.tag = opts.tag ?? null
     this.heardRun = this.prevRun = null
-    if (!script) this.queue = queue
+    if (queue) this.queue = queue
     this.plan = []
-    this.walk.reset(from, { pin, queue: queue?.map(q => ({ track: q.id, start: this.jd.cueOf(q.id)[0] })), at: opts.at })
+    this.walk.reset(from, { pin, queue: queue ? this.queueParts(queue) : undefined, at: opts.at })
     this.start()
   }
   private halt() { this.sched.halt(this.plan); this.plan = []; this.playing = false; clearInterval(this.timer) }
@@ -224,6 +224,15 @@ export class Mixer {
   /** Songs in turn: each for Stay bars from its cue, as written, then straight into the next, round and round. The
    * songs a page has that the library doesn't, it gives with ensure() first. */
   playQueue(items: QueueItem[], at = 0) { if (items.length) void this.play(null, null, { queue: items, at }) }
+  private queueParts(items: QueueItem[]): Part[] { return items.map(q => ({ track: q.id, start: this.jd.cueOf(q.id)[0] })) }
+  /** The queue to play next (a page's choice), or none. A queue playing goes on in the new list. */
+  setQueue(items: QueueItem[] | null) {
+    this.queue = items?.length ? items : null
+    if (this.mode === 'queue') { if (this.queue) this.walk.setQueue(this.queueParts(this.queue)); else this.stop() }
+    this.changed()
+  }
+  /** Play: the queue when there is one, else the walk. */
+  playDefault() { if (this.queue) this.playQueue(this.queue); else void this.play() }
   /** The song heard now (the walk's run, a pinned song, a queue's song), its place in the queue, and the song heard
    * before it in this play (so a page can vote on the transition just heard). */
   heard(): { track: string | null; qi: number | null; from: string | null } {

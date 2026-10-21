@@ -75,3 +75,4 @@
 .mx .bpart { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 2px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); font: 500 11.5px var(--mono); }
 .mx .bpart.on { border-color: var(--accent-line); } .mx .bpart span { font-size: 10.5px; }
 .mx-sess { padding: 14px 16px; }
+.mx .mx-gh .dim { font-weight: 400; }

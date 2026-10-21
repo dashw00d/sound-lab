@@ -1,8 +1,8 @@
-// The Mixer's settings (data/mixer.json): what the walk draws from and how long it stays, how two songs join, the glue
-// between them, and the two listening tools (training, the review of low-rated blocks).
+// The walk's own settings (data/mixer.json): what it draws from, its order, the taste bar it waits for, how songs vary,
+// and the glue between them; and the two listening tools (training, the review of low-rated blocks). Stay, the joins,
+// the levels, the bed and what intense is are for everything the player plays: in the header.
 import { CAND_TOP, WEAK } from '../../mixer/judge'
 import type { Mixer } from '../../mixer/engine/mixer'
-import { SWAP_HZ } from '../../mixer/curves'
 import type { Prefs } from '../../mixer/prefs'
 import { Icon } from '../../shell/Icon'
 import { Field, Toggle } from '../../ui/Field'
@@ -17,7 +17,7 @@ export function Settings({ m, reviewOpen, onReview }: { m: Mixer; reviewOpen: bo
   return (
     <div className="mx-settings">
       <div className="mx-group">
-        <div className="mx-gh">What plays</div>
+        <div className="mx-gh">The walk <span className="dim">· Stay, joins and levels are in the header, for everything played</span></div>
         <Field label="Draw from">
           <Seg value={p.scope} onChange={scope => set({ scope })} options={[
             { value: 'set', label: 'the set', tip: 'The parts of the set below' },
@@ -36,10 +36,6 @@ export function Settings({ m, reviewOpen, onReview }: { m: Mixer; reviewOpen: bo
             { value: 'any', label: 'any order', tip: 'A random part each time, never the one just heard: as the game would' },
             { value: 'order', label: 'in order', tip: "The set's order, round and round (O)" }]} />
         </Field>
-        <Field label="Stay">
-          <Seg value={p.stay} onChange={stay => set({ stay })} options={[4, 8, 12, 16].map(k => ({
-            value: k, label: bars(k), tip: k === 4 ? 'Just the part' : `Each song plays on from its part for at least ${k} bars, then leaves where it joins a part well` }))} />
-        </Field>
         <Field label="Taste bar">
           <Seg value={p.strict} onChange={strict => set({ strict })} options={[0.5, 0.7, 0.8, 0.9].map(v => ({
             value: v, label: `${Math.round(100 * v)}%`,
@@ -50,30 +46,6 @@ export function Settings({ m, reviewOpen, onReview }: { m: Mixer; reviewOpen: bo
           {vary('siblings', 'Siblings', 'A phrase may go on in a sibling: the same piece made for another context, in step bar for bar', true)}
           {vary('stems', 'Stems', 'A phrase may drop the drums, thin to the melody and harmony, or bring the battle drums in quietly (music stems)', hasStems)}
           {vary('fills', 'Fills', "Round the loop, a fill SA3 wrote for that song's loop point (music fills)", hasFills)}
-        </Field>
-        <Field label="Intense is">
-          <Seg value={p.intense} onChange={intense => set({ intense })} options={[{ value: 'battle', label: 'battle' }, { value: 'action', label: 'action' }]} />
-        </Field>
-      </div>
-
-      <div className="mx-group">
-        <div className="mx-gh">How songs join</div>
-        <Field label="Joins">
-          <Seg value={p.joins} onChange={joins => set({ joins })} options={[
-            { value: 'tight', label: 'tight', tip: 'A song change is an 80 ms crossfade at the bar line' },
-            { value: 'beat', label: '1 beat', tip: 'The two songs overlap for a beat around the bar line' },
-            { value: 'two', label: '2 beats', tip: 'The two songs overlap for two beats around the bar line' }]} />
-        </Field>
-        <Field label="Levels">
-          <Toggle on={p.even} label="Even levels" onChange={even => set({ even })} tip="Each song trimmed toward the library's typical level (by its median beat, within 6 dB)" />
-          <Toggle on={p.match} label="Match levels" onChange={match => set({ match })} tip="The song coming in starts at the level of the one going out (within 6 dB), then eases to its own over 2 bars" />
-          <Toggle on={p.bassSwap} label="Bass swap" onChange={bassSwap => set({ bassSwap })} tip={`Only the melody and harmony cross over; the bass and kick (under ${SWAP_HZ} Hz) swap on the bar line`} />
-        </Field>
-        <Field label="Bed">
-          <Seg value={p.bed} onChange={bed => set({ bed })} options={[
-            { value: 'off', label: 'off' },
-            { value: 'low', label: 'low', tip: "The playing song's glue under everything, 12 dB down" },
-            { value: 'mid', label: 'mid', tip: "The playing song's glue under everything, 6 dB down" }]} />
         </Field>
         <Field label="Glue">
           <Seg value={p.glue} onChange={glue => set({ glue })} options={[

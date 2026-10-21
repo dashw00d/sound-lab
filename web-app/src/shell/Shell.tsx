@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react'
+import { HeaderSettings } from '../player/HeaderSettings'
 import { PlayerBar } from '../player/PlayerBar'
 import './shell.css'
 import { Toaster } from './toast'
 
 export interface PageDef { id: string; title: string }
 
-/** The top bar (the lab's name, the pages built in the new app, the way back to the old one), the page, and the player's
- * bar at the foot, which stays as the pages change. */
+/** The top bar (the lab's name, the pages built in the new app, the way back to the old one, the player's settings),
+ * the page, and the player's bar at the foot, which stays as the pages change. */
 export function Shell({ pages, current, project, children }: { pages: PageDef[]; current: string; project?: string; children: ReactNode }) {
   return (
     <div className="shell">
@@ -17,6 +18,7 @@ export function Shell({ pages, current, project, children }: { pages: PageDef[];
           {pages.map(p => <a key={p.id} href={`#${p.id}`} className={p.id === current ? 'on' : ''}>{p.title}</a>)}
           <a className="old" href="/" title="The pages not moved to the new app yet">Old app ↗</a>
         </nav>
+        <HeaderSettings />
       </header>
       <main>{children}</main>
       <PlayerBar />

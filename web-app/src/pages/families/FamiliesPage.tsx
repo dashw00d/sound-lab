@@ -23,7 +23,7 @@ import { toast } from '../../shell/toast'
 import { useLive } from '../../shell/useLive'
 import { FamilyCard } from './Family'
 import { colour, FamilyView, hue, label, NEXT, novelKey, type EdgeKind, type Link, type Ops } from './model'
-import { Chosen, QueueCard } from './Queue'
+import { QueueCard } from './Queue'
 import SongNode, { type SongNodeType } from './SongNode'
 import './families.css'
 
@@ -68,12 +68,17 @@ function Graph() {
     else m.playSong(id)
   }, [F, m])
   const toggle = useCallback((id: string) => { if (playing === id && m?.mode !== 'queue') m?.stop(); else play(id) }, [m, playing, play])
-  const playQueue = useCallback((ids: string[]) => {
+  /** Songs as the player's queue (the ones it can play), played at once with `play`. */
+  const queue = useCallback((ids: string[], play = false) => {
     if (!m || !F) return
     const ok = ids.filter(id => F.items[id]?.src.calm)
     ok.forEach(id => m.ensure(id, F.items[id].src))
-    m.playQueue(ok.map(id => ({ id, label: label(id, F.items[id]) })))
+    const items = ok.map(id => ({ id, label: label(id, F.items[id]) }))
+    if (play) m.playQueue(items); else m.setQueue(items)
   }, [F, m])
+  const playQueue = useCallback((ids: string[]) => queue(ids, true), [queue])
+  // (two songs or more chosen: they're the queue, in the player's bar at once; one chosen leaves it as it was)
+  useEffect(() => { if (picked.length > 1) queue(picked) }, [picked, queue])
 
   const unsure = useMemo(() => new Set((F?.queue ?? []).filter(q => q.kind !== 'dup').map(q => q.item)), [F])
   const fv = useMemo(() => (votes && F ? new FamilyView(F, votes) : null), [votes, F])
@@ -111,7 +116,6 @@ function Graph() {
   }), [])
   const onNodeClick: NodeMouseHandler = useCallback((e, n) => { setSel(n.id); if (!e.ctrlKey && !e.metaKey && !e.shiftKey) toggle(n.id) }, [toggle])
 
-  const linkOf = useCallback((a: string, b: string) => fv?.relation(a, b) ?? null, [fv])
   /** x against y: x joins y's family (a near duplicate of y, or not), is a bad match for it, or neither. */
   const setLink = useCallback((x: string, y: string, k: Link | null) => {
     if (!F || !fv) return
@@ -123,10 +127,16 @@ function Graph() {
   const out = useCallback((x: string) => { if (fv && F) { void vote(fv.out(x)); toast(`${label(x, F.items[x])} is out of its family`, 'x') } }, [F, fv, vote])
   const confirmAll = useCallback((x: string) => { if (fv) { const f = fv.family(x); void vote(fv.confirmAll(x)); toast(`All ${f.members.length} confirmed in one family`, 'check') } }, [fv, vote])
   const linkAll = useCallback(async () => {
-    if (!fv || picked.length < 2) return
-    await vote(fv.merge(picked))
-    toast(`${picked.length} songs are one family`, 'check')
-  }, [fv, picked, vote])
+    const ids = m?.queue?.map(q => q.id) ?? []
+    if (!fv || ids.length < 2) return
+    await vote(fv.merge(ids))
+    toast(`${ids.length} songs are one family`, 'check')
+  }, [fv, m, vote])
+  const drop = useCallback((id: string) => {
+    if (!m?.queue) return
+    setPicked(p => p.filter(x => x !== id))
+    m.setQueue(m.queue.filter(q => q.id !== id))
+  }, [m])
 
   const answer = useCallback((what: 'good' | 'bad' | 'novel') => {
     if (!sel || !F) return
@@ -141,10 +151,10 @@ function Graph() {
   }, [])
   useEffect(() => { if (sorting && fam.data) setSorting(false) }, [fam.data])  // (the stamp changed: the sort is in)
 
-  // (the player's keys are in its bar: Space here plays the song chosen, when nothing plays)
+  // (the player's keys are in its bar: Space here plays the song chosen, when nothing plays and there's no queue)
   useKeys(k => {
-    if (k === ' ' && sel && !m?.playing) { play(sel); return true }
-    if (k === 'q' && picked.length) { playQueue(picked); return true }
+    if (k === ' ' && sel && !m?.playing && !m?.queue) { play(sel); return true }
+    if (k === 'q' && m?.queue) { m.playQueue(m.queue); return true }
     if ((k === 'm' || k === 'n' || k === 'b') && m?.mode === 'queue') {  // (the transition just heard)
       const h = m.heard()
       if (h.from && h.track) pairVote(h.from, h.track, k === 'm' ? 'match' : k === 'n' ? 'dup' : 'bad')
@@ -191,9 +201,7 @@ function Graph() {
           joins that song's family. Click a line: confirmed → near duplicate → out (a bad match) → none. Click a song to hear it;
           Shift-drag a box or Ctrl-click to choose several, then <kbd>Q</kbd> plays them in turn and <kbd>M</kbd> <kbd>N</kbd> <kbd>B</kbd> vote on each transition.
           Keys: <kbd>Space</kbd> play <kbd>1</kbd><kbd>2</kbd> mellow / intense <kbd>G</kbd> good <kbd>D</kbd> bad take <kbd>Y</kbd> new family.</p>
-        {m?.queue && <QueueCard F={F} m={m} linkOf={linkOf} onVote={pairVote} />}
-        {picked.length > 1 && <Chosen F={F} picked={picked} onPlay={play} onQueue={() => playQueue(picked)} onLinkAll={() => void linkAll()}
-          onDrop={id => setPicked(p => p.filter(x => x !== id))} onClear={() => setPicked([])} />}
+        {m?.queue && <QueueCard F={F} fv={fv} m={m} onVote={pairVote} onMerge={() => void linkAll()} onDrop={drop} onClear={() => { setPicked([]); m.setQueue(null) }} />}
         {it && sel ? (
           <section className="fa-sel">
             <div className="lbl">{it.kind === 'shipped' ? 'a shipped song' : it.kind === 'extension' ? 'an extension' : 'a new take'}</div>
