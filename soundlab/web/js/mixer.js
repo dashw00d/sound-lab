@@ -22,10 +22,10 @@
   const { icon, esc } = Lab, $ = id => document.getElementById(id);
   const LEN = 4, XF = 0.04, STATES = ["mellow", "intense"], STEP = 0.785, OK = 0.7, PREF = "soundlab.mixer";
   const X = Object.assign({ set: [], name: "", mode: "any", intense: "battle", pick: "", glue: "weak", glueBars: 2, stay: 8,
-                            vary: { siblings: true, stems: true, fills: true }, bed: "off", joins: "beat", match: true, scope: "set" },
+                            vary: { siblings: true, stems: true, fills: true }, bed: "off", joins: "beat", match: true, scope: "set", strict: 0.8 },
     (() => { try { return JSON.parse(localStorage.getItem(PREF)) || {}; } catch { return {}; } })());
   Object.assign(X, { lib: null, mixes: {}, state: "mellow", plan: [], script: null, gen: 0, raf: 0, timer: 0, M: null, starters: null, recent: [], recentTracks: [], sinceGlue: 0, breath: 3, runs: 0, train: { on: false, cur: null, n: 0 } });
-  const save = () => { try { localStorage.setItem(PREF, JSON.stringify({ set: X.set, name: X.name, mode: X.mode, intense: X.intense, pick: X.pick, glue: X.glue, glueBars: X.glueBars, stay: X.stay, vary: X.vary, bed: X.bed, joins: X.joins, match: X.match, scope: X.scope })); } catch { /* ignore */ } };
+  const save = () => { try { localStorage.setItem(PREF, JSON.stringify({ set: X.set, name: X.name, mode: X.mode, intense: X.intense, pick: X.pick, glue: X.glue, glueBars: X.glueBars, stay: X.stay, vary: X.vary, bed: X.bed, joins: X.joins, match: X.match, scope: X.scope, strict: X.strict })); } catch { /* ignore */ } };
   const out = Lab.actx.createGain(), an = Lab.actx.createAnalyser();
   out.gain.value = 0.9; an.fftSize = 4096; an.smoothingTimeConstant = .8; out.connect(an); an.connect(Lab.master);
   const spec = new Float32Array(an.frequencyBinCount), wav = new Float32Array(1024);
@@ -361,7 +361,10 @@
       // run goes at the next phrase end anyway.
       const gid = glueOf(r.track), glueOn = gid && X.glue !== "off" && (Lab.V.clips["glue_" + gid] || 0) >= 0, atPhrase = phraseEnd(r);
       const breath = glueOn && X.glue === "breaths" && X.sinceGlue >= X.breath, forced = r.played >= X.stay + 8 || !pool().some(p => p.track !== r.track);
-      const ex = breath || !atPhrase ? [] : exits(r);
+      // (the taste bar: by the designer's own votes, they liked 89% of what the model put at 80% or more and about 60%
+      // between 50 and 80; so the walk waits for one over the bar, and only once forced takes what passes 50%)
+      const all = breath || !atPhrase ? [] : exits(r), over = all.filter(x => x.v > 0 || x.w >= X.strict);
+      const ex = over.length ? over : forced ? all : [];
       if (pool().length && (ex.length || ((breath || forced) && atPhrase))) {
         const pick = ex.length ? weighted(ex) : { p: pickEntry(r.track), j: null };
         if (pick.p) {  // (nowhere to go: the song plays on)
@@ -697,6 +700,8 @@
           ${vtoggle("siblings", "Siblings", "A phrase may go on in a sibling: the same piece made for another context, in step bar for bar", true)}
           ${vtoggle("stems", "Stems", "A phrase may drop the drums, thin to the melody and harmony, or bring the battle drums in quietly (music stems)", has.stems())}
           ${vtoggle("fills", "Fills", "Round the loop, a fill SA3 wrote for that song's loop point (music fills)", has.fills())}</div></div>
+        <div class="field"><label>Taste bar</label>${Lab.seg([0.5, 0.7, 0.8, 0.9].map(v => [String(v), `${Math.round(100 * v)}%`, false,
+          v === 0.8 ? "The walk waits for a transition the model puts at 80% or more (you liked 89% of those), and settles for 50% only when it must" : v === 0.5 ? "Anything the model puts at 50% or more (you liked about 60% of those)" : `Wait for ${Math.round(100 * v)}% or more; settle for 50% only when it must`]), String(X.strict), "strict")}</div>
         <div class="field"><label>Joins</label><div class="row">${Lab.seg([["tight", "tight", false, "A song change is an 80 ms crossfade at the bar line"], ["beat", "1 beat", false, "The two songs overlap for a beat around the bar line"], ["two", "2 beats", false, "The two songs overlap for two beats around the bar line"]], X.joins, "joins")}
           <button class="btn ${X.match ? "on" : ""}" id="xmatch" data-tip="The song coming in starts at the level of the one going out (its first beat against the other's last, within 6 dB), then eases to its own over 2 bars">${icon(X.match ? "check" : "x")}<span>Match levels</span></button></div></div>
         <div class="field"><label>Bed</label>${Lab.seg([["off", "off"], ["low", "low", false, "The playing song's glue under everything, 12 dB down"], ["mid", "mid", false, "The playing song's glue under everything, 6 dB down"]], X.bed, "bed")}</div>
@@ -781,6 +786,7 @@
     v.querySelectorAll("[data-gmode]").forEach(b => b.onclick = () => { X.glue = b.dataset.gmode; save(); render(); });
     v.querySelectorAll("[data-stay]").forEach(b => b.onclick = () => { X.stay = +b.dataset.stay; save(); render(); });
     v.querySelectorAll("[data-joins]").forEach(b => b.onclick = () => { X.joins = b.dataset.joins; save(); render(); });
+    v.querySelectorAll("[data-strict]").forEach(b => b.onclick = () => { X.strict = +b.dataset.strict; save(); render(); });
     $("xmatch").onclick = () => { X.match = !X.match; save(); render(); };
     v.querySelectorAll("[data-vary]").forEach(b => b.onclick = () => { X.vary[b.dataset.vary] = !X.vary[b.dataset.vary]; save(); render(); });
     v.querySelectorAll("[data-bed]").forEach(b => b.onclick = () => { X.bed = b.dataset.bed; save(); render(); if (X.playing && !X.script) { const c = nowChunk(Lab.actx.currentTime); bedTo(c ? glueOf(c.track) : null, Lab.actx.currentTime + 0.1); } });
