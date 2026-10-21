@@ -48,7 +48,7 @@ class Project:
     install: Callable[[Sound, Path], None] | None = None
     after_install: Callable[[list[Path]], int] | None = None  # e.g. run the engine's importer; returns an exit code
     alerts: dict | None = None  # the alert family design (soundlab/alerts.py)
-    music: dict | None = None  # the meshed music design (soundlab/music.py)
+    music: dict | None = None  # the meshed music design (soundlab/music/__init__.py)
     balance: dict | None = None  # the mix and how the code plays sounds (soundlab/balance.py)
     asset_uri: Callable[[Path], str] = lambda p: str(p)  # how the game names a file (e.g. res://...)
 
