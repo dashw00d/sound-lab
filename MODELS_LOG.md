@@ -34,6 +34,15 @@ The ask was more melodic variety. Tried in turn: MIDI-LLM (Llama 3.2 1B) writing
 
 ## Stable Audio 3 Medium (SA3)
 
+### 2026-10-21: families are scenes; each song's energy; the graph walk
+
+The designer, asked what a family means ("sounds alike", "one scene", "splice partners"): "one scene", made of "lead instrument, beat/bass, and amount of aggregate noise. We want to go from chill to less chill in waves." `research/scene_probe.py` (features: research/data/scene_features.json; families.sound()), 319 songs, 344 transition votes:
+
+- **Leaning. What two songs share predicts the designer's transition votes only weakly; the key does best.** One at a time (AUC): the same key (chroma over the whole song) 0.60, splicing 0.56, the same density 0.56, CLAP 0.55, the same lead 0.54, noise alike 0.55, bass alike 0.52, beat alike 0.50. Key + splice + density held out by pair 0.59, by song 0.57.
+- **Solid. An energy measure that tracks intensity.** Busyness, flatness, percussive share and the share over 4 kHz, standardised and averaged: a song's battle level is above its calm in 98% of 319 songs (median +1.9 sd; busyness higher in 100%, percussive 99%, flatness 94%, highs 81%, bass only 57%). By lead, chill to not: waterphone -0.84, celesta -0.55, brass -0.51, strings -0.50, kantele and nyckelharpa -0.10, tagelharpa +0.41, violin +0.51. By context about the same (menu +0.94, 2 songs). Transitions: a smaller energy step is liked (AUC 0.58), so the waves should move in small steps.
+- **Changed 2026-10-21: families are scenes.** Average linkage on the same lead, the beat (its shape over a bar and its percussive share), the bass share, the noise (busyness, flatness, highs), and the flow (key and splice) at twice the weight, at 0.5. 45 scenes (24 of 2+: violin 56, brass and strings 55, kantele and tagelharpa 39, kantele 23, ...), 21 alone; the voted transitions inside a scene liked 67%, across 48% (in sample). Without the flow term, 59% inside: the designer's ingredients alone group by palette but not by what flows. Each song's energy and its seamless cuts into the members of its scene it splices with are in families.json.
+- **The graph walk (the Mixer's "Draw from: the graph").** A scene for Scene bars, cutting from member to member at their seamless cuts toward a target energy (a cosine wave from the library's 10th to its 90th percentile and back over Wave minutes), never back to a member the scene has played; a rest of the glue's bars between scenes; the next scene the nearest the target, never one of the last 4. First walk (headless): 4 nyckelharpa songs over 24 bars, a rest, a drawn take cutting into its own extension. Not yet heard by the designer.
+
 ### 2026-10-21: scouting with research/view.py (families, levels, stems, transitions, keys, sessions)
 
 Pictures first (`view.py family`, `levels`, `pair`, `join`), each idea then checked on the whole library and the votes. 306 songs, 344 transition votes, 67 rated blocks, 14 listening sessions.
