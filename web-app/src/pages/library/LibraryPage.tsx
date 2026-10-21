@@ -7,6 +7,7 @@ import { useFamilies, useSongs, useStreams, useVotesData } from '../../data/reso
 import { useKeys } from '../../player/keys'
 import { useEngine } from '../../player/hooks'
 import { usePlayer } from '../../player/store'
+import { useHoverWarm, usePreload } from '../../player/warm'
 import { Icon } from '../../shell/Icon'
 import { Energy } from '../../ui/Energy'
 import { Seg } from '../../ui/Seg'
@@ -28,6 +29,8 @@ export default function LibraryPage() {
     return sortRows(all.filter(hit), sort)
   }, [all, q, sort])
   const sel = list.find(r => r.id === route.id) ?? null
+  usePreload(m, sel?.id ?? null)
+  const hover = useHoverWarm(m)
   useEffect(() => { if (!route.id && list[0]) go('library', list[0].id, true) }, [route.id, list])
   useEffect(() => { listBox.current?.querySelector('.lrow.sel')?.scrollIntoView({ block: 'nearest' }) }, [route.id])
   useKeys(k => {
@@ -69,7 +72,7 @@ export default function LibraryPage() {
                   <span className="n">{g.rows.length}</span>
                 </header>
               )}
-              {g.rows.map(r => <Row key={r.id} r={r} on={r.id === route.id} playing={r.id === playing} />)}
+              {g.rows.map(r => <Row key={r.id} r={r} on={r.id === route.id} playing={r.id === playing} hover={hover(r.id)} />)}
             </section>
           ))}
           {!list.length && <div className="empty-state"><div><b>No songs match</b>Try fewer words.</div></div>}
@@ -79,10 +82,10 @@ export default function LibraryPage() {
   )
 }
 
-function Row({ r, on, playing }: { r: SongRow; on: boolean; playing: boolean }) {
+function Row({ r, on, playing, hover }: { r: SongRow; on: boolean; playing: boolean; hover: { onMouseEnter: () => void; onMouseLeave: () => void } }) {
   const flags = r.ratings[2] ?? 0, gems = r.ratings[5] ?? 0
   return (
-    <div className={`lrow ${on ? 'sel' : ''} ${playing ? 'playing' : ''}`} onClick={() => go('library', r.id, true)}>
+    <div className={`lrow ${on ? 'sel' : ''} ${playing ? 'playing' : ''}`} onClick={() => go('library', r.id, true)} {...hover}>
       <span className="sw" style={{ background: r.scene ? colour(hue(r.scene)) : 'var(--line-3)' }} />
       <span className="nm"><b>{r.style}</b><span>{r.take}</span>{playing && <i className="eq"><b /><b /><b /></i>}</span>
       <span className={`ctx c-${r.context}`}>{r.context}</span>

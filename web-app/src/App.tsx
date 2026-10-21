@@ -1,20 +1,18 @@
-import { useEffect, useState } from 'react'
-import { api } from './api/client'
+import { lazy, Suspense, useEffect } from 'react'
 import { go, useRoute } from './data/route'
-import { useFamilies, useSongs } from './data/resources'
-import FamiliesPage from './pages/families/FamiliesPage'
+import { useFamilies, useProject, useSongs } from './data/resources'
 import InboxPage, { useInboxCount } from './pages/inbox/InboxPage'
 import LibraryPage from './pages/library/LibraryPage'
-import MixerPage from './pages/mixer/MixerPage'
-import SessionsPage from './pages/sessions/SessionsPage'
 import { Shell } from './shell/Shell'
 
-// The app's sections (2026-10-21: Library, Scenes and the Mixer first; Inbox, Sessions, sound effects, the mix and
-// tuning next). The pages not moved yet stay in the old app, one link away.
+// The app's sections (2026-10-21: Inbox, Library, Scenes, Sessions and the Mixer; sound effects, the mix and tuning
+// next). Scenes (the graph library), Sessions and the Mixer load when first opened.
+const FamiliesPage = lazy(() => import('./pages/families/FamiliesPage'))
+const SessionsPage = lazy(() => import('./pages/sessions/SessionsPage'))
+const MixerPage = lazy(() => import('./pages/mixer/MixerPage'))
+
 export default function App() {
-  const route = useRoute(), songs = useSongs().data, fams = useFamilies().data, inbox = useInboxCount()
-  const [project, setProject] = useState<string>()
-  useEffect(() => { api.state().then(s => setProject(s.project.name)).catch(() => {}) }, [])
+  const route = useRoute(), songs = useSongs().data, fams = useFamilies().data, inbox = useInboxCount(), project = useProject()?.name
   useEffect(() => { if (!route.section) go('library', null, true) }, [route.section])
   const pages = [
     { id: 'inbox', title: 'Inbox', count: inbox, view: () => <InboxPage /> },
@@ -24,5 +22,9 @@ export default function App() {
     { id: 'mixer', title: 'Mixer', view: () => <MixerPage /> },
   ]
   const page = pages.find(p => p.id === (route.section === 'families' ? 'scenes' : route.section)) ?? pages[0]
-  return <Shell pages={pages} current={page.id} project={project}>{page.view()}</Shell>
+  return (
+    <Shell pages={pages} current={page.id} project={project}>
+      <Suspense fallback={<div className="empty-state"><div className="lib-loading" /></div>}>{page.view()}</Suspense>
+    </Shell>
+  )
 }

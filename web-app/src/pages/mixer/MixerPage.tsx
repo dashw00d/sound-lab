@@ -11,6 +11,7 @@ import { useEngine, useSnapshot } from '../../player/hooks'
 import { useKeys } from '../../player/keys'
 import { SessionList } from '../../player/Rating'
 import { loadPlayer, usePlayer } from '../../player/store'
+import { Icon } from '../../shell/Icon'
 import { ReviewCard } from './ReviewCard'
 import { SetBuilder } from './SetBuilder'
 import { Settings } from './Settings'
@@ -33,6 +34,8 @@ export default function MixerPage() {
 function Page({ m, mixes, setMixes }: { m: Mixer; mixes: Mixes; setMixes: (x: Mixes) => void }) {
   useEngine(m)
   const [reviewOpen, setReviewOpen] = useState(false)
+  // (the set builder scores every part of every song against every other: a second's work, done only when it's opened)
+  const [sets, setSets] = useState(() => localStorage.getItem('mixer.sets') === '1')
   const [note, setNote] = useState<Record<number, string>>({})
   const toggleReview = () => { const open = !reviewOpen; setReviewOpen(open); if (open) void m.reviewLoad() }
 
@@ -65,7 +68,12 @@ function Page({ m, mixes, setMixes }: { m: Mixer; mixes: Mixes; setMixes: (x: Mi
         <Settings m={m} reviewOpen={reviewOpen} onReview={toggleReview} />
         {m.train.on && <TrainingCard m={m} />}
         {reviewOpen && <ReviewCard m={m} note={note} setNote={setNote} />}
-        <SetBuilder m={m} mixes={mixes} setMixes={setMixes} />
+        <section className="mx-sets">
+          <button className={`mx-sets-h ${sets ? 'open' : ''}`} onClick={() => { setSets(!sets); localStorage.setItem('mixer.sets', sets ? '0' : '1') }}>
+            <Icon name="right" /><b>Hand-made sets</b><span className="dim">parts of songs you put together, the join grid, starter sets{m.prefs.set.length ? ` · ${m.prefs.set.length} parts in yours` : ''}</span>
+          </button>
+          {sets && <SetBuilder m={m} mixes={mixes} setMixes={setMixes} />}
+        </section>
         <p className="mx-keys dim">
           <kbd>Space</kbd> play or stop · <kbd>←</kbd> back · <kbd>→</kbd> skip · <kbd>1</kbd> <kbd>2</kbd> <kbd>X</kbd> mellow / intense ·
           <kbd>O</kbd> any order / in order · <kbd>T</kbd> train (<kbd>↑</kbd> good, <kbd>↓</kbd> bad, <kbd>→</kbd> skip, <kbd>R</kbd> replay) · <kbd>Esc</kbd> stop

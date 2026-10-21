@@ -79,3 +79,7 @@
 .mx .mx-wave { display: flex; align-items: center; gap: 8px; font: 500 12px var(--mono); color: var(--dim); margin-bottom: 10px; }
 .mx .mx-wave .bar { position: relative; width: 160px; height: 6px; border-radius: 6px; background: linear-gradient(90deg, #5bd6ff, #ffc857, #ff6b7f); opacity: .8; }
 .mx .mx-wave .bar i { position: absolute; top: -3px; width: 3px; height: 12px; margin-left: -1px; background: #fff; border-radius: 2px; }
+.mx .mx-sets-h { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border-radius: var(--r); border: 1px solid var(--line); background: var(--panel); text-align: left; transition: border-color var(--t-fast); }
+.mx .mx-sets-h:hover { border-color: var(--line-3); } .mx .mx-sets-h .i { transition: transform var(--t) var(--ease); color: var(--faint); }
+.mx .mx-sets-h.open .i { transform: rotate(90deg); } .mx .mx-sets-h .dim { font-size: 12px; }
+.mx .mx-sets .mx-set { margin-top: 14px; }

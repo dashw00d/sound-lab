@@ -28,7 +28,8 @@ function entry(name: string): Entry<unknown> {
 }
 async function load(name: string, force = false) {
   const d = defs.get(name)!, e = entry(name), sig = stamp ? d.files.map(f => stamp![f]).join('|') : null
-  if (e.loading || (!force && e.data !== null && sig !== null && sig === e.sig)) return
+  if (e.loading) return e.loading  // (already on its way: wait for that read)
+  if (!force && e.data !== null && sig !== null && sig === e.sig) return
   e.loading = (async () => {
     try { e.data = await d.read(); e.error = null; e.sig = sig } catch (err) { e.error = String(err) }
     e.loading = null

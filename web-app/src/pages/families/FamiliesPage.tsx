@@ -19,8 +19,10 @@ import type { Families, Votes } from '../../api/types'
 import { useEngine } from '../../player/hooks'
 import { useKeys } from '../../player/keys'
 import { usePlayer } from '../../player/store'
+import { useHoverWarm, usePreload } from '../../player/warm'
 import { toast } from '../../shell/toast'
-import { useLive } from '../../shell/useLive'
+import { put } from '../../data/live'
+import { useFamilies, useVotesData, VOTES } from '../../data/resources'
 import { go, useRoute } from '../../data/route'
 import { Seg } from '../../ui/Seg'
 import { Icon } from '../../shell/Icon'
@@ -43,10 +45,7 @@ const edgeStyle = (kind: EdgeKind, c: string, lit: boolean): React.CSSProperties
     : { stroke: c, strokeWidth: 1, strokeDasharray: '3 4', opacity: lit ? 0.6 : 0.16 }
 
 function Graph() {
-  const fam = useLive(api.families, ['families'])
-  const live = useLive(api.votes, ['votes'])
-  const [votes, setVotes] = useState<Votes | null>(null)
-  useEffect(() => { if (live.data) setVotes(live.data) }, [live.data])
+  const fam = useFamilies(), votes = useVotesData()  // (the app's one data layer)
   // (the song chosen is the app's choice: #/scenes/<song>, so the Library's scene chip lands on it)
   const route = useRoute(), sel = route.id
   const setSel = useCallback((id: string | null) => go('scenes', id, true), [])
@@ -61,12 +60,14 @@ function Graph() {
   const playing = m?.mode === 'queue' ? m.heard().track : m?.mode === 'song' || m?.mode === 'script' ? m.tag : m?.walking ? m.heard().track : null
   const gs = m?.walking ? m.graphState() : null  // (the graph walking: its scene, lit)
   const flow = useReactFlow()
+  const hover = useHoverWarm(m)
   const F = fam.data as Families | null
+  usePreload(m, sel, sel ? F?.items[sel]?.src : undefined)
 
   const vote = useCallback(async (pairs: Ops) => {
     let v: Votes | null = null
     for (const [clip, value] of pairs) v = await api.vote(clip, value)
-    if (v) setVotes(v)
+    if (v) put(VOTES, v)
   }, [])
 
   // (a song the library has plays from its own measures; any other take by its files; an extension framed by its seed)
@@ -219,6 +220,7 @@ function Graph() {
           {gs && <span className="fa-now">scene {gs.scene.replace(/^f/, '')} · {gs.bars} of {m!.prefs.sceneBars} bars · aiming at {gs.target > 0 ? '+' : ''}{gs.target.toFixed(2)}</span>}
         </div>
         <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onConnect={onConnect} onEdgeClick={onEdgeClick} onNodeClick={onNodeClick}
+          onNodeMouseEnter={(_, n) => hover(n.id, F?.items[n.id]?.src).onMouseEnter()} onNodeMouseLeave={() => hover('').onMouseLeave()}
           onNodesChange={onNodesChange} multiSelectionKeyCode={['Control', 'Meta']} onPaneClick={() => setSel(null)} nodesDraggable={false} connectionRadius={28} minZoom={0.1} maxZoom={3} fitView proOptions={{ hideAttribution: true }}>
           <Background color="#1b1e27" gap={28} />
           <Controls showInteractive={false} />

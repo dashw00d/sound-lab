@@ -5,6 +5,7 @@
 // sound, the Session records it. Pages read snapshot() each frame and call the methods; onChange tells them when to
 // redraw the rest.
 import { audio } from '../../audio/context'
+import { file, warm } from '../buffers'
 import { toast } from '../../shell/toast'
 import { getVotes, vote } from '../../state/votes'
 import { joinKey, Judge, LEN, name, WEAK, XF } from '../judge'
@@ -44,6 +45,8 @@ export class Mixer {
   /** The queue (a page's choice of songs): Play plays it when there is one; kept when stopped, until cleared. */
   queue: QueueItem[] | null = null
   private heardRun: Run | null = null
+  /** Chunks skipped because their audio wasn't ready in time (a skip heard), for diagnosis. */
+  readonly skips: { at: number; track?: string; late: number }[] = []
   private prevRun: Run | null = null
   sess: Session | null = null
   train: Training = freshTraining()
@@ -56,7 +59,7 @@ export class Mixer {
     const has = new Set(lib.tracks.map(t => t.id))
     this.prefs = { ...prefs, set: prefs.set.filter(p => has.has(p.track)) }  // (a part of a song no longer shipped plays nothing; saved as is until a change)
     this.jd = new Judge(lib, () => this.prefs, getVotes)
-    this.walk = new Walk(this.jd, () => this.prefs)
+    this.walk = new Walk(this.jd, () => this.prefs, ids => ids.forEach(id => this.preload(id)))
     this.sched = new Scheduler(this.jd, () => this.prefs, () => this.playing)
   }
   get lib() { return this.jd.lib }
@@ -126,7 +129,10 @@ export class Mixer {
       const c = this.plan[i]
       if (c.scheduled) continue
       if (c.T! - now > SCHEDULE_AHEAD) break
-      if (!c.bufs) { if (c.failed || c.T! - now < 0.05) { c.scheduled = c.skipped = true; continue } break }
+      if (!c.bufs) {
+        if (c.failed || c.T! - now < 0.05) { c.scheduled = c.skipped = true; this.skips.push({ at: Date.now(), track: c.track, late: now - c.T! }); continue }
+        break
+      }
       this.sched.schedule(c, this.plan[i - 1]); c.scheduled = true
     }
     for (const c of this.plan) if (c.scheduled && !c.skipped && c.T! <= now && c.tapeIdx != null && this.tape[c.tapeIdx]) this.tape[c.tapeIdx].heard = true
@@ -223,6 +229,15 @@ export class Mixer {
   playPart(p: Part) { void this.play([this.part(p)]) }
   playGlue(gid: string) { void this.play([{ kind: 'glue', bar: 1, glue: gid, bars: this.prefs.glueBars }]) }
 
+  /** A song made ready ahead: its mellow and intense levels decoded into the player's cache (a song chosen, the next in
+   * a queue, the graph's likely cuts: it starts at once and never skips), or with `decode` false only fetched (a song
+   * hovered: cheap). A song that isn't in the library needs ensure() first. */
+  preload(id: string, decode = true) {
+    for (const lv of new Set(['calm', this.prefs.intense])) {
+      const u = this.jd.url(id, lv)
+      if (u) { if (decode) void file(u).catch(() => {}); else warm(u) }
+    }
+  }
   /** The music graph (work/families.json: scenes, energies, cuts), read again when the sort changes. */
   setGraph(F: Families | null) { this.walk.setGraph(F ? new Graph(F, this.jd) : null); this.changed() }
   graphState() { return this.walk.graphState() }

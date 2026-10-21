@@ -2,15 +2,28 @@
 import { audio } from '../audio/context'
 
 const files = new Map<string, Promise<AudioBuffer>>(), slices = new Map<string, Promise<AudioBuffer>>(), pads = new Map<string, Promise<AudioBuffer>>()
-const MAX_FILES = 10, MAX_SLICES = 120
+const MAX_FILES = 16, MAX_SLICES = 120  // (the player's own: spectrograms decode apart, so browsing never evicts what's about to play)
 /** Seconds of audio kept either side of a slice: a song change crosses over up to two beats around the bar line. */
 export const ROLL = 0.7
 export const FILLPAD = 0.05
 
+// (bytes fetched ahead: a song hovered. Cheap to keep, and a decode later starts from them, not from the network)
+const bytes = new Map<string, Promise<ArrayBuffer>>(), MAX_BYTES = 48
+const fetchBytes = (url: string) => fetch(url).then(r => { if (!r.ok) throw new Error(`${r.status} ${url}`); return r.arrayBuffer() })
+/** A file's bytes, fetched ahead (not decoded: that's file()). */
+export function warm(url: string) {
+  if (files.has(url) || bytes.has(url)) return
+  const p = fetchBytes(url)
+  bytes.set(url, p); p.catch(() => bytes.delete(url))
+  while (bytes.size > MAX_BYTES) bytes.delete(bytes.keys().next().value as string)
+}
+/** A file decoded, kept (the most recent MAX_FILES): what the player plays from. */
 export function file(url: string): Promise<AudioBuffer> {
   const had = files.get(url)
   if (had) { files.delete(url); files.set(url, had); return had }
-  const b = fetch(url).then(r => { if (!r.ok) throw new Error(`${r.status} ${url}`); return r.arrayBuffer() }).then(x => audio().decodeAudioData(x))
+  const src = bytes.get(url)
+  bytes.delete(url)  // (decoding detaches the bytes: the decoded file is what's kept)
+  const b = (src ?? fetchBytes(url)).then(x => audio().decodeAudioData(x))
   files.set(url, b); b.catch(() => files.delete(url))
   while (files.size > MAX_FILES) files.delete(files.keys().next().value as string)
   return b

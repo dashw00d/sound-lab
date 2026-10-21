@@ -280,6 +280,8 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                 with LOCK:
                     shipped = {n: p.get("clip") for n, p in Store.read(st.promoted_path, {}).items()}
                     self.send_json(dict(project=info, index=st.index(), votes=st.votes(), shipped=shipped, candidates=candidate_scores()))
+            elif url == "/api/project":  # (the project alone: what the new app needs to start, not the 750 KB state)
+                self.send_json(info)
             elif url == "/api/stamp":
                 self.send_json({k: str(p.stat().st_mtime_ns) if p.exists() else "0"  # (strings: exact in JavaScript)
                                 for k, p in (("index", st.index_path), ("votes", st.votes_path), ("promoted", st.promoted_path), ("tuning", tuning.PATH),

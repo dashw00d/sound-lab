@@ -4,8 +4,7 @@
 // with their meters, and the spectrum. Space with nothing playing plays the queue when there is one, else the walk:
 // the game's music.
 import { useEffect, useRef, useState } from 'react'
-import { api } from '../api/client'
-import { useLive } from '../shell/useLive'
+import { useFamilies } from '../data/resources'
 import { drawSpectrum } from '../audio/spectrum'
 import type { Mixer } from '../mixer/engine/mixer'
 import { STATES } from '../mixer/types'
@@ -30,7 +29,7 @@ function Bar({ m }: { m: Mixer }) {
   const [vol, setVol] = useState(() => Number(localStorage.getItem('player.volume') ?? 0.95))
   const [muted, setMuted] = useState(() => localStorage.getItem('player.muted') === '1')
   useEffect(() => { m.setVolume(vol, muted); localStorage.setItem('player.volume', String(vol)); localStorage.setItem('player.muted', muted ? '1' : '0') }, [m, vol, muted])
-  const fams = useLive(api.families, ['families'], 10000)  // (the graph follows the sort)
+  const fams = useFamilies()  // (the graph follows the sort)
   useEffect(() => { if (fams.data) m.setGraph(fams.data) }, [fams.data, m])
   useKeys((k) => {
     if (k === ' ') { if (m.playing) m.stop(); else m.playDefault(); return true }

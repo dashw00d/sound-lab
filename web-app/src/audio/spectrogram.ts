@@ -1,5 +1,8 @@
 // Spectrograms of the app's audio files, made in a worker (spectrogram.worker.ts) and kept: a file's image is made once.
-import { file } from '../mixer/buffers'
+import { audio } from './context'
+
+/** A file decoded for its picture only: not kept (the player's decoded files are its own, mixer/buffers). */
+const decode = (url: string) => fetch(url).then(r => { if (!r.ok) throw new Error(`${r.status} ${url}`); return r.arrayBuffer() }).then(b => audio().decodeAudioData(b))
 
 export interface Spectro { img: ImageData; seconds: number }
 const cache = new Map<string, Promise<Spectro>>()
@@ -10,7 +13,7 @@ export function spectrogram(url: string, width = 1200, height = 160): Promise<Sp
   const key = `${url}|${width}|${height}`
   let p = cache.get(key)
   if (p) return p
-  p = file(url).then(buf => new Promise<Spectro>(done => {
+  p = decode(url).then(buf => new Promise<Spectro>(done => {
     if (!worker) {
       worker = new Worker(new URL('./spectrogram.worker.ts', import.meta.url), { type: 'module' })
       worker.onmessage = (e: MessageEvent<{ id: number; img: Uint8ClampedArray; width: number; height: number }>) => { waiting.get(e.data.id)?.(e.data); waiting.delete(e.data.id) }

@@ -117,6 +117,12 @@ export class Judge {
     }
     return out
   }
+  /** A song's level as a URL (a take without that level: its calm). */
+  url(tid: string | undefined, level: string): string | null {
+    const t = this.track(tid)
+    if (!t) return null
+    return t.src?.[level] ?? (t.files[level] ? '/shipped/' + t.files[level] : t.src?.calm ?? (t.files.calm ? '/shipped/' + t.files.calm : null))
+  }
   glueOf(id: string | undefined): string | null {
     const t = this.track(id)
     return t?.glue && this.lib.glues?.[t.glue] ? t.glue : null

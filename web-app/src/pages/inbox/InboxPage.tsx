@@ -7,6 +7,7 @@ import { useFamilies, useSongs, useVotesData } from '../../data/resources'
 import { useEngine } from '../../player/hooks'
 import { useKeys } from '../../player/keys'
 import { usePlayer } from '../../player/store'
+import { useHoverWarm, usePreload } from '../../player/warm'
 import { Icon } from '../../shell/Icon'
 import { toast } from '../../shell/toast'
 import { vote } from '../../state/votes'
@@ -31,6 +32,8 @@ export default function InboxPage() {
   const all = useMemo(() => takes(lib, F, votes), [lib, F, votes])
   const list = useMemo(() => all.filter(t => !open || !t.answered || t.id === route.id), [all, open, route.id])
   const sel = all.find(t => t.id === route.id) ?? null
+  usePreload(m, sel?.id ?? null, sel?.src)
+  const hover = useHoverWarm(m)
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => { if (!route.id && list[0]) go('inbox', list[0].id, true) }, [route.id, list])
   useEffect(() => { box.current?.querySelector('.lrow.sel')?.scrollIntoView({ block: 'nearest' }) }, [route.id])
@@ -84,7 +87,7 @@ export default function InboxPage() {
             <section key={g.k}>
               <header className="lib-group ib-group"><b>{KIND[g.k].title}</b><span>{KIND[g.k].sub}</span><span className="n">{g.rows.length}</span></header>
               {g.rows.map(t => (
-                <div key={t.id} className={`lrow ib-row ${t.id === route.id ? 'sel' : ''} ${heard === t.id || (m?.tag === t.id && m.playing) ? 'playing' : ''} ${t.answered ? 'done' : ''}`} onClick={() => go('inbox', t.id, true)}>
+                <div key={t.id} {...hover(t.id, t.src)} className={`lrow ib-row ${t.id === route.id ? 'sel' : ''} ${heard === t.id || (m?.tag === t.id && m.playing) ? 'playing' : ''} ${t.answered ? 'done' : ''}`} onClick={() => go('inbox', t.id, true)}>
                   <span className="sw" style={{ background: t.scene ? colour(hue(t.scene)) : 'var(--line-3)' }} />
                   <span className="nm"><b>{t.style}</b><span>{t.take}</span></span>
                   <span className={`ctx c-${t.context}`}>{t.context}</span>

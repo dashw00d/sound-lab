@@ -13,6 +13,7 @@ const post = <T>(url: string, body: unknown) =>
 export const api = {
   stamp: () => json<Stamp>('/api/stamp'),
   state: () => json<{ project: ProjectInfo; votes: Votes }>('/api/state'),
+  project: () => json<ProjectInfo>('/api/project'),
   votes: () => json<Votes>('/api/votes'),
   families: () => json<Families>('/api/families'),
   rebuildFamilies: () => post<{ started: boolean; busy?: boolean }>('/api/families/rebuild', {}),

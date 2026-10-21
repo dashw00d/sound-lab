@@ -39,7 +39,19 @@ export class Walk {
 
   private jd: Judge
   private prefs: () => Prefs
-  constructor(jd: Judge, prefs: () => Prefs) { this.jd = jd; this.prefs = prefs }
+  private prefetch: (ids: string[]) => void
+  constructor(jd: Judge, prefs: () => Prefs, prefetch: (ids: string[]) => void = () => {}) { this.jd = jd; this.prefs = prefs; this.prefetch = prefetch }
+  /** The songs likely next after a run of `tid` starts: the queue's next, or the graph's cuts out of its loop. Their
+   * files are decoded ahead, so a change of song never waits on them (a skip). */
+  private upcoming(tid: string): string[] {
+    if (this.queue) return [this.queue[(this.qi + 1) % this.queue.length].track]
+    if (this.graphOn && this.graph) {
+      const [lo, hi] = this.jd.loopFor(tid, this.jd.entryOf(tid)), clips = getVotes().clips, out: string[] = []
+      for (let e = lo; e <= hi && out.length < 2; e++) for (const c of this.graph.cutsAt(tid, e, clips)) if (!out.includes(c.to) && out.length < 2) out.push(c.to)
+      return out
+    }
+    return []
+  }
 
   /** A fresh walk; `from` enters first, keeping what was heard lately (skip, replay). `pin`: stay in `from`'s song;
    * `queue`: its songs in turn, from the one at `at`. */
@@ -115,6 +127,7 @@ export class Walk {
     this.run = { id: ++this.runs, track: p.track, entry: p, bar: p.start, lo, hi, played: 0, passes: 0, lastBar: p.start - 1, variant: 'full', lastFill: null, first: true,
                  qi: this.queue ? this.qi : undefined }
     this.recent.push(pkey(p)); this.recentTracks.push(p.track); this.run0 = p; this.sinceGlue++
+    this.prefetch(this.upcoming(p.track))
   }
 
   /** The graph's next chunk: a scene's songs, cut into each other, then a rest and the next scene. */
