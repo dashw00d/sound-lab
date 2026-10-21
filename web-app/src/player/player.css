@@ -1,5 +1,7 @@
 /* The player's bar at the foot of every page, and the blind rating (the bar's lane, the Mixer's session list). */
-.pbar { flex: none; display: flex; align-items: center; gap: 20px; height: 74px; padding: 0 18px; border-top: 1px solid var(--line-2); background: var(--bg-2); }
+.pbar { flex: none; display: flex; flex-direction: column; padding: 0 18px; border-top: 1px solid var(--line-2); background: linear-gradient(180deg, #0e1016, var(--bg-2)); position: relative; z-index: 4; }
+.pb-row { display: flex; align-items: center; gap: 20px; height: 64px; }
+.pbar.off { flex-direction: row; align-items: center; }
 .pbar.off { height: 40px; font-size: 12px; }
 .pb-tr { display: flex; align-items: center; gap: 8px; }
 .pb-tr .playbtn { width: 46px; height: 46px; } .pb-tr .playbtn .i { width: 19px; height: 19px; }
@@ -11,7 +13,7 @@
 .beats i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, .1); transition: background .06s; }
 .beats i.on { background: var(--accent-2); box-shadow: 0 0 10px var(--accent-2); }
 .beats i.on:first-child { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-.pb-now { display: flex; flex-direction: column; gap: 1px; width: 300px; min-width: 0; }
+.pb-now { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
 .pb-now b, .pb-now small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pb-now b { font: 500 12.5px var(--mono); } .pb-now small { font: 500 11px var(--mono); color: var(--faint); }
 .pb-lane { flex: 1; min-width: 0; overflow: hidden; }
@@ -63,3 +65,7 @@
   background: linear-gradient(90deg, var(--accent) 0 var(--v), rgba(255, 255, 255, .1) var(--v) 100%); }
 .pb-vol input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(154, 140, 255, .35), 0 2px 6px rgba(0, 0, 0, .5); }
 .pb-vol input[type=range]::-moz-range-thumb { width: 13px; height: 13px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(154, 140, 255, .35); }
+
+.pb-now .lbl { display: flex; align-items: center; gap: 8px; }
+.pb-now .pb-clear { width: auto; height: 18px; padding: 0 6px 0 8px; border-radius: 99px; gap: 4px; display: inline-flex; font: 500 10px var(--mono); text-transform: none; letter-spacing: 0; color: var(--dim); }
+.pb-now .pb-clear .i { width: 10px; height: 10px; }

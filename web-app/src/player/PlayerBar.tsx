@@ -11,8 +11,8 @@ import { STATES } from '../mixer/types'
 import { Icon } from '../shell/Icon'
 import { useEngine, useFrame, useSnapshot } from './hooks'
 import { useKeys } from './keys'
-import { Lane } from './Rating'
 import { usePlayer } from './store'
+import { TimelineStrip } from './TimelineStrip'
 import './player.css'
 
 const MODE = { walk: 'The walk', song: 'Song', queue: 'Queue', script: 'Audition' } as const
@@ -55,6 +55,8 @@ function Bar({ m }: { m: Mixer }) {
   const walk = snap.mode === 'walk', queue = !walk ? m.queue : null, inQueue = snap.mode === 'queue'
   return (
     <footer className="pbar">
+      <TimelineStrip m={m} />
+      <div className="pb-row">
       <div className="pb-tr">
         <button className="iconbtn" disabled={!walk && !inQueue} title={inQueue ? 'Back: this song from its start; twice: the one before (←)' : 'Back: the transition into this block again; twice: the one before (←)'} onClick={() => m.back()}><Icon name="prev" /></button>
         <button className="playbtn" title={snap.playing ? 'Stop (Space)' : queue ? 'Play the queue (Space)' : 'Play the walk (Space)'} onClick={() => (snap.playing ? m.stop() : m.playDefault())}><Icon name={snap.playing ? 'stop' : 'play'} /></button>
@@ -65,23 +67,10 @@ function Bar({ m }: { m: Mixer }) {
         <div className="beats">{Array.from({ length: m.lib.bar_beats }, (_, i) => <i key={i} className={i === snap.beat ? 'on' : ''} />)}</div>
       </div>
       <div className="pb-now">
-        <span className="lbl">{snap.mode ? MODE[snap.mode] : 'Stopped'}{inQueue && queue && snap.qi != null ? ` · ${snap.qi + 1} of ${queue.length}` : ''}</span>
+        <span className="lbl">{snap.mode ? MODE[snap.mode] : 'Stopped'}{inQueue && queue && snap.qi != null ? ` · ${snap.qi + 1} of ${queue.length}` : ''}
+          {queue && <button className="pb-clear" title="Clear the queue (Play then plays the walk)" onClick={() => m.setQueue(null)}>queue of {queue.length} <Icon name="x" /></button>}</span>
         <b>{snap.playing ? snap.now : queue ? `Space plays the queue: ${queue.length} songs` : 'Space plays the walk'}</b>
         {snap.playing && <small>next: {snap.next}</small>}
-      </div>
-      <div className="pb-lane">
-        {walk && <Lane m={m} snap={snap} />}
-        {snap.mode === 'script' && m.meeting && (  // (a meeting: its three parts, the one playing lit)
-          <div className="pb-queue">
-            {m.meeting.segs.map((g, i) => <span key={i} className={`chip ${m.meetingPos()?.i === i ? 'on' : ''}`}><small>{i + 1}</small>{g.track.split('.').slice(2, -1).join(' · ')} {g.start}–{g.start + g.bars - 1}</span>)}
-          </div>
-        )}
-        {queue && !(snap.mode === 'script' && m.meeting) && (
-          <div className="pb-queue">
-            {queue.map((q, i) => <button key={`${q.id}#${i}`} className={`chip ${inQueue && i === snap.qi ? 'on' : ''}`} title={`Play from ${q.label}`} onClick={() => m.playQueue(queue, i)}><small>{i + 1}</small>{q.label}</button>)}
-            <button className="pb-clear" title="Clear the queue (Play then plays the walk)" onClick={() => m.setQueue(null)}><Icon name="x" /></button>
-          </div>
-        )}
       </div>
       <div className="pb-levels">
         {STATES.map((st, i) => (
@@ -97,6 +86,7 @@ function Bar({ m }: { m: Mixer }) {
           onChange={e => { setVol(Number(e.target.value)); if (muted) setMuted(false) }} />
       </div>
       <canvas className="pb-spec" ref={spec} />
+      </div>
     </footer>
   )
 }

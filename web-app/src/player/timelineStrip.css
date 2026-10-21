@@ -1,0 +1,75 @@
+/* The timeline strip on top of the player's bar: a DAW-style follow view. */
+.tls { position: relative; height: 50px; margin: 0 -18px; padding: 0 18px; flex: none; }
+.tls-track { position: absolute; inset: 6px 18px 4px; clip-path: inset(-90px 0 -4px 0); border-radius: 9px; cursor: text;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .025), rgba(255, 255, 255, .008)); box-shadow: inset 0 0 0 1px var(--line), inset 0 10px 24px -18px rgba(154, 140, 255, .25); }
+.tls.live .tls-track { cursor: crosshair; }
+.tls-film { position: absolute; top: 0; bottom: 0; left: 0; will-change: transform; }
+.tls-bar { position: absolute; top: 0; bottom: 0; border-left: 1px solid rgba(255, 255, 255, .06);
+  background-image: repeating-linear-gradient(90deg, transparent 0 calc(var(--beat) - 1px), rgba(255, 255, 255, .025) calc(var(--beat) - 1px) var(--beat)); }
+.tls-bar.four { border-left-color: rgba(255, 255, 255, .16); }
+.tls-time { position: absolute; bottom: 1px; left: 4px; font: 500 9px var(--mono); color: var(--ghost); letter-spacing: .02em; }
+/* the blocks */
+.tls-blk { position: absolute; top: 6px; bottom: 11px; border-radius: 6px; display: flex; align-items: center; gap: 6px; padding: 0 8px; min-width: 0;
+  background: linear-gradient(180deg, rgba(154, 140, 255, .32), rgba(154, 140, 255, .14)); box-shadow: inset 0 0 0 1px rgba(154, 140, 255, .45), inset 0 1px 0 rgba(255, 255, 255, .08);
+  transition: opacity .3s var(--ease), box-shadow .2s; }
+.tls-blk.h1 { background: linear-gradient(180deg, rgba(120, 150, 255, .3), rgba(120, 150, 255, .12)); box-shadow: inset 0 0 0 1px rgba(120, 150, 255, .42), inset 0 1px 0 rgba(255, 255, 255, .08); }
+.tls-blk.h2 { background: linear-gradient(180deg, rgba(91, 214, 255, .26), rgba(91, 214, 255, .1)); box-shadow: inset 0 0 0 1px rgba(91, 214, 255, .4), inset 0 1px 0 rgba(255, 255, 255, .08); }
+.tls-blk.h3 { background: linear-gradient(180deg, rgba(185, 130, 255, .3), rgba(185, 130, 255, .12)); box-shadow: inset 0 0 0 1px rgba(185, 130, 255, .42), inset 0 1px 0 rgba(255, 255, 255, .08); }
+.tls-blk.past { opacity: .5; }
+.tls-blk.cur { opacity: 1; box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .55), 0 0 18px -4px rgba(154, 140, 255, .9); }
+.tls-blk.next { background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, .05) 0 4px, transparent 4px 9px), linear-gradient(180deg, rgba(154, 140, 255, .18), rgba(154, 140, 255, .06)); }
+.tls-blk.k-rest { background: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); border: 0; }
+.tls-blk.k-rest::after { content: "rest"; font: 500 9.5px var(--mono); color: var(--faint); }
+.tls-blk.k-glue { background: rgba(91, 214, 255, .07); box-shadow: inset 0 0 0 1px rgba(91, 214, 255, .35); }
+.tls-blk.ghost { background: none; box-shadow: none; border: 1px dashed rgba(255, 255, 255, .18); opacity: .7; }
+.tls-name { font-size: 11px; font-weight: 560; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); min-width: 0; }
+.tls-blk.ghost .tls-name { color: var(--dim); font-weight: 500; }
+.tls-badge { flex: none; margin-left: auto; width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; background: rgba(5, 5, 8, .55); }
+.tls-badge .i { width: 11px; height: 11px; }
+.r1 .tls-badge, .tls-badge.r1 { color: var(--bad); } .tls-badge.r2 { color: var(--warm); } .tls-badge.r3 { color: var(--dim); } .tls-badge.r4 { color: var(--good); } .tls-badge.r5 { color: var(--pick); }
+.tls-blk.r1 { box-shadow: inset 0 0 0 1.5px rgba(255, 107, 127, .7); } .tls-blk.r2 { box-shadow: inset 0 0 0 1.5px rgba(255, 159, 107, .7); }
+.tls-blk.r4 { box-shadow: inset 0 0 0 1.5px rgba(79, 220, 155, .6); } .tls-blk.r5 { box-shadow: inset 0 0 0 1.5px rgba(255, 200, 87, .8), 0 0 14px -4px rgba(255, 200, 87, .7); }
+/* the ratings, above a block on hover (out over the page) */
+.tls-tray { position: absolute; left: 50%; bottom: calc(100% + 30px); transform: translate(-50%, 6px); display: flex; gap: 2px; padding: 4px; border-radius: 10px;
+  background: var(--overlay); box-shadow: var(--shadow-pop); opacity: 0; pointer-events: none; transition: opacity .14s, transform .14s var(--ease); z-index: 6; }
+.tls-tray::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 34px; }
+.tls-blk:hover .tls-tray { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.tls-tray button { width: 26px; height: 26px; border: 0; border-radius: 7px; background: none; color: var(--faint); display: grid; place-items: center; }
+.tls-tray button:hover { background: var(--hover); color: var(--text); } .tls-tray .i { width: 14px; height: 14px; }
+.tls-tray .r1.on { color: var(--bad); } .tls-tray .r2.on { color: var(--warm); } .tls-tray .r3.on { color: var(--text); } .tls-tray .r4.on { color: var(--good); } .tls-tray .r5.on { color: var(--pick); }
+.tls-tray button.on { background: rgba(255, 255, 255, .08); }
+/* the transitions: a notch between blocks, its thumb on hover */
+.tls-notch { position: absolute; top: 2px; bottom: 7px; width: 14px; margin-left: -7px; z-index: 3; display: grid; place-items: center; }
+.tls-notch i { width: 8px; height: 8px; transform: rotate(45deg); border-radius: 2px; background: var(--overlay); box-shadow: 0 0 0 1px var(--line-3); transition: background .15s; }
+.tls-notch.up i { background: var(--good); box-shadow: 0 0 10px rgba(79, 220, 155, .7); } .tls-notch.down i { background: var(--bad); box-shadow: 0 0 10px rgba(255, 107, 127, .7); }
+.tls-thumbs { position: absolute; bottom: calc(100% + 30px); left: 50%; transform: translate(-50%, 6px); display: flex; gap: 2px; padding: 4px; border-radius: 10px; background: var(--overlay);
+  box-shadow: var(--shadow-pop); opacity: 0; pointer-events: none; transition: opacity .14s, transform .14s var(--ease); z-index: 7; }
+.tls-thumbs::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 34px; }
+.tls-notch:hover .tls-thumbs { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.tls-thumbs button { width: 26px; height: 26px; border: 0; border-radius: 7px; background: none; color: var(--faint); display: grid; place-items: center; }
+.tls-thumbs button:hover { background: var(--hover); color: var(--text); } .tls-thumbs .i { width: 13px; height: 13px; }
+.tls-thumbs .up.on { color: var(--good); } .tls-thumbs .down.on { color: var(--bad); }
+/* the edges fade, the playhead and its handle (out over the page), the scrub */
+.tls-fade { position: absolute; top: 0; bottom: 0; width: 60px; pointer-events: none; z-index: 2; }
+.tls-fade.l { left: 0; background: linear-gradient(90deg, var(--bg-2), transparent); } .tls-fade.r { right: 0; background: linear-gradient(270deg, var(--bg-2), transparent); }
+.tls-idle { position: absolute; inset: 0; display: grid; place-items: center; font: 500 11px var(--mono); color: var(--ghost); letter-spacing: .03em; }
+.tls-head { position: absolute; top: 2px; bottom: 0; width: 0; margin-left: 18px; z-index: 5; pointer-events: none; }
+.tls-head::before { content: ""; position: absolute; left: -1px; top: 2px; bottom: 2px; width: 2px; border-radius: 2px; background: linear-gradient(180deg, #fff, var(--accent-2)); box-shadow: 0 0 14px rgba(91, 214, 255, .9), 0 0 2px #fff; }
+.tls-knob { position: absolute; left: -14px; top: -20px; width: 28px; height: 18px; border-radius: 9px; background: var(--grad); box-shadow: 0 4px 16px -2px rgba(91, 214, 255, .7), 0 0 0 2px var(--bg-2);
+  display: flex; align-items: center; justify-content: center; gap: 2px; cursor: grab; pointer-events: auto; transition: transform .15s var(--ease); }
+.tls-knob:hover { transform: scale(1.12); } .tls-knob:active { cursor: grabbing; transform: scale(1.18); }
+.tls-knob i { width: 2px; height: 8px; border-radius: 1px; background: rgba(10, 11, 15, .55); }
+.tls-scrub { position: absolute; top: -2px; bottom: 0; width: 0; margin-left: 18px; z-index: 6; pointer-events: none; }
+.tls-scrub::before { content: ""; position: absolute; left: -1px; top: 6px; bottom: 4px; border-left: 2px dashed rgba(255, 255, 255, .85); }
+.tls-tip { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 5px 10px; border-radius: 8px;
+  background: var(--overlay); box-shadow: var(--shadow-pop); font: 500 11.5px var(--font); color: var(--text); }
+.tls-scrub.none .tls-tip { color: var(--faint); } .tls-scrub.none::before { border-left-color: rgba(255, 255, 255, .3); }
+
+/* each block's shape: its beats' loudness, a silhouette under its name */
+.tls-shape { position: absolute; left: 3px; right: 3px; bottom: 2px; top: 3px; display: flex; align-items: flex-end; gap: 1px; pointer-events: none; opacity: .75; }
+.tls-shape i { flex: 1; min-width: 1px; border-radius: 1px 1px 0 0; background: linear-gradient(180deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, .12)); }
+.tls-blk.cur .tls-shape { opacity: 1; } .tls-blk.cur .tls-shape i { background: linear-gradient(180deg, #fff, rgba(91, 214, 255, .35)); }
+.tls-blk.next .tls-shape { opacity: .4; }
+.tls-blk.k-rest .tls-shape, .tls-blk.ghost .tls-shape { display: none; }
+.tls-name { position: relative; z-index: 1; text-shadow: 0 1px 6px rgba(0, 0, 0, .9); }
+.tls-badge { position: relative; z-index: 1; }
