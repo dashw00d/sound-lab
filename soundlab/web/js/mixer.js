@@ -493,21 +493,23 @@
     const c = X.train.cur; if (!c) return;
     await Lab.vote({ clip: joinKey(c.a, c.e, c.b), value: v }, null);
     X.train.n++; X.train.last = { ...c, v };
+    if (c.t != null && (c.t >= 0.5) === (v > 0)) X.train.agree++;
     trainNext();
   }
-  function trainToggle() { X.train.on = !X.train.on; if (X.train.on) { X.train.n = 0; trainNext(); } else stop(); render(); }
+  function trainToggle() { X.train.on = !X.train.on; if (X.train.on) { X.train.n = 0; X.train.agree = 0; X.train.last = null; trainNext(); } else stop(); render(); }
   function trainHtml() {
     if (!X.train.on) return "";
     const c = X.train.cur, all = Object.keys(Lab.V.clips).filter(k => k.startsWith("join_")).length, l = X.train.last;
     const M = L().join_model;
     return `<section class="card train" id="xtrain"><div class="lbl">Rating transitions <span class="dim">· ${X.train.n} this session · ${all} in all${M ? ` · the model (fit on ${M.n}) is right ${Math.round(100 * M.right)}% on votes it didn't see: run <code>soundlab music joins --fit</code> to refit` : " · no model yet: <code>soundlab music joins --fit</code>"}</span></div>
       ${c ? `<div class="tpair"><b>${esc(name(track(c.a)))}</b><small>bar ${c.e}</small><span class="arrow">${icon("arrow")}</span><b>${esc(name(track(c.b.track)))}</b><small>bar ${c.b.start}</small>
-        ${c.t != null ? `<span class="fit ${c.t >= 0.5 ? "good" : "poor"}" data-tip="The model's guess that you'll like it (fit on your votes; the walk takes 50% or more)">${Math.round(100 * c.t)}%</span>` : ""}
-        <span class="fit ${grade(c.j)}" data-tip="The join score (harmony and the bars either side): under ${CLASH}, a clash the walk never takes">${c.j.toFixed(2)}</span></div>` : `<div class="dim">No transition left to rate.</div>`}
+        <span class="dim" data-tip="Rated blind: the model's guess shows after you vote, so it can't sway you (training plays mostly the ones it's least sure of)">guess hidden</span></div>` : `<div class="dim">No transition left to rate.</div>`}
       <div class="row"><button class="btn good" id="tgood">${icon("up")}Good <kbd>↑</kbd></button><button class="btn bad" id="tbad">${icon("down")}Bad <kbd>↓</kbd></button>
         <button class="btn" id="tskip">${icon("next")}Skip <kbd>→</kbd></button><button class="btn ghost" id="treplay">${icon("refresh")}Replay <kbd>R</kbd></button>
         <button class="btn ghost" id="tstop">${icon("x")}Done</button></div>
-      ${l ? `<div class="dim">last: ${esc(name(track(l.a)))} → ${esc(name(track(l.b.track)))} · ${l.j.toFixed(2)} · ${l.v > 0 ? "good" : "bad"}</div>` : ""}</section>`;
+      ${l ? `<div class="dim">last: ${esc(name(track(l.a)))} → ${esc(name(track(l.b.track)))} · you said <b>${l.v > 0 ? "good" : "bad"}</b>${l.t != null
+          ? ` · the model guessed ${Math.round(100 * l.t)}%: ${(l.t >= 0.5) === (l.v > 0) ? "agreed" : "<b>disagreed</b>"}` : ""} · join score ${l.j.toFixed(2)}</div>` : ""}
+      ${X.train.n ? `<div class="dim">this session the model agreed with you ${X.train.agree} of ${X.train.n} times</div>` : ""}</section>`;
   }
   function paintTrain() { const el = $("xtrainbox"); if (el) { el.innerHTML = trainHtml(); wireTrain(); } }
   function wireTrain() {
