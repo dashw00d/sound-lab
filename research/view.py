@@ -12,6 +12,11 @@ so a score can be checked against what the songs do. Writes a PNG (work/<project
                        s..s+3, mixed as the player crosses them (two beats, equal power), with the cut, the beats, the
                        loudness per beat either side, both songs' chroma per bar, the join score and the designer's vote.
 
+  family FID           a family's songs stacked, each shifted to its best splice offset against the root, with its
+                       loudness, cues, phrase starts and splice score with the root (work/families.json's families).
+  levels ID            one song's levels stacked (calm, tension, action, battle: each derived from the spine) and its
+                       Demucs stems, with loudness per bar: what a level change and a stem variation sound like.
+
 Songs are track ids as on the Families page (work/families.json items). `--level battle` draws the battle level.
 
     runtime/venv/bin/python research/view.py --project PATH pair day.any.war2.k2.stack night.any.war2.k2.stack
@@ -297,6 +302,72 @@ def join(proj: P.Project, key: str, level: str, out: Path) -> Path:
     return out
 
 
+def best_offset(A: Song, B: Song) -> tuple[int, float]:
+    """B's best splice offset against A and the score there (families.splice's test)."""
+    out = []
+    for L in range(A.nb):
+        s = (A.feat * np.roll(B.feat, -L, axis=0)).sum(axis=1)
+        cut = 0.5 * (s + np.roll(s, -1))
+        step = np.abs(np.roll(A.loud, -1) - np.roll(np.roll(B.loud, -L), -1))
+        out.append(float(((cut >= families.STEP) & (step <= families.LOUD)).mean()))
+    return int(np.argmax(out)), max(out)
+
+
+def family(proj: P.Project, fid: str, level: str, out: Path) -> Path:
+    info = load_info(proj)
+    fam = Store.read(proj.work / "families.json", {}).get("families", {}).get(fid)
+    if not fam:
+        raise SystemExit(f"no family {fid}")
+    root = fam["medoid"]
+    ids = [root] + [m for m in fam["members"] if m != root][:9]
+    R = Song(proj, root, level, info)
+    fig = plt.figure(figsize=(16, 2.3 * len(ids) + 1), dpi=90, facecolor=BG)
+    gs = fig.add_gridspec(len(ids), 1, hspace=0.55)
+    fig.suptitle(f"family {fid}: {len(fam['members'])} songs, leads {', '.join(fam['leads'])}; each shifted to its best splice offset against the root",
+                 color=FG, fontsize=11, x=0.01, ha="left")
+    for r, i in enumerate(ids):
+        S = R if i == root else Song(proj, i, level, info)
+        L, sc = (0, 1.0) if i == root else best_offset(R, S)
+        draw_song(fig.add_subplot(gs[r]), S, L, f"{'ROOT  ' if i == root else ''}{S.label}   offset {L}, splice with root {sc:.2f}")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out, facecolor=BG, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
+def levels(proj: P.Project, sid: str, out: Path) -> Path:
+    import librosa
+    t = {x["id"]: x for x in music.library(proj)["tracks"]}.get(sid)
+    if not t:
+        raise SystemExit(f"{sid} isn't a shipped track")
+    M, st = proj.music, Store(proj)
+    path = lambda u: st.clips / u[len("/clips/"):] if u.startswith("/clips/") else Path(proj.assets) / u[len("/shipped/"):]
+    rows = [(lv, path(t["src"].get(lv) or "/shipped/" + t["files"][lv])) for lv in t["files"]]
+    rows += [(f"stem {k}", st.clips / v) for k, v in (t.get("stems") or {}).items()]
+    bar = int(round(M["bar_beats"] * 60.0 / M["bpm"] * dsp.SR))
+    fig = plt.figure(figsize=(16, 1.9 * len(rows) + 1), dpi=90, facecolor=BG)
+    gs = fig.add_gridspec(len(rows), 1, hspace=0.6)
+    fig.suptitle(f"levels and stems of {sid}", color=FG, fontsize=11, x=0.01, ha="left")
+    for r, (name, f) in enumerate(rows):
+        x = dsp.decode(f)[:bar * M["bars"]]
+        ax = fig.add_subplot(gs[r])
+        style(ax)
+        y = librosa.resample(x.mean(axis=1), orig_sr=dsp.SR, target_sr=SR_VIEW)
+        S = librosa.power_to_db(librosa.feature.melspectrogram(y=y, sr=SR_VIEW, n_fft=2048, hop_length=512, n_mels=96), ref=1.0, top_db=None)
+        ax.imshow(S, origin="lower", aspect="auto", extent=[0, M["bars"], 0, 96], cmap="magma", vmin=S.max() - 70, vmax=S.max())
+        bar_grid(ax, M["bars"])
+        ax.set_yticks([])
+        ld = families._loud(x, M)
+        tw = ax.twinx()
+        tw.plot(np.arange(M["bars"]) + 0.5, ld, color="#4fdc9b", lw=1.5, marker="o", ms=3)
+        tw.tick_params(colors="#4fdc9b", labelsize=7)
+        ax.set_title(f"{name}   ({f.name}; {np.median(ld):.1f} dB median, {max(ld) - min(ld):.1f} dB range)", color=FG, fontsize=9, loc="left")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out, facecolor=BG, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
 def main() -> int:
     common = argparse.ArgumentParser(add_help=False)  # (before or after the view's name)
     common.add_argument("--level", default=argparse.SUPPRESS)
@@ -310,6 +381,10 @@ def main() -> int:
     p1.add_argument("--lag", type=int)
     p2 = sub.add_parser("join", parents=[common])
     p2.add_argument("key")
+    p3 = sub.add_parser("family", parents=[common])
+    p3.add_argument("fid")
+    p4 = sub.add_parser("levels", parents=[common])
+    p4.add_argument("sid")
     a = ap.parse_args()
     a.level, a.out = getattr(a, "level", "calm"), getattr(a, "out", None)
     proj = P.load(a.project)
@@ -317,6 +392,10 @@ def main() -> int:
     if a.cmd == "pair":
         out = Path(a.out) if a.out else views / f"pair_{a.a}__{a.b}.png"
         print(pair(proj, a.a, a.b, a.lag, a.level, out))
+    elif a.cmd == "family":
+        print(family(proj, a.fid, a.level, Path(a.out) if a.out else views / f"family_{a.fid}.png"))
+    elif a.cmd == "levels":
+        print(levels(proj, a.sid, Path(a.out) if a.out else views / f"levels_{a.sid}.png"))
     else:
         out = Path(a.out) if a.out else views / f"{re.sub(r'[^A-Za-z0-9._-]+', '_', a.key)}.png"
         print(join(proj, a.key, a.level, out))
