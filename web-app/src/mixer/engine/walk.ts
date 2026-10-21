@@ -132,23 +132,26 @@ export class Walk {
     const r = this.run!
     const sc = this.scene!
     if (!sc.played.includes(r.track)) sc.played.push(r.track)
+    // (a song plays its loop at most once before the walk looks for a way on: a 6-bar loop under Stay 12 played three
+    // times over is the same thing 18 bars running, 2026-10-21; the graph never repeats a loop)
+    const loopLen = r.hi! - r.lo! + 1, stay = Math.min(pr.stay, loopLen), most = Math.max(stay, Math.min(stay + LEN, loopLen))
     if (sc.bars >= pr.sceneBars) {  // (the scene's done: at a phrase end, or 8 bars on at most, a rest, then the next)
-      if (r.played! >= Math.min(pr.stay, LEN) && (this.phraseEnd(r) || sc.bars >= pr.sceneBars + 8)) {
+      if (r.played! >= Math.min(stay, LEN) && (this.phraseEnd(r) || sc.bars >= pr.sceneBars + 8 || r.played! >= most)) {
         this.run = null; this.scene = null
         return { kind: 'rest', bar: 1, bars: pr.glueBars, track: r.track }
       }
-    } else if (r.played! >= pr.stay) {
+    } else if (r.played! >= stay) {
       // (a seamless cut into a member this scene hasn't played, toward the target energy and the least heard)
       const t = tgt(), cut = g.cutsAt(r.track, r.lastBar!, clips).filter(c => !sc.played.includes(c.to))
         .map(c => ({ c, k: Math.abs(g.energy(c.to) - t) + 0.05 * Math.log1p(this.heard.get(c.to) ?? 0) + 0.1 * Math.random() })).sort((a, b) => a.k - b.k)[0]?.c
       if (cut) { this.startRun({ track: cut.to, start: cut.bar }); return this.nextGraph(depth + 1) }
-      if (r.played! >= pr.stay + 8 && this.phraseEnd(r)) {  // (no cut in 8 bars: another member at a phrase end)
+      if (this.phraseEnd(r) || r.played! >= most) {  // (no cut: another member at a phrase end, or before a bar repeats)
         const m = g.pickMember(sc.fid, t, this.heard, clips, r.track, sc.played)
         if (m) { this.startRun({ track: m, start: this.jd.entryOf(m) }); return this.nextGraph(depth + 1) }
       }
     }
     if (r.bar! > r.hi!) { r.bar = r.lo; r.passes!++ }
-    const len = r.played! < pr.stay ? Math.min(LEN - (r.played! % LEN), pr.stay - r.played!, r.hi! - r.bar! + 1) : 1
+    const len = r.played! < stay ? Math.min(LEN - (r.played! % LEN), stay - r.played!, r.hi! - r.bar! + 1) : 1
     const c: Chunk = { kind: 'part', track: r.track, bar: r.bar!, bars: len, variant: 'full', run: r, entry: r.entry, first: r.first }
     r.first = false; r.bar! += len; r.played! += len; r.lastBar = c.bar + len - 1
     this.scene!.bars += len; this.gbars += len; this.heard.set(r.track, (this.heard.get(r.track) ?? 0) + len)
