@@ -1,16 +1,11 @@
 .fa { display: flex; height: 100%; }
 .fa-graph { flex: 1; min-width: 0; background: var(--bg); }
-.fa-side { width: 330px; flex: none; border-left: 1px solid var(--line); background: var(--bg-2); padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.fa-side { width: 380px; flex: none; border-left: 1px solid var(--line); background: var(--bg-2); padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
 .fa-side .row { display: flex; gap: 6px; flex-wrap: wrap; }
 .fa-side .help { font-size: 12px; margin: 0; } .fa-side .help kbd { margin: 0 2px; }
 .fa-sel { padding: 12px; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--panel); display: flex; flex-direction: column; gap: 8px; }
 .fa-sel .nm { font-size: 15px; font-weight: 600; } .fa-sel .words { font: 500 11px var(--mono); }
-.fa-sel .links { display: flex; flex-direction: column; gap: 4px; }
-.lk { display: flex; align-items: center; gap: 8px; font-size: 12px; } .lk span { color: var(--faint); font: 500 10.5px var(--mono); }
-.lk.match .lnk { color: var(--good); } .lk.dup .lnk { color: var(--pick); } .lk.bad .lnk { color: var(--bad); }
-.lnk, .nearb, .famb, .lk .x { background: none; border: 0; padding: 0; text-align: left; }
-.lk .x { margin-left: auto; color: var(--faint); font-size: 15px; } .lk .x:hover { color: var(--bad); }
-.nearb { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dim); padding: 2px 0; } .nearb:hover { color: var(--text); }
+.lnk, .famb { background: none; border: 0; padding: 0; text-align: left; }
 .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
 .fa-fams { display: flex; flex-direction: column; gap: 2px; }
 .famb { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--dim); padding: 4px 6px; border-radius: 7px; }
@@ -47,3 +42,16 @@
 .pv button.match.on { color: var(--good); border-color: var(--good); background: var(--good-soft); }
 .pv button.dup.on { color: var(--pick); border-color: var(--pick-line); background: var(--pick-soft); }
 .pv button.bad.on { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
+/* a song's family */
+.fa-fam { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px dashed var(--line-2); }
+.fa-li.sel { background: rgba(255, 255, 255, .04); } .fa-li.sel .lnk { color: var(--text); font-weight: 560; }
+.fa-li .lnk small { color: var(--faint); }
+.fa-li .root { font: 600 9.5px var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--accent); padding: 1px 6px; border-radius: 5px; background: var(--accent-soft); }
+.dupb, .addb { width: 22px; height: 20px; padding: 0; border-radius: 6px; border: 1px solid var(--line-2); background: var(--raised); color: var(--faint); font-size: 12px; line-height: 1; }
+.dupb:hover, .addb:hover { color: var(--text); } .dupb.on { color: var(--pick); border-color: var(--pick-line); background: var(--pick-soft); }
+.addb { color: var(--good); }
+.song.root .dot { width: 20px; height: 20px; box-shadow: 0 0 0 3px rgba(255, 255, 255, .08); }
+.fa-li.sugg .lnk { color: var(--faint); }
+.okb { width: 22px; height: 20px; padding: 0; border-radius: 6px; border: 1px solid var(--line-2); background: var(--raised); color: var(--faint); font-size: 11px; line-height: 1; }
+.okb:hover { color: var(--text); } .okb.on { color: var(--good); border-color: rgba(79, 220, 155, .5); background: var(--good-soft); }
+.song .hc { left: 11px !important; top: 50% !important; width: 1px; height: 1px; min-width: 0; min-height: 0; border: 0; background: none; opacity: 0; pointer-events: none; }

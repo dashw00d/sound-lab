@@ -1,6 +1,8 @@
 // The Families graph (2026-10-21, the designer: "what we need is like nodes where you can drag this matches this and
 // this matches that and that"). Every song is a dot placed by likeness (music families' map) in its family's colour.
-// Drag from one song to another: they match. Click a link to make it a near duplicate, then a bad match, then nothing.
+// A family is one group with one root (the sort's family with the designer's answers applied at once), drawn as a star
+// round its root, the same from any member. Drag from one song to another: it joins that song's family. Click a link:
+// the sort's suggestion confirmed, then a near duplicate, then a bad match (out of the family), then nothing.
 // Click a song to hear it in the player, as the game plays it (1 / 2: mellow / intense). Shift-drag a box or Ctrl-click
 // to choose several, and play them as a queue: each for Stay bars, then straight into the next; M / N / B vote on the
 // transition just heard (match, near duplicate, bad match). The panel: the song chosen, good / bad take / new family,
@@ -19,18 +21,20 @@ import { useKeys } from '../../player/keys'
 import { usePlayer } from '../../player/store'
 import { toast } from '../../shell/toast'
 import { useLive } from '../../shell/useLive'
-import { hue, label, linkVotes, links, NEXT, novelKey, type Link } from './model'
+import { FamilyCard } from './Family'
+import { colour, FamilyView, hue, label, NEXT, novelKey, type EdgeKind, type Link, type Ops } from './model'
 import { Chosen, QueueCard } from './Queue'
 import SongNode, { type SongNodeType } from './SongNode'
 import './families.css'
 
 const nodeTypes = { song: SongNode }
 const SCALE = 2.4
-const EDGE: Record<Link, React.CSSProperties> = {
-  match: { stroke: 'var(--good)', strokeWidth: 2 },
-  dup: { stroke: 'var(--pick)', strokeWidth: 2, strokeDasharray: '6 4' },
-  bad: { stroke: 'var(--bad)', strokeWidth: 1.5, strokeDasharray: '2 4', opacity: 0.7 },
-}
+/** A link's look: in its family's colour, faint while it's only the sort's suggestion; the selected song's family bright. */
+const edgeStyle = (kind: EdgeKind, c: string, lit: boolean): React.CSSProperties =>
+  kind === 'bad' ? { stroke: 'var(--bad)', strokeWidth: 1.5, strokeDasharray: '2 4', opacity: 0.7 }
+    : kind === 'dup' ? { stroke: 'var(--pick)', strokeWidth: 2, strokeDasharray: '6 4' }
+    : kind === 'match' ? { stroke: c, strokeWidth: lit ? 2.2 : 1.6, opacity: lit ? 1 : 0.75 }
+    : { stroke: c, strokeWidth: 1, strokeDasharray: '3 4', opacity: lit ? 0.6 : 0.16 }
 
 function Graph() {
   const fam = useLive(api.families, ['families'])
@@ -49,7 +53,7 @@ function Graph() {
   const flow = useReactFlow()
   const F = fam.data as Families | null
 
-  const vote = useCallback(async (pairs: [string, number][]) => {
+  const vote = useCallback(async (pairs: Ops) => {
     let v: Votes | null = null
     for (const [clip, value] of pairs) v = await api.vote(clip, value)
     if (v) setVotes(v)
@@ -72,28 +76,33 @@ function Graph() {
   }, [F, m])
 
   const unsure = useMemo(() => new Set((F?.queue ?? []).filter(q => q.kind !== 'dup').map(q => q.item)), [F])
-  const focused = useMemo(() => (focus && F ? new Set(F.families[focus]?.members ?? []) : null), [focus, F])
+  const fv = useMemo(() => (votes && F ? new FamilyView(F, votes) : null), [votes, F])
+  const focused = useMemo(() => (focus && fv ? new Set(fv.get(focus)?.members ?? []) : null), [focus, fv])
   const nodes: SongNodeType[] = useMemo(() => {
     if (!F) return []
     return Object.entries(F.items).map(([id, it]) => ({
       id, type: 'song' as const, position: { x: it.xy[0] * SCALE, y: it.xy[1] * SCALE }, selected: picked.includes(id),
       data: {
-        label: label(id, it), hue: hue(it.family), kind: it.kind, playing: playing === id, dim: !!focused && !focused.has(id),
+        label: label(id, it), hue: hue(fv?.family(id).id ?? it.family), kind: it.kind, playing: playing === id, root: fv?.rootOf(id) === id && fv.family(id).members.length > 1, dim: !!focused && !focused.has(id),
         unsure: unsure.has(id), novel: !!(votes && votes.clips[novelKey(id, it)] > 0), bad: !!(votes && votes.clips[`ok_${id}`] < 0),
       },
     }))
-  }, [F, picked, playing, focused, unsure, votes])
+  }, [F, fv, picked, playing, focused, unsure, votes])
   const edges: Edge[] = useMemo(() => {
-    if (!F || !votes) return []
-    return links(votes, F.items).filter(l => showBad || l.kind !== 'bad' || l.a === sel || l.b === sel)
-      .map(l => ({ id: `${l.a}|${l.b}`, source: l.a, target: l.b, data: { kind: l.kind }, style: EDGE[l.kind], interactionWidth: 14 }))
-  }, [F, votes, showBad, sel])
+    if (!fv) return []
+    const selFam = sel ? fv.family(sel).id : null
+    return fv.edges().filter(l => showBad || l.kind !== 'bad' || l.a === sel || l.b === sel).map(l => {
+      const fid = fv.family(l.a).id
+      return { id: `${l.kind}:${l.a}|${l.b}`, source: l.a, target: l.b, sourceHandle: 'c', targetHandle: 'c', type: 'straight', data: { kind: l.kind },
+               style: edgeStyle(l.kind, colour(hue(fid)), fid === selFam), interactionWidth: 12 }
+    })
+  }, [fv, showBad, sel])
 
-  const onConnect = useCallback((c: Connection) => { if (c.source && c.target && c.source !== c.target) void vote(linkVotes(c.source, c.target, 'match')) }, [vote])
-  const onEdgeClick: EdgeMouseHandler = useCallback((_, e) => {
-    const kind = (e.data as { kind: Link }).kind
-    void vote(linkVotes(e.source, e.target, NEXT[kind]))
-  }, [vote])
+  const onConnect = useCallback((c: Connection) => { if (fv && c.source && c.target && c.source !== c.target) void vote(fv.set(c.source, c.target, 'match')) }, [fv, vote])
+  const onEdgeClick: EdgeMouseHandler = useCallback((_, e) => {  // (a star's link is its member's: the member is what changes)
+    const kind = (e.data as { kind: EdgeKind }).kind
+    if (fv) void vote(fv.set(e.source, e.target, NEXT[kind]))
+  }, [fv, vote])
   // (React Flow chooses: a click one song, Ctrl-click one more, a Shift-drag box all inside; a click also plays it)
   const onNodesChange = useCallback((changes: NodeChange<SongNodeType>[]) => setPicked(p => {
     let out = p
@@ -102,20 +111,22 @@ function Graph() {
   }), [])
   const onNodeClick: NodeMouseHandler = useCallback((e, n) => { setSel(n.id); if (!e.ctrlKey && !e.metaKey && !e.shiftKey) toggle(n.id) }, [toggle])
 
-  const linkMap = useMemo(() => new Map((votes && F ? links(votes, F.items) : []).map(l => [l.a < l.b ? `${l.a}|${l.b}` : `${l.b}|${l.a}`, l.kind])), [votes, F])
-  const linkOf = useCallback((a: string, b: string) => linkMap.get(a < b ? `${a}|${b}` : `${b}|${a}`) ?? null, [linkMap])
-  const pairVote = useCallback((a: string, b: string, k: Link | null) => {
-    if (!F) return
-    void vote(linkVotes(a, b, k))
-    toast(`${label(a, F.items[a])} → ${label(b, F.items[b])}: ${k === 'match' ? 'a match' : k === 'dup' ? 'near duplicates' : k === 'bad' ? 'a bad match' : 'no link'}`,
+  const linkOf = useCallback((a: string, b: string) => fv?.relation(a, b) ?? null, [fv])
+  /** x against y: x joins y's family (a near duplicate of y, or not), is a bad match for it, or neither. */
+  const setLink = useCallback((x: string, y: string, k: Link | null) => {
+    if (!F || !fv) return
+    void vote(fv.set(x, y, k))
+    toast(`${label(x, F.items[x])} ${k === 'match' ? 'is in the family of' : k === 'dup' ? 'is a near duplicate of' : k === 'bad' ? 'is a bad match for' : 'is back to the sort’s guess beside'} ${label(y, F.items[y])}`,
           k === 'bad' ? 'down' : k ? 'check' : 'x')
-  }, [F, vote])
+  }, [F, fv, vote])
+  const pairVote = useCallback((a: string, b: string, k: Link | null) => setLink(b, a, k), [setLink])  // (a transition a → b: b against a)
+  const out = useCallback((x: string) => { if (fv && F) { void vote(fv.out(x)); toast(`${label(x, F.items[x])} is out of its family`, 'x') } }, [F, fv, vote])
+  const confirmAll = useCallback((x: string) => { if (fv) { const f = fv.family(x); void vote(fv.confirmAll(x)); toast(`All ${f.members.length} confirmed in one family`, 'check') } }, [fv, vote])
   const linkAll = useCallback(async () => {
-    if (!F || picked.length < 2) return
-    const pairs = picked.slice(1).flatMap((b, i) => linkVotes(picked[i], b, 'match'))
-    await vote(pairs)
-    toast(`Linked ${picked.length} songs as matches`, 'check')
-  }, [F, picked, vote])
+    if (!fv || picked.length < 2) return
+    await vote(fv.merge(picked))
+    toast(`${picked.length} songs are one family`, 'check')
+  }, [fv, picked, vote])
 
   const answer = useCallback((what: 'good' | 'bad' | 'novel') => {
     if (!sel || !F) return
@@ -149,15 +160,16 @@ function Graph() {
 
   const focusOn = (fid: string | null) => {
     setFocus(fid)
-    if (fid && F) requestAnimationFrame(() => flow.fitView({ nodes: F.families[fid].members.map(id => ({ id })), duration: 400, padding: 0.3 }))
+    if (fid && fv?.get(fid)) requestAnimationFrame(() => flow.fitView({ nodes: fv.get(fid)!.members.map(id => ({ id })), duration: 400, padding: 0.3 }))
     else requestAnimationFrame(() => flow.fitView({ duration: 400 }))
   }
 
   if (fam.error && !F) return <div className="fa-empty">Couldn't read the families: {fam.error}. Run <code>soundlab music families</code>.</div>
-  if (!F || !votes) return <div className="fa-empty">Reading the families…</div>
+  if (!F || !votes || !fv) return <div className="fa-empty">Reading the families…</div>
   const it = sel ? F.items[sel] : null
-  const fams = Object.entries(F.families).sort((a, b) => b[1].members.length - a[1].members.length)
-  const mine = sel ? links(votes, F.items).filter(l => l.a === sel || l.b === sel) : []
+  const fams = fv.families().filter(f => f.members.length > 1)
+  /** A family's most common leads (its name in the list). */
+  const leads = (ms: string[]) => { const n = new Map<string, number>(); ms.forEach(x => n.set(F.items[x].lead, (n.get(F.items[x].lead) ?? 0) + 1)); return [...n].sort((a, b) => b[1] - a[1]).slice(0, 3).map(x => x[0]).join(', ') }
 
   return (
     <div className="fa">
@@ -166,7 +178,7 @@ function Graph() {
           onNodesChange={onNodesChange} multiSelectionKeyCode={['Control', 'Meta']} onPaneClick={() => setSel(null)} nodesDraggable={false} connectionRadius={28} minZoom={0.1} maxZoom={3} fitView proOptions={{ hideAttribution: true }}>
           <Background color="#1b1e27" gap={28} />
           <Controls showInteractive={false} />
-          <MiniMap pannable zoomable bgColor="#12141a" nodeColor={n => `hsl(${(n.data as { hue: number }).hue} 60% 55%)`} maskColor="rgba(10,11,15,.7)" />
+          <MiniMap pannable zoomable bgColor="#12141a" nodeColor={n => colour((n.data as { hue: number }).hue, 55)} maskColor="rgba(10,11,15,.7)" />
         </ReactFlow>
       </div>
       <aside className="fa-side">
@@ -175,7 +187,8 @@ function Graph() {
           <button className="btn" onClick={resort} disabled={sorting}>{sorting ? 'Sorting…' : 'Re-sort now'}</button>
           <button className={`btn ${showBad ? 'on' : ''}`} onClick={() => setShowBad(b => !b)}>Bad matches</button>
         </div>
-        <p className="dim help">Drag from a song to another: they match. Click a link: near duplicate → bad match → none. Click a song to hear it;
+        <p className="dim help">Each family is a star round its root: faint lines are the sort's guesses, solid ones you confirmed. Drag from a song to another: it
+          joins that song's family. Click a line: confirmed → near duplicate → out (a bad match) → none. Click a song to hear it;
           Shift-drag a box or Ctrl-click to choose several, then <kbd>Q</kbd> plays them in turn and <kbd>M</kbd> <kbd>N</kbd> <kbd>B</kbd> vote on each transition.
           Keys: <kbd>Space</kbd> play <kbd>1</kbd><kbd>2</kbd> mellow / intense <kbd>G</kbd> good <kbd>D</kbd> bad take <kbd>Y</kbd> new family.</p>
         {m?.queue && <QueueCard F={F} m={m} linkOf={linkOf} onVote={pairVote} />}
@@ -183,7 +196,7 @@ function Graph() {
           onDrop={id => setPicked(p => p.filter(x => x !== id))} onClear={() => setPicked([])} />}
         {it && sel ? (
           <section className="fa-sel">
-            <div className="lbl">{it.kind === 'shipped' ? 'a shipped song' : it.kind === 'extension' ? 'an extension' : 'a new take'} · family {it.family}{it.conf < 0.3 ? ' · unsure' : ''}</div>
+            <div className="lbl">{it.kind === 'shipped' ? 'a shipped song' : it.kind === 'extension' ? 'an extension' : 'a new take'}</div>
             <div className="nm">{label(sel, it)}</div>
             {it.words && <div className="dim words">{Object.values(it.words).filter(Boolean).map(w => w.replace('{s} ', 'strings ')).join(' · ')}</div>}
             <div className="row">
@@ -196,24 +209,21 @@ function Graph() {
               <button className={`btn bad ${votes.clips[`ok_${sel}`] < 0 ? 'on' : ''}`} onClick={() => answer('bad')}>Bad take <kbd>D</kbd></button>
               <button className={`btn ${votes.clips[novelKey(sel, it)] > 0 ? 'on' : ''}`} onClick={() => answer('novel')}>New family <kbd>Y</kbd></button>
             </div>
-            {mine.length > 0 && <div className="links">{mine.map(l => { const o = l.a === sel ? l.b : l.a; return (
-              <div key={o} className={`lk ${l.kind}`}><button className="lnk" onClick={() => { setSel(o); play(o) }}>{label(o, F.items[o])}</button>
-                <span>{l.kind === 'match' ? 'matches' : l.kind === 'dup' ? 'near duplicate' : 'bad match'}</span>
-                <button className="x" title="Remove this link" onClick={() => void vote(linkVotes(sel, o, null))}>×</button></div>) })}</div>}
-            <div className="lbl near">nearest</div>
-            {it.nearest.filter(o => F.items[o]).map(o => (
-              <button key={o} className="nearb" onClick={() => { setSel(o); play(o) }}>
-                <span className="dot" style={{ background: `hsl(${hue(F.items[o].family)} 70% 62%)` }} />{label(o, F.items[o])}</button>))}
+            <FamilyCard F={F} fv={fv} sel={sel} playing={playing} onPlay={o => { setSel(o); play(o) }} onSet={setLink} onOut={out} onConfirmAll={confirmAll} onQueue={playQueue} />
           </section>
         ) : <p className="dim">Click a song to hear it and see its links.</p>}
         <div className="lbl famh">families</div>
         <div className="fa-fams">
           {focus && <button className="famb on" onClick={() => focusOn(null)}>All families ×</button>}
-          {fams.map(([fid, f]) => (
-            <button key={fid} className={`famb ${focus === fid ? 'on' : ''}`} onClick={() => focusOn(focus === fid ? null : fid)}>
-              <span className="dot" style={{ background: `hsl(${hue(fid)} 70% 62%)` }} />
-              <b>{f.members.length}</b> {f.leads.slice(0, 3).join(', ')}{f.shipped ? <span className="dim"> · {f.shipped} shipped</span> : null}
-            </button>))}
+          {fams.map(f => {
+            const sure = f.members.slice(1).filter(x => fv.relation(x, f.root)).length, shipped = f.members.filter(x => F.items[x].kind === 'shipped').length
+            return (
+              <button key={f.id} className={`famb ${focus === f.id ? 'on' : ''}`} onClick={() => focusOn(focus === f.id ? null : f.id)}>
+                <span className="dot" style={{ background: colour(hue(f.id)) }} />
+                <b>{f.members.length}</b> {leads(f.members)}<span className="dim">{shipped ? ` · ${shipped} shipped` : ''}{sure ? ` · ${sure} confirmed` : ''}</span>
+              </button>
+            )
+          })}
         </div>
       </aside>
     </div>

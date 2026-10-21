@@ -1,7 +1,8 @@
 // Choosing songs on the graph and hearing them in turn (2026-10-21, the designer: "select a bunch of nodes from families
 // into the player and easily match them with the match votes. Then I can just select arbitrary nodes, quickly vote,
 // repeat"). The chosen songs, to play as a queue (each for Stay bars, then straight into the next) or to link all at
-// once; the queue playing, each pair of neighbours with its link; and the transition just heard, voted with one key.
+// once (one family, one root); the queue playing, each pair of neighbours with its link; and the transition just
+// heard, voted with one key (the song coming in joins the family of the one before, or is a bad match for it).
 import type { Families } from '../../api/types'
 import type { Mixer } from '../../mixer/engine/mixer'
 import { hue, label, type Link } from './model'
@@ -31,7 +32,7 @@ export function Chosen({ F, picked, onPlay, onQueue, onLinkAll, onDrop, onClear 
       <div className="lbl">{picked.length} chosen</div>
       <div className="row">
         <button className="btn primary" onClick={onQueue}>Play as queue <kbd>Q</kbd></button>
-        <button className="btn" title="A match between each song and the next in this list: one link each is enough, a match carries through the sort" onClick={onLinkAll}>Link all as matches</button>
+        <button className="btn" title="One family of them all, under one root (the root of the biggest family among them)" onClick={onLinkAll}>Make one family</button>
         <button className="btn ghost" onClick={onClear}>Clear</button>
       </div>
       <div className="fa-list">
