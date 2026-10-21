@@ -29,7 +29,8 @@ export interface Track {
   fills?: Record<string, Fill[]>
   glue?: string
   shift?: number
-  candidate?: { rank: number; pick: number; pick_beats: number; nice: number; nice_beats: number }
+  profile?: string
+  candidate?: { rank: number; pick: number; pick_beats: number; nice: number; nice_beats: number; catchy_in_style?: number }
 }
 export interface Glue { id: string; members: string[]; source: { track: string; bar: number }; bars: number; tonic: number; file: string }
 export interface JoinModel { features: string[]; mu: number[]; sd: number[]; w: number[]; n: number; right: number; auc: number }
