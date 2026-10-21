@@ -14,6 +14,9 @@ const ICONS = {
   layers: <><path d="M12 3L2.5 8 12 13l9.5-5z" /><path d="M2.5 12.5L12 17.5l9.5-5" /><path d="M2.5 16.5L12 21.5l9.5-5" /></>,
   flag: <><path d="M5 21V4" /><path d="M5 4h12l-2.5 4.5L17 13H5" /></>,
   save: <><path d="M5 3.5h11l3.5 3.5v12.5a1 1 0 0 1-1 1H5a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 5 3.5z" /><path d="M7.5 3.5v5h8v-5M7.5 20.5v-6h9v6" /></>,
+  // (a family's root: a hub, as the graph draws a family, a star round it)
+  root: <><circle {...FILL} cx="12" cy="12" r="3.4" /><path d="M12 8.6V5.2M8.8 11L5.9 10M10 14.8l-1.9 2.6M14 14.8l1.9 2.6M15.2 11l2.9-1" />
+    <circle cx="12" cy="3.8" r="1.5" /><circle cx="4.4" cy="9.5" r="1.5" /><circle cx="7.2" cy="18.6" r="1.5" /><circle cx="16.8" cy="18.6" r="1.5" /><circle cx="19.6" cy="9.5" r="1.5" /></>,
   prev: <><path {...FILL} d="M18 6.6v10.8a.9.9 0 0 1-1.4.75L9 12.75a.9.9 0 0 1 0-1.5l7.6-5.4A.9.9 0 0 1 18 6.6z" /><path d="M6.5 6v12" /></>,
   next: <><path {...FILL} d="M6 6.6v10.8a.9.9 0 0 0 1.4.75L15 12.75a.9.9 0 0 0 0-1.5L7.4 5.85A.9.9 0 0 0 6 6.6z" /><path d="M17.5 6v12" /></>,
 } as const

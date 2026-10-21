@@ -2,6 +2,7 @@
 // suggestions; each can be confirmed (or undone), marked a near duplicate of the root, or taken out. The family plays
 // as a queue; the songs most like this one outside it are one click from joining.
 import type { Families } from '../../api/types'
+import { Icon } from '../../shell/Icon'
 import { colour, hue, label, type FamilyView, type Link } from './model'
 
 export function FamilyCard({ F, fv, sel, playing, onPlay, onSet, onOut, onConfirmAll, onQueue }: {
@@ -21,10 +22,11 @@ export function FamilyCard({ F, fv, sel, playing, onPlay, onSet, onOut, onConfir
             {f.members.map(x => {
               const rel = x === f.root ? null : fv.relation(x, f.root)
               return (
-                <div key={x} className={`fa-li ${x === sel ? 'sel' : ''} ${x === playing ? 'now' : ''} ${x !== f.root && !rel ? 'sugg' : ''}`}>
-                  <span className="dot" style={{ background: dot(x) }} />
+                <div key={x} className={`fa-li ${x === f.root ? 'root' : ''} ${x === sel ? 'sel' : ''} ${x === playing ? 'now' : ''} ${x !== f.root && !rel ? 'guess' : ''}`}>
+                  {x === f.root ? <span className="hub" style={{ color: dot(x) }} title="The family's root: every member is linked to it"><Icon name="root" /></span>
+                    : <span className="dot" style={{ background: dot(x) }} />}
                   <button className="lnk" onClick={() => onPlay(x)}>{label(x, F.items[x])}</button>
-                  {x === f.root ? <span className="root" title="The family's root: every member is linked to it">root</span> : <>
+                  {x !== f.root && <>
                     <button className={`okb ${rel ? 'on' : ''}`} title={rel ? 'Confirmed: click to undo (back to the sort’s suggestion)' : 'The sort’s suggestion: click to confirm it belongs'}
                       onClick={() => onSet(x, f.root, rel ? null : 'match')}>✓</button>
                     <button className={`dupb ${rel === 'dup' ? 'on' : ''}`} title={rel === 'dup' ? 'A near duplicate of the root: click for just a match' : 'A near duplicate of the root'}
