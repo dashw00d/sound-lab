@@ -1,6 +1,10 @@
 /* The player's bar at the foot of every page, and the blind rating (the bar's lane, the Mixer's session list). */
 .pbar { flex: none; display: flex; flex-direction: column; padding: 0 18px; border-top: 1px solid var(--line-2); background: linear-gradient(180deg, #0e1016, var(--bg-2)); position: relative; z-index: 4; }
-.pb-row { display: flex; align-items: center; gap: 18px; height: 74px; }
+.pb-row { display: flex; align-items: center; gap: 22px; height: 118px; }
+.pb-left { flex: none; width: 300px; display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+.pb-top { display: flex; align-items: center; gap: 18px; }
+.pb-right { flex: none; width: 196px; display: flex; flex-direction: column; gap: 10px; }
+.pb-bottom { display: flex; align-items: center; gap: 8px; }
 .pbar.off { flex-direction: row; align-items: center; }
 .pbar.off { height: 40px; font-size: 12px; }
 .pb-tr { display: flex; align-items: center; gap: 8px; }
@@ -13,16 +17,16 @@
 .beats i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, .1); transition: background .06s; }
 .beats i.on { background: var(--accent-2); box-shadow: 0 0 10px var(--accent-2); }
 .beats i.on:first-child { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-.pb-now { display: flex; flex-direction: column; gap: 1px; width: 250px; flex: none; min-width: 0; }
+.pb-now { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .pb-now b, .pb-now small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pb-now b { font: 500 12.5px var(--mono); } .pb-now small { font: 500 11px var(--mono); color: var(--faint); }
 .pb-lane { flex: 1; min-width: 0; overflow: hidden; }
 .pb-levels { display: flex; gap: 6px; }
-.pb-lvl { width: 92px; display: flex; flex-direction: column; gap: 5px; padding: 6px 9px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--raised); text-align: left; font-size: 12px; color: var(--dim); }
+.pb-lvl { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; padding: 6px 9px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--raised); text-align: left; font-size: 12px; color: var(--dim); }
 .pb-lvl.on { border-color: var(--accent-line); background: var(--accent-soft); color: var(--text); }
 .pb-lvl .vu { height: 3px; background: rgba(255, 255, 255, .06); border-radius: 3px; overflow: hidden; }
 .pb-lvl .vu div { height: 100%; width: 0; background: var(--grad); }
-.pb-spec { width: 180px; height: 44px; display: block; flex: none; }
+.pb-spec { flex: 1; min-width: 0; height: 26px; display: block; }
 
 /* ---- rating: the lane (what plays now and the few before) and the session list */
 .lane { display: flex; gap: 6px; align-items: center; overflow: hidden; justify-content: flex-end; }
@@ -61,7 +65,7 @@
 .pb-vol { display: flex; align-items: center; gap: 6px; }
 .pb-vol button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: none; color: var(--dim); display: grid; place-items: center; }
 .pb-vol button:hover { color: var(--text); background: var(--hover); } .pb-vol.muted button { color: var(--bad); }
-.pb-vol input[type=range] { -webkit-appearance: none; appearance: none; width: 96px; height: 4px; border-radius: 4px; padding: 0; border: 0; cursor: pointer;
+.pb-vol input[type=range] { -webkit-appearance: none; appearance: none; width: 70px; height: 4px; border-radius: 4px; padding: 0; border: 0; cursor: pointer;
   background: linear-gradient(90deg, var(--accent) 0 var(--v), rgba(255, 255, 255, .1) var(--v) 100%); }
 .pb-vol input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(154, 140, 255, .35), 0 2px 6px rgba(0, 0, 0, .5); }
 .pb-vol input[type=range]::-moz-range-thumb { width: 13px; height: 13px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(154, 140, 255, .35); }

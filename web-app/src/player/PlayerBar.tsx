@@ -1,7 +1,7 @@
-// The player's bar, at the foot of every page: back / play / skip, the clock and its beats, what plays now and next,
-// the blind lane while the walk plays (stars per block, a thumb per transition) or the queue while one plays (click a
-// song to go to it; a page fills it, e.g. the songs chosen on the Families graph), the two levels (mellow, intense)
-// with their meters, and the spectrum. Space with nothing playing plays the queue when there is one, else the walk:
+// The player's bar, at the foot of every page: back / play / skip / to the next transition, the clock and its beats,
+// what plays now and next; the timeline (each block to rate as it plays, blind on the walk, a thumb per transition; a
+// queue's songs, which a page fills, e.g. the songs chosen on the Families graph); the two levels (mellow, intense) with
+// their meters, the volume and the spectrum. Space with nothing playing plays the queue when there is one, else the walk:
 // the game's music.
 import { useEffect, useRef, useState } from 'react'
 import { useFamilies } from '../data/resources'
@@ -57,37 +57,45 @@ function Bar({ m }: { m: Mixer }) {
   return (
     <footer className="pbar">
       <div className="pb-row">
-      <div className="pb-tr">
-        <button className="iconbtn" disabled={!walk && !inQueue} title={inQueue ? 'Back: this song from its start; twice: the one before (←)' : 'Back: the transition into this block again; twice: the one before (←)'} onClick={() => m.back()}><Icon name="prev" /></button>
-        <button className="playbtn" title={snap.playing ? 'Stop (Space)' : queue ? 'Play the queue (Space)' : 'Play the walk (Space)'} onClick={() => (snap.playing ? m.stop() : m.playDefault())}><Icon name={snap.playing ? 'stop' : 'play'} /></button>
-        <button className="iconbtn" disabled={!walk && !inQueue} title={inQueue ? 'The next song (→)' : 'Skip to a new run (→)'} onClick={() => m.skip()}><Icon name="next" /></button>
-        <button className="iconbtn tr" disabled={!walk && !inQueue} title={inQueue ? 'To 2 bars before the next song (.)' : 'Move on at the next phrase end: to the next transition (.)'} onClick={() => m.nextTransition()}><Icon name="arrow" /></button>
-      </div>
-      <div className="pb-clock">
-        <div className="big">{snap.clock.big}<small>{snap.clock.small}</small></div>
-        <div className="beats">{Array.from({ length: m.lib.bar_beats }, (_, i) => <i key={i} className={i === snap.beat ? 'on' : ''} />)}</div>
-      </div>
-      <div className="pb-now">
-        <span className="lbl">{snap.mode ? MODE[snap.mode] : 'Stopped'}{inQueue && queue && snap.qi != null ? ` · ${snap.qi + 1} of ${queue.length}` : ''}
-          {queue && <button className="pb-clear" title="Clear the queue (Play then plays the walk)" onClick={() => m.setQueue(null)}>queue of {queue.length} <Icon name="x" /></button>}</span>
-        <b>{snap.playing ? snap.now : queue ? `Space plays the queue: ${queue.length} songs` : 'Space plays the walk'}</b>
-        {snap.playing && <small>next: {snap.next}</small>}
-      </div>
-      <TimelineStrip m={m} />
-      <div className="pb-levels">
-        {STATES.map((st, i) => (
-          <button key={st} className={`pb-lvl ${m.state === st ? 'on' : ''}`} title={`${st === 'mellow' ? 'calm' : m.prefs.intense} level (${i + 1}; X switches)`} onClick={() => m.setState(st)}>
-            <span>{st}</span><div className="vu"><div ref={el => { meters.current[st] = el }} /></div>
-          </button>
-        ))}
-      </div>
-      <div className={`pb-vol ${muted ? 'muted' : ''}`}>
-        <button title={muted ? 'Unmute (M)' : 'Mute (M)'} onClick={() => setMuted(x => !x)}><Icon name={muted || vol === 0 ? 'mute' : 'volume'} /></button>
-        <input type="range" min={0} max={1} step={0.01} value={vol} aria-label="Volume" title={`Volume ${Math.round(100 * vol)}%`}
-          style={{ ['--v' as string]: `${(muted ? 0 : vol) * 100}%` }}
-          onChange={e => { setVol(Number(e.target.value)); if (muted) setMuted(false) }} />
-      </div>
-      <canvas className="pb-spec" ref={spec} />
+        <div className="pb-left">
+          <div className="pb-top">
+            <div className="pb-tr">
+              <button className="iconbtn" disabled={!walk && !inQueue} title={inQueue ? 'Back: this song from its start; twice: the one before (←)' : 'Back: the transition into this block again; twice: the one before (←)'} onClick={() => m.back()}><Icon name="prev" /></button>
+              <button className="playbtn" title={snap.playing ? 'Stop (Space)' : queue ? 'Play the queue (Space)' : 'Play the walk (Space)'} onClick={() => (snap.playing ? m.stop() : m.playDefault())}><Icon name={snap.playing ? 'stop' : 'play'} /></button>
+              <button className="iconbtn" disabled={!walk && !inQueue} title={inQueue ? 'The next song (→)' : 'Skip to a new run (→)'} onClick={() => m.skip()}><Icon name="next" /></button>
+              <button className="iconbtn tr" disabled={!walk && !inQueue} title={inQueue ? 'To 2 bars before the next song (.)' : 'Move on at the next phrase end: to the next transition (.)'} onClick={() => m.nextTransition()}><Icon name="arrow" /></button>
+            </div>
+            <div className="pb-clock">
+              <div className="big">{snap.clock.big}<small>{snap.clock.small}</small></div>
+              <div className="beats">{Array.from({ length: m.lib.bar_beats }, (_, i) => <i key={i} className={i === snap.beat ? 'on' : ''} />)}</div>
+            </div>
+          </div>
+          <div className="pb-now">
+            <span className="lbl">{snap.mode ? MODE[snap.mode] : 'Stopped'}{inQueue && queue && snap.qi != null ? ` · ${snap.qi + 1} of ${queue.length}` : ''}
+              {queue && <button className="pb-clear" title="Clear the queue (Play then plays the walk)" onClick={() => m.setQueue(null)}>queue of {queue.length} <Icon name="x" /></button>}</span>
+            <b>{snap.playing ? snap.now : queue ? `Space plays the queue: ${queue.length} songs` : 'Space plays the walk'}</b>
+            {snap.playing && <small>next: {snap.next}</small>}
+          </div>
+        </div>
+        <TimelineStrip m={m} />
+        <div className="pb-right">
+          <div className="pb-levels">
+            {STATES.map((st, i) => (
+              <button key={st} className={`pb-lvl ${m.state === st ? 'on' : ''}`} title={`${st === 'mellow' ? 'calm' : m.prefs.intense} level (${i + 1}; X switches)`} onClick={() => m.setState(st)}>
+                <span>{st}</span><div className="vu"><div ref={el => { meters.current[st] = el }} /></div>
+              </button>
+            ))}
+          </div>
+          <div className="pb-bottom">
+            <div className={`pb-vol ${muted ? 'muted' : ''}`}>
+              <button title={muted ? 'Unmute (M)' : 'Mute (M)'} onClick={() => setMuted(x => !x)}><Icon name={muted || vol === 0 ? 'mute' : 'volume'} /></button>
+              <input type="range" min={0} max={1} step={0.01} value={vol} aria-label="Volume" title={`Volume ${Math.round(100 * vol)}%`}
+                style={{ ['--v' as string]: `${(muted ? 0 : vol) * 100}%` }}
+                onChange={e => { setVol(Number(e.target.value)); if (muted) setMuted(false) }} />
+            </div>
+            <canvas className="pb-spec" ref={spec} />
+          </div>
+        </div>
       </div>
     </footer>
   )

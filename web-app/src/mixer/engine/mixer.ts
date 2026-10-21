@@ -36,6 +36,7 @@ export class Mixer {
   private tape: Chunk[] = []
   /** What played before the plan was last begun again (a seek, Back, a skip): the timeline's history, 150 s of it. */
   private past: Chunk[] = []
+  private t0: number | null = null  // (when what the timeline holds began: its times count from here)
   private bseq = 0
   private gen = 0
   private timer = 0
@@ -159,15 +160,18 @@ export class Mixer {
   async play(script: Chunk[] | null = null, from: Part | null = null, opts: { pin?: boolean; tag?: string; queue?: QueueItem[]; at?: number; ffw?: number } = {}) {
     ++this.gen
     const queue = !script && opts.queue?.length ? opts.queue : null, pin = !script && !queue && !!from && !!opts.pin
+    // (the timeline keeps what played when the walk goes on, or the same queue plays on: '.', Back, a song chosen in it)
+    const keep = (!script && !!from && !pin) || (!!queue && this.queueOn && this.queue === queue)
     if (!script && from && !pin) { let n = this.tape.length; while (n > 0 && !this.tape[n - 1].heard) n--; this.tape.length = n }
-    else if (!script) { this.tape = []; this.past = [] }
-    if (script) this.past = []
+    else if (!script) this.tape = []
     this.replay = null
     if (script || pin || queue) this.sess = null
     else if (!from || !this.sess) this.sess = new Session(() => this.prefs)
     if (!script?.some(c => c.rev != null)) this.review.cur = null
     if (audio().state === 'suspended') await audio().resume()
     this.halt()
+    if (!keep) { this.past = []; this.t0 = null }
+    else if (queue) for (const c of this.past) c.tapeIdx = undefined  // (the tape starts again: what played is reached through the queue)
     if (!script && !pin && !queue && !this.walk.pool().length) { toast('Add some parts first'); return }
     this.script = script ? [...script] : null
     this.pinned = pin; this.queueOn = !!queue; this.tag = opts.tag ?? null; this.meeting = null
@@ -230,6 +234,13 @@ export class Mixer {
    * where there's nothing to play from (a script: an audition has no tape). */
   seekTo(t: number): boolean {
     if (!this.playing || this.script) return false
+    if (this.mode === 'queue' && this.queue) {  // (a queue: that song again, so many bars in)
+      const all = [...this.past, ...this.plan], c = all.find(x => !x.skipped && x.T! <= t && t < x.end! && x.run?.qi != null)
+      if (!c) return false
+      const began = all.find(x => x.run === c.run && !x.skipped)!.T!
+      void this.play(null, null, { queue: this.queue, at: c.run!.qi!, ffw: Math.max(0, Math.floor((t - began) / this.jd.barS())) })
+      return true
+    }
     const c = [...this.past, ...this.plan].find(x => !x.skipped && x.T! <= t && t < x.end! && x.tapeIdx != null)
     if (!c) return false
     this.replayFrom(c.tapeIdx!, Math.max(0, Math.floor((t - c.T!) / this.jd.barS())))
@@ -254,7 +265,8 @@ export class Mixer {
       // (scaled to its own quietest and loudest beats, within a floor of 9 dB: the music's swell, not a flat bar)
       const db = shape.filter(v => v < 0), lo = db.length ? Math.min(...db) : 0, hi = db.length ? Math.max(...db) : 0, span = Math.max(9, hi - lo)
       for (let k = 0; k < shape.length; k++) if (shape[k] < 0) shape[k] = 0.18 + 0.82 * Math.max(0, (shape[k] - (hi - span)) / span)
-      return { key, kind: b.kind, T: b.T, end: b.end, bars: b.bars, track: b.track ?? null, label: blind ? null : b.kind === 'part' ? (t ? name(t) : b.track ?? '') : b.kind, shape,
+      return { key, id: `${key}@${b.T.toFixed(2)}`, kind: b.kind, T: b.T, end: b.end, bars: b.bars, track: b.track ?? null, qi: b.run?.qi ?? null,
+        label: blind ? null : b.kind === 'part' ? (t ? name(t) : b.track ?? '') : b.kind, shape,
         bar: b.bar, rating: sess?.stars.get(key) ?? 0, like: sess?.likes.get(key) ?? 0, rated: !!sess && sess.rec.has(key), next: i < bl.length - 1 }
     })
     const ghosts: { qi: number; label: string; T: number; end: number }[] = []
@@ -266,7 +278,8 @@ export class Mixer {
         ghosts.push({ qi: qi % q.length, label: it.label, T: at, end: at + bars * barS }); at += bars * barS
       }
     }
-    return { now: this.now(), barS, beats: this.lib.bar_beats, blocks, ghosts, origin: this.plan[0]?.T ?? this.now() }
+    if (this.t0 == null && blocks.length) this.t0 = blocks[0].T
+    return { now: this.now(), barS, beats: this.lib.bar_beats, blocks, ghosts, origin: this.t0 ?? this.now() }
   }
   /** To just before the next transition (2026-10-21, the designer: "easy to skip to right before transitions to save
    * time"): in a queue, the song playing from 2 bars before it ends; on the walk, the song playing is done and the walk
