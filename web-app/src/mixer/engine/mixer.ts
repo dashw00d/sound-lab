@@ -227,6 +227,14 @@ export class Mixer {
     void this.play([this.part(a, LEN - 2, 2), ...mid, this.part(b)])
   }
   playPart(p: Part) { void this.play([this.part(p)]) }
+  /** Two songs meeting, both ways, near the cuts (2026-10-21, the designer: "skip to only near the transition ... I'm
+   * just listening to the same thing for minutes"): a's 2 bars before it leaves (the end of its first 8 bars from its
+   * entry, inside its loop), into b's first 4 bars, back into a's first 3; about 25 seconds, then it stops. */
+  playMeeting(a: string, b: string, tag = `${a}~${b}`) {
+    const [, hiA] = this.jd.cueOf(a), eA = this.jd.entryOf(a), exit = Math.min(hiA, eA + 7)
+    void this.play([this.part({ track: a, start: Math.max(1, exit - 1) }, 0, 2), this.part({ track: b, start: this.jd.entryOf(b) }, 0, 4),
+                    this.part({ track: a, start: eA }, 0, 3)], null, { tag })
+  }
   playGlue(gid: string) { void this.play([{ kind: 'glue', bar: 1, glue: gid, bars: this.prefs.glueBars }]) }
 
   /** A song made ready ahead: its mellow and intense levels decoded into the player's cache (a song chosen, the next in

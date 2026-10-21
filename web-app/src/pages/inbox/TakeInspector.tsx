@@ -30,10 +30,11 @@ export function TakeInspector({ t, onPlay, onAnswer }: { t: Take; onPlay: () => 
   }, [fv, F, t.id])
   // (hear a suggestion: the scene's root alone, or this take and the root in turn, both transitions heard)
   const hearRoot = (root: string) => { const it = F?.items[root]; if (!m || !it?.src.calm) return; m.ensure(root, it.src); m.playSong(root) }
-  const together = (root: string) => {
+  const together = (root: string) => {  // (only where they meet: into it and back, about 25 seconds)
     const it = F?.items[root]; if (!m || !F || !it?.src.calm || !t.src.calm) return
     m.ensure(t.id, t.src); m.ensure(root, it.src)
-    m.playQueue([{ id: t.id, label: `${t.style} · ${t.take}` }, { id: root, label: label(root, it) }])
+    if (m.playing && m.tag === `${t.id}~${root}`) { m.stop(); return }
+    m.playMeeting(t.id, root)
   }
   const join = async (root: string) => {
     if (!fv || !F) return
@@ -92,7 +93,7 @@ export function TakeInspector({ t, onPlay, onAnswer }: { t: Take; onPlay: () => 
               <span className="nm"><span className="sw2" style={{ background: colour(hue(fid)) }} /><b>{label(b.root, F!.items[b.root])}</b> <span className="dim">scene of {b.size} · {b.why}</span></span>
               <span className="hear">
                 <button className={m?.mode === 'song' && m.tag === b.root ? 'on' : ''} title="Hear the scene's root alone" onClick={() => (m?.mode === 'song' && m.tag === b.root ? m.stop() : hearRoot(b.root))}><Icon name={m?.mode === 'song' && m.tag === b.root ? 'stop' : 'play'} /></button>
-                <button className={m?.mode === 'queue' && m.queue?.length === 2 && m.queue[0].id === t.id && m.queue[1].id === b.root ? 'on' : ''} title="Hear this take and the root in turn (each for Stay bars), both ways across" onClick={() => together(b.root)}>⇄</button>
+                <button className={m?.playing && m.tag === `${t.id}~${b.root}` ? 'on' : ''} title="Hear them meet, both ways: 2 bars of this take into the root, 4 of the root, back into this take (about 25 seconds)" onClick={() => together(b.root)}>⇄</button>
               </span>
               <button className="addb" title="It belongs in this scene (a link to its root: the same vote as dragging it there in Scenes)" onClick={() => void join(b.root)}>+</button>
             </div>
@@ -107,7 +108,7 @@ export function TakeInspector({ t, onPlay, onAnswer }: { t: Take; onPlay: () => 
               <span className="nm"><b>{label(o, F!.items[o])}</b></span>
               <span className="hear">
                 <button className={m?.mode === 'song' && m.tag === o ? 'on' : ''} title="Hear it alone" onClick={() => (m?.mode === 'song' && m.tag === o ? m.stop() : hearRoot(o))}><Icon name={m?.mode === 'song' && m.tag === o ? 'stop' : 'play'} /></button>
-                <button title="Hear this take and it in turn, both ways across" onClick={() => together(o)}>⇄</button>
+                <button className={m?.playing && m.tag === `${t.id}~${o}` ? 'on' : ''} title="Hear them meet, both ways: 2 bars of this take into it, 4 of it, back into this take (about 25 seconds)" onClick={() => together(o)}>⇄</button>
               </span>
               <Energy value={F!.items[o].energy ?? null} />
             </div>
