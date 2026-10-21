@@ -13,6 +13,7 @@ SA3_SRC = RUNTIME / "stable-audio-3"  # Stability-AI/stable-audio-3, installed i
 CONFIG = RUNTIME / "config.json"  # written by install.py (where the model cache is)
 MODEL_REPO = "cocktailpeanut/stable-audio-3-medium"  # an ungated mirror of stabilityai/stable-audio-3-medium
 WEB = Path(__file__).resolve().parent / "web"
+WEBAPP = Path(__file__).resolve().parent / "webapp"  # (the TS + React app, built from web-app/ by `npm run build`; served at /app/)
 
 
 def venv_python() -> Path:

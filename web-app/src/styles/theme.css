@@ -1,0 +1,25 @@
+/* The lab's look, as the old pages have it (soundlab/web/style.css :root). */
+@font-face { font-family: "Geist"; src: url("/web/fonts/geist.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Geist Mono"; src: url("/web/fonts/geist-mono.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+:root {
+  color-scheme: dark;
+  --bg: #0a0b0f; --bg-2: #0d0f14; --panel: #12141a; --raised: #171a21; --hover: #1d2029; --press: #232733;
+  --line: rgba(255, 255, 255, .055); --line-2: rgba(255, 255, 255, .09); --line-3: rgba(255, 255, 255, .15);
+  --text: #eceef4; --dim: #9196a7; --faint: #5f6475;
+  --accent: #9486ff; --accent-2: #5bd6ff; --accent-soft: rgba(148, 134, 255, .13); --accent-line: rgba(148, 134, 255, .5);
+  --good: #4fdc9b; --good-soft: rgba(79, 220, 155, .12); --bad: #ff6b7f; --bad-soft: rgba(255, 107, 127, .12);
+  --pick: #ffc857; --pick-soft: rgba(255, 200, 87, .1); --pick-line: rgba(255, 200, 87, .55);
+  --r: 12px; --r-sm: 9px;
+  --font: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { font: 13.5px/1.5 var(--font); color: var(--text); background: var(--bg); letter-spacing: -.003em; }
+button { font: inherit; color: inherit; cursor: pointer; }
+kbd { font: 500 10.5px/16px var(--mono); color: var(--dim); padding: 0 5px; border: 1px solid var(--line-3); border-radius: 5px; margin-left: 6px; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--r-sm); background: var(--raised); border: 1px solid var(--line-2); }
+.btn:hover { border-color: var(--line-3); } .btn.on { border-color: var(--accent-line); background: var(--accent-soft); }
+.btn.good { color: var(--good); } .btn.bad { color: var(--bad); } .btn.primary { background: var(--accent); color: #0a0b0f; border-color: transparent; }
+.dim { color: var(--faint); } .mono { font-family: var(--mono); }
+.lbl { font: 500 10.5px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .06em; }

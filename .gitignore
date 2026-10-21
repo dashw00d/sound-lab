@@ -1,5 +1,5 @@
 # Installed by install.py: the Python environment, the Stable Audio 3 code and the model weights (~10 GB).
-/runtime/
+/runtime
 # Python
 __pycache__/
 *.pyc
@@ -9,3 +9,6 @@ __pycache__/
 *.tmp
 # Projects' work folders (takes, index, measurements): generated, but not disposable
 /work/
+# The TS + React app: its dependencies and build output
+/web-app/node_modules/
+/soundlab/webapp/

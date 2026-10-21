@@ -9,7 +9,9 @@
   POST /api/mixes           {name, parts | null}: save a set of parts under a name (null: delete it)
   GET  /api/mixer           the Mixer's settings (data/mixer.json), so they're the same in any browser
   POST /api/mixer           {settings}: save them
+  GET  /api/votes           votes.json alone
   GET  /api/families        every song sorted into families, and the queue of what to judge next (work/families.json)
+  POST /api/families/rebuild   sort the families again now (in the background; /api/stamp's "families" changes when done)
   GET  /api/streams         the Mixer's listening sessions (data/streams.json), for the review of low-rated blocks
   POST /api/review          {stream, block, piece, mode, note?}: the piece the designer marked as what spoiled a block
   POST /api/stream          {id, settings, stream}: a Mixer listening session, in the order it played: each block
@@ -57,6 +59,7 @@ mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("font/woff2", ".woff2")
 mimetypes.add_type("image/svg+xml", ".svg")
 LOCK = threading.Lock()
+REBUILD = threading.Lock()  # (a families sort running)
 LOOPBACK = {"127.0.0.1", "localhost", "[::1]", "::1"}
 
 
@@ -269,6 +272,10 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                 self.send_page()
             elif url.startswith("/web/"):
                 self.send_file(_inside(paths.WEB, url[5:]))
+            elif url == "/app" or url.startswith("/app/"):  # (the TS + React app: its files, else its page, for its own routes)
+                rel = url[5:]
+                f = _inside(paths.WEBAPP, rel) if rel else None
+                self.send_file(f if f and f.is_file() else _inside(paths.WEBAPP, "index.html"))
             elif url == "/api/state":
                 with LOCK:
                     shipped = {n: p.get("clip") for n, p in Store.read(st.promoted_path, {}).items()}
@@ -283,6 +290,8 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                 from . import candidates, music
                 with LOCK:  # (the new takes, scored, ride along: the Mixer adds them to the walk when asked)
                     self.send_json(music.library(proj) | dict(candidates=candidates.mixer_tracks(proj)))
+            elif url == "/api/votes":  # (the decisions alone, without the index: what the new app's pages poll)
+                self.send_json(st.votes())
             elif url == "/api/families":
                 f = Store.read(proj.work / "families.json", {})
                 for it in f.get("items", {}).values():
@@ -405,6 +414,21 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                 with LOCK:
                     st.write(st.mixer_settings_path, new, sort=True)
                     self.send_json(dict(ok=True))
+                return
+            if url == "/api/families/rebuild":  # (one sort at a time, in the background: it takes half a minute)
+                from . import families
+                if not REBUILD.acquire(blocking=False):
+                    self.send_json(dict(started=False, busy=True))
+                    return
+                def run():
+                    try:
+                        families.build(proj)
+                    except Exception:
+                        traceback.print_exc()
+                    finally:
+                        REBUILD.release()
+                threading.Thread(target=run, daemon=True).start()
+                self.send_json(dict(started=True))
                 return
             if url == "/api/review":  # (a mark on a low-rated block's piece: data/reviews.json, a list)
                 msg = self.body()

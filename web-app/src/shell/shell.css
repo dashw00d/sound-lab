@@ -1,0 +1,9 @@
+.shell { display: flex; flex-direction: column; height: 100%; }
+.top { display: flex; align-items: center; gap: 14px; height: 52px; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--bg-2); flex: none; }
+.brand { color: var(--text); text-decoration: none; font-weight: 600; font-size: 15px; } .brand b { color: var(--accent); font-weight: 600; }
+.proj { font: 500 11px var(--mono); color: var(--dim); padding: 2px 8px; border: 1px solid var(--line-2); border-radius: 999px; }
+.top nav { display: flex; gap: 4px; margin-left: 10px; }
+.top nav a { color: var(--dim); text-decoration: none; padding: 5px 11px; border-radius: 8px; border: 1px solid transparent; }
+.top nav a:hover { color: var(--text); background: var(--hover); } .top nav a.on { color: var(--text); border-color: var(--line-2); background: var(--raised); }
+.top nav a.old { margin-left: 14px; color: var(--faint); }
+main { flex: 1; min-height: 0; position: relative; }
