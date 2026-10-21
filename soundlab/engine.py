@@ -32,12 +32,18 @@ class Engine:
         self.last_s = 0.0
 
     def generate(self, prompt: str, seconds: float, seed: int, init: np.ndarray | None = None,
-                 noise: float = 1.0) -> np.ndarray:
+                 noise: float = 1.0, keep: np.ndarray | None = None,
+                 fill: list[tuple[float, float]] | None = None) -> np.ndarray:
         """`seconds` of stereo audio, (samples, 2) float64. With `init` (audio at SR), audio-to-audio: `noise`
-        sets how far it may move from it (0.5 keeps rhythm and chords; 0.7 rearranges)."""
+        sets how far it may move from it (0.5 keeps rhythm and chords; 0.7 rearranges). With `keep` (audio at SR,
+        the window's length) and `fill` ([(start s, end s)]), inpainting: the model writes the `fill` spans to fit
+        the audio kept around them (a continuation is one span to the end; a bridge, one span between two parts)."""
         kw = {}
         if init is not None:
             kw = dict(init_audio=(SR, self.torch.from_numpy(init.T.astype(np.float32))), init_noise_level=noise)
+        if keep is not None:
+            kw |= dict(inpaint_audio=(SR, self.torch.from_numpy(keep.T.astype(np.float32))),
+                       inpaint_mask_start_seconds=[a for a, _ in fill], inpaint_mask_end_seconds=[b for _, b in fill])
         t0 = time.perf_counter()
         out = self.model.generate(prompt=prompt, duration=seconds, seed=seed, sample_size=self.sample_size, **kw)
         if self.torch.cuda.is_available():

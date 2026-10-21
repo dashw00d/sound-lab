@@ -152,6 +152,34 @@
     }
   };
 
+  // A live spectrum: log-frequency bars from an analyser (`spec` its Float32Array of bins); dim and flat when not live.
+  // (The Music and Songs pages' transport.)
+  Lab.drawSpectrum = function (cv, an, spec, live) {
+    if (!cv) return;
+    const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+    if (!w) return;
+    if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    const g = cv.getContext("2d");
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+    const n = Math.max(24, Math.floor(w / 7)), bw = w / n - 2, sr = Lab.actx.sampleRate, bin = sr / an.fftSize, fmin = 35, fmax = 16000;
+    if (live) an.getFloatFrequencyData(spec);
+    const grad = g.createLinearGradient(0, h, 0, 0);
+    grad.addColorStop(0, "#8b7bff"); grad.addColorStop(1, "#5bd6ff");
+    g.fillStyle = grad;
+    for (let i = 0; i < n; i++) {
+      let v = 0;
+      if (live) {
+        const b0 = Math.floor(fmin * Math.pow(fmax / fmin, i / n) / bin), b1 = Math.max(b0 + 1, Math.floor(fmin * Math.pow(fmax / fmin, (i + 1) / n) / bin));
+        let db = -200; for (let b = b0; b < b1; b++) if (spec[b] > db) db = spec[b];
+        v = Lab.clamp((db + 92) / 66, 0, 1);
+      }
+      const bh = Math.max(2, v * (h - 2)), x = i * (w / n) + 1;
+      g.globalAlpha = live ? .35 + .65 * v : .25;
+      g.beginPath(); g.roundRect ? g.roundRect(x, h - bh, bw, bh, 1.5) : g.rect(x, h - bh, bw, bh); g.fill();
+    }
+    g.globalAlpha = 1;
+  };
+
   // ---- spectrograms: a log-frequency STFT, coloured ink → violet → rose → gold
   function fft(re, im) {
     const n = re.length;

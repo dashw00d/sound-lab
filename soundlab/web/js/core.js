@@ -93,6 +93,7 @@ function inverse(msg) {
   if ("pick" in msg) { inv.sound = msg.sound; inv.pick = V.picks[msg.sound] ?? null; }
   if (msg.picks) inv.picks = Object.fromEntries(Object.keys(msg.picks).map(n => [n, V.picks[n] ?? null]));
   if ("note" in msg) { inv.sound = msg.sound; inv.note = V.notes[msg.sound] || ""; }
+  if ("cue" in msg) { inv.cue = msg.cue; inv.level = msg.level; inv.bars = ((V.cues || {})[msg.cue] || {})[msg.level] || null; }
   if ("prompt_note" in msg) {
     const old = ((V.prompt_notes || {})[msg.sound] || {})[msg.variant];
     Object.assign(inv, { sound: msg.sound, variant: msg.variant, prompt_note: old ? old.text : "", prompt: old ? old.prompt : msg.prompt, at: old ? old.at : undefined });

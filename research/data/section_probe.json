@@ -1,0 +1,1370 @@
+{
+ "date": "2026-10-20",
+ "bar_s": 2.6666666666666665,
+ "takes": {
+  "night.any.trailer.k2.close": {
+   "a": "tension",
+   "sections": {
+    "contrast": {
+     "prompt": "TrackType: Music, VocalType: Instrumental, Dark cinematic score in D aeolian with trombones playing a slow solemn theme over low strings holding dark chords and a soft drum ensemble marking the bar, creating brooding, dark calm. BPM: 90.",
+     "held": "2 of 6",
+     "listen": [
+      {
+       "file": "night.any.trailer.k2.close_section_contrast_s1.ogg",
+       "rank": 1,
+       "seed": 1,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.29,
+       "rise": -1.3,
+       "joins": [
+        -2.5,
+        0.4
+       ],
+       "key": 0.995,
+       "busy": 2.16
+      },
+      {
+       "file": "night.any.trailer.k2.close_section_contrast_s0.ogg",
+       "rank": 2,
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.16,
+       "rise": -0.4,
+       "joins": [
+        -2.3,
+        -1.2
+       ],
+       "key": 0.992,
+       "busy": 3.21
+      }
+     ],
+     "all": [
+      {
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.16,
+       "rise": -0.4,
+       "key": 0.992,
+       "busy": 3.21
+      },
+      {
+       "seed": 1,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.29,
+       "rise": -1.3,
+       "key": 0.995,
+       "busy": 2.16
+      },
+      {
+       "seed": 2,
+       "grid": 7,
+       "tempo": 90.0,
+       "ce": 7.21,
+       "rise": -0.3,
+       "key": 0.999,
+       "busy": 2.2
+      },
+      {
+       "seed": 3,
+       "grid": 2,
+       "tempo": 90.0,
+       "ce": 6.51,
+       "rise": 0.6,
+       "key": 0.999,
+       "busy": 2.88
+      },
+      {
+       "seed": 4,
+       "grid": 2,
+       "tempo": 91.0,
+       "ce": 6.41,
+       "rise": -1.3,
+       "key": 0.993,
+       "busy": 2.18
+      },
+      {
+       "seed": 5,
+       "grid": 8,
+       "tempo": 90.0,
+       "ce": 6.94,
+       "rise": 1.2,
+       "key": 0.998,
+       "busy": 2.27
+      }
+     ],
+     "a_busy": 3.19
+    },
+    "urgent": {
+     "prompt": "TrackType: Music, VocalType: Instrumental, Tense dark cinematic score in D aeolian with trombones playing a grim theme, low strings ticking a restless staccato ostinato and a drum ensemble tapping a quick, quiet pulse, creating anxious, urgent dread. BPM: 90.",
+     "held": "5 of 6",
+     "listen": [
+      {
+       "file": "night.any.trailer.k2.close_section_urgent_s0.ogg",
+       "rank": 1,
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.3,
+       "rise": 1.8,
+       "joins": [
+        -4.4,
+        -3.3
+       ],
+       "key": 0.977,
+       "busy": 4.52
+      },
+      {
+       "file": "night.any.trailer.k2.close_section_urgent_s1.ogg",
+       "rank": 2,
+       "seed": 1,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.3,
+       "rise": 0.8,
+       "joins": [
+        -1.3,
+        -1.9
+       ],
+       "key": 0.994,
+       "busy": 3.12
+      }
+     ],
+     "all": [
+      {
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.3,
+       "rise": 1.8,
+       "key": 0.977,
+       "busy": 4.52
+      },
+      {
+       "seed": 1,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.3,
+       "rise": 0.8,
+       "key": 0.994,
+       "busy": 3.12
+      },
+      {
+       "seed": 2,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.11,
+       "rise": 0.9,
+       "key": 0.994,
+       "busy": 2.32
+      },
+      {
+       "seed": 3,
+       "grid": 1,
+       "tempo": 91.0,
+       "ce": 6.14,
+       "rise": 1.4,
+       "key": 0.991,
+       "busy": 2.23
+      },
+      {
+       "seed": 4,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 6.57,
+       "rise": -0.9,
+       "key": 0.979,
+       "busy": 2.13
+      },
+      {
+       "seed": 5,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.28,
+       "rise": 2.9,
+       "key": 0.977,
+       "busy": 3.12
+      }
+     ],
+     "a_busy": 3.19
+    },
+    "intense": {
+     "prompt": "TrackType: Music, VocalType: Instrumental, Epic dark cinematic battle score in D aeolian with trombones blasting the grim theme, low strings racing a fast ostinato and the drum ensemble pounding every beat, creating fierce, violent energy. BPM: 90.",
+     "held": "3 of 6",
+     "listen": [
+      {
+       "file": "night.any.trailer.k2.close_section_intense_s0.ogg",
+       "rank": 1,
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.14,
+       "rise": 4.2,
+       "joins": [
+        -0.6,
+        -5.6
+       ],
+       "key": 0.952,
+       "busy": 3.66
+      },
+      {
+       "file": "night.any.trailer.k2.close_section_intense_s2.ogg",
+       "rank": 2,
+       "seed": 2,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.08,
+       "rise": 1.5,
+       "joins": [
+        -0.7,
+        -2.7
+       ],
+       "key": 0.994,
+       "busy": 2.88
+      }
+     ],
+     "all": [
+      {
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.14,
+       "rise": 4.2,
+       "key": 0.952,
+       "busy": 3.66
+      },
+      {
+       "seed": 1,
+       "grid": 12,
+       "tempo": 90.0,
+       "ce": 7.38,
+       "rise": 2.3,
+       "key": 0.987,
+       "busy": 3.56
+      },
+      {
+       "seed": 2,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.08,
+       "rise": 1.5,
+       "key": 0.994,
+       "busy": 2.88
+      },
+      {
+       "seed": 3,
+       "grid": 0,
+       "tempo": 90.6,
+       "ce": 5.9,
+       "rise": 3.5,
+       "key": 0.982,
+       "busy": 3.16
+      },
+      {
+       "seed": 4,
+       "grid": 2,
+       "tempo": 93.0,
+       "ce": 6.08,
+       "rise": 0.3,
+       "key": 0.973,
+       "busy": 1.83
+      },
+      {
+       "seed": 5,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 6.82,
+       "rise": 5.7,
+       "key": 0.969,
+       "busy": 3.28
+      }
+     ],
+     "a_busy": 3.19
+    }
+   },
+   "bridges": {
+    "now": {
+     "file": "night.any.trailer.k2.close_bridge_now.ogg"
+    },
+    "bridge2": {
+     "file": "night.any.trailer.k2.close_bridge2_s0.ogg",
+     "seed": 0,
+     "grid": "6 of 6",
+     "ce": 6.47,
+     "held": "2 of 4"
+    },
+    "bridge4": {
+     "file": "night.any.trailer.k2.close_bridge4_s0.ogg",
+     "seed": 0,
+     "grid": "8 of 8",
+     "ce": 6.81,
+     "held": "3 of 4"
+    }
+   },
+   "strip": {
+    "today": {
+     "file": "night.any.trailer.k2.close_levels_today.ogg",
+     "onsets": [
+      1.85,
+      3.19,
+      4.36
+     ],
+     "lufs": [
+      -24.0,
+      -20.0,
+      -15.0
+     ]
+    },
+    "strip": {
+     "file": "night.any.trailer.k2.close_levels_strip.ogg",
+     "onsets": [
+      4.29,
+      4.08,
+      4.36
+     ],
+     "lufs": [
+      -24.0,
+      -20.0,
+      -15.0
+     ],
+     "rest_file": "night.any.trailer.k2.close_rest_alone.ogg"
+    }
+   },
+   "song": {
+    "file": "night.any.trailer.k2.close_song.ogg",
+    "seconds": 192.0,
+    "parts": "A (16) \u00b7 contrast s1 (16) \u00b7 A (16) \u00b7 intense s0 (16) \u00b7 A (8, the loop back)",
+    "grid": [
+     16,
+     16
+    ]
+   }
+  },
+  "night.any.violinbed.k0.stack": {
+   "a": "calm",
+   "sections": {
+    "contrast": {
+     "prompt": "TrackType: Music, VocalType: Instrumental, Genre: Cinematic, Genre: Orchestral, Genre: Medieval. Dark cinematic score in D minor with a solo violin playing a slow, haunting two-bar theme that repeats, low strings holding long dark chords and the cello playing a slow bass line, creating dark, mournful calm. BPM: 90.",
+     "held": "6 of 6",
+     "listen": [
+      {
+       "file": "night.any.violinbed.k0.stack_section_contrast_s1.ogg",
+       "rank": 1,
+       "seed": 1,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.94,
+       "rise": -0.1,
+       "joins": [
+        -0.8,
+        -0.5
+       ],
+       "key": 0.979,
+       "busy": 4.97
+      },
+      {
+       "file": "night.any.violinbed.k0.stack_section_contrast_s2.ogg",
+       "rank": 2,
+       "seed": 2,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.94,
+       "rise": 0.4,
+       "joins": [
+        -0.9,
+        -1.1
+       ],
+       "key": 0.986,
+       "busy": 5.09
+      }
+     ],
+     "all": [
+      {
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.93,
+       "rise": 2.2,
+       "key": 0.96,
+       "busy": 5.16
+      },
+      {
+       "seed": 1,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.94,
+       "rise": -0.1,
+       "key": 0.979,
+       "busy": 4.97
+      },
+      {
+       "seed": 2,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.94,
+       "rise": 0.4,
+       "key": 0.986,
+       "busy": 5.09
+      },
+      {
+       "seed": 3,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.94,
+       "rise": 0.6,
+       "key": 0.992,
+       "busy": 5.11
+      },
+      {
+       "seed": 4,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.93,
+       "rise": 0.8,
+       "key": 0.973,
+       "busy": 4.45
+      },
+      {
+       "seed": 5,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.93,
+       "rise": 1.4,
+       "key": 0.978,
+       "busy": 4.52
+      }
+     ],
+     "a_busy": 5.41
+    },
+    "urgent": {
+     "prompt": "TrackType: Music, VocalType: Instrumental, Genre: Cinematic, Genre: Orchestral, Genre: Medieval. Tense dark cinematic score in D minor with a solo violin playing a short two-bar theme that repeats, low strings ticking a restless staccato ostinato and the cello playing an uneasy bass line, creating anxious, urgent dread. BPM: 90.",
+     "held": "6 of 6",
+     "listen": [
+      {
+       "file": "night.any.violinbed.k0.stack_section_urgent_s3.ogg",
+       "rank": 1,
+       "seed": 3,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 8.0,
+       "rise": -0.5,
+       "joins": [
+        -1.2,
+        -0.1
+       ],
+       "key": 0.988,
+       "busy": 5.27
+      },
+      {
+       "file": "night.any.violinbed.k0.stack_section_urgent_s4.ogg",
+       "rank": 2,
+       "seed": 4,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.92,
+       "rise": 0.2,
+       "joins": [
+        0.4,
+        -0.8
+       ],
+       "key": 0.973,
+       "busy": 4.64
+      }
+     ],
+     "all": [
+      {
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.91,
+       "rise": 1.6,
+       "key": 0.967,
+       "busy": 5.11
+      },
+      {
+       "seed": 1,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.88,
+       "rise": -0.2,
+       "key": 0.989,
+       "busy": 5.58
+      },
+      {
+       "seed": 2,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.9,
+       "rise": 0.0,
+       "key": 0.976,
+       "busy": 4.88
+      },
+      {
+       "seed": 3,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 8.0,
+       "rise": -0.5,
+       "key": 0.988,
+       "busy": 5.27
+      },
+      {
+       "seed": 4,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.92,
+       "rise": 0.2,
+       "key": 0.973,
+       "busy": 4.64
+      },
+      {
+       "seed": 5,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.83,
+       "rise": 0.9,
+       "key": 0.976,
+       "busy": 4.45
+      }
+     ],
+     "a_busy": 5.41
+    },
+    "intense": {
+     "prompt": "TrackType: Music, VocalType: Instrumental, Genre: Cinematic, Genre: Orchestral, Genre: Medieval. Epic dark cinematic battle score in D minor with a solo violin racing a short two-bar theme in fast staccato sixteenth notes that repeats, low strings racing a fast ostinato and the cello hammering the bass line, creating fierce, violent energy. BPM: 90.",
+     "held": "5 of 6",
+     "listen": [
+      {
+       "file": "night.any.violinbed.k0.stack_section_intense_s3.ogg",
+       "rank": 1,
+       "seed": 3,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.93,
+       "rise": -1.3,
+       "joins": [
+        -1.1,
+        0.7
+       ],
+       "key": 0.966,
+       "busy": 5.34
+      },
+      {
+       "file": "night.any.violinbed.k0.stack_section_intense_s5.ogg",
+       "rank": 2,
+       "seed": 5,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.88,
+       "rise": -0.2,
+       "joins": [
+        -1.5,
+        -1.5
+       ],
+       "key": 0.948,
+       "busy": 5.27
+      }
+     ],
+     "all": [
+      {
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.86,
+       "rise": 2.4,
+       "key": 0.94,
+       "busy": 5.39
+      },
+      {
+       "seed": 1,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.82,
+       "rise": -0.8,
+       "key": 0.922,
+       "busy": 5.27
+      },
+      {
+       "seed": 2,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.82,
+       "rise": -0.1,
+       "key": 0.975,
+       "busy": 4.97
+      },
+      {
+       "seed": 3,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.93,
+       "rise": -1.3,
+       "key": 0.966,
+       "busy": 5.34
+      },
+      {
+       "seed": 4,
+       "grid": 2,
+       "tempo": 89.9,
+       "ce": 7.86,
+       "rise": 0.3,
+       "key": 0.962,
+       "busy": 5.32
+      },
+      {
+       "seed": 5,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.88,
+       "rise": -0.2,
+       "key": 0.948,
+       "busy": 5.27
+      }
+     ],
+     "a_busy": 5.41
+    }
+   },
+   "bridges": {
+    "now": {
+     "file": "night.any.violinbed.k0.stack_bridge_now.ogg"
+    },
+    "bridge2": {
+     "file": "night.any.violinbed.k0.stack_bridge2_s3.ogg",
+     "seed": 3,
+     "grid": "6 of 6",
+     "ce": 7.83,
+     "held": "4 of 4"
+    },
+    "bridge4": {
+     "file": "night.any.violinbed.k0.stack_bridge4_s0.ogg",
+     "seed": 0,
+     "grid": "8 of 8",
+     "ce": 7.89,
+     "held": "4 of 4"
+    }
+   },
+   "strip": {
+    "today": {
+     "file": "night.any.violinbed.k0.stack_levels_today.ogg",
+     "onsets": [
+      5.41,
+      5.41,
+      4.52
+     ],
+     "lufs": [
+      -24.0,
+      -20.0,
+      -15.0
+     ]
+    },
+    "strip": {
+     "file": "night.any.violinbed.k0.stack_levels_strip.ogg",
+     "onsets": [
+      5.11,
+      5.11,
+      4.52
+     ],
+     "lufs": [
+      -24.0,
+      -20.0,
+      -15.0
+     ],
+     "rest_file": "night.any.violinbed.k0.stack_rest_alone.ogg"
+    }
+   },
+   "song": {
+    "file": "night.any.violinbed.k0.stack_song.ogg",
+    "seconds": 192.0,
+    "parts": "A (16) \u00b7 contrast s1 (16) \u00b7 A (16) \u00b7 intense s3 (16) \u00b7 A (8, the loop back)",
+    "grid": [
+     16,
+     16
+    ]
+   }
+  },
+  "day.any.nyckelharpa2.k2.stack": {
+   "a": "calm",
+   "sections": {
+    "contrast": {
+     "prompt": "TrackType: Music, VocalType: Instrumental, Genre: Cinematic, Genre: Orchestral, Genre: Medieval. Dark cinematic score in D dorian with a nyckelharpa playing a slow theme in question and answer phrases, a rising phrase answered by a falling one, low strings holding long dark chords and the cello playing a slow bass line, at one steady level from beginning to end, creating stern, mournful calm. BPM: 90.",
+     "held": "3 of 6",
+     "listen": [
+      {
+       "file": "day.any.nyckelharpa2.k2.stack_section_contrast_s2.ogg",
+       "rank": 1,
+       "seed": 2,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.47,
+       "rise": 0.6,
+       "joins": [
+        3.6,
+        3.5
+       ],
+       "key": 0.986,
+       "busy": 2.25
+      },
+      {
+       "file": "day.any.nyckelharpa2.k2.stack_section_contrast_s1.ogg",
+       "rank": 2,
+       "seed": 1,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.39,
+       "rise": 2.5,
+       "joins": [
+        3.7,
+        3.1
+       ],
+       "key": 0.985,
+       "busy": 2.58
+      }
+     ],
+     "all": [
+      {
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.28,
+       "rise": 0.7,
+       "key": 0.989,
+       "busy": 3.0
+      },
+      {
+       "seed": 1,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.39,
+       "rise": 2.5,
+       "key": 0.985,
+       "busy": 2.58
+      },
+      {
+       "seed": 2,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.47,
+       "rise": 0.6,
+       "key": 0.986,
+       "busy": 2.25
+      },
+      {
+       "seed": 3,
+       "grid": 10,
+       "tempo": 90.0,
+       "ce": 7.35,
+       "rise": 3.3,
+       "key": 0.996,
+       "busy": 4.73
+      },
+      {
+       "seed": 4,
+       "grid": 1,
+       "tempo": 90.0,
+       "ce": 7.37,
+       "rise": 4.7,
+       "key": 0.988,
+       "busy": 4.2
+      },
+      {
+       "seed": 5,
+       "grid": 2,
+       "tempo": 90.0,
+       "ce": 7.2,
+       "rise": 7.8,
+       "key": 0.995,
+       "busy": 3.49
+      }
+     ],
+     "a_busy": 4.17
+    },
+    "urgent": {
+     "prompt": "TrackType: Music, VocalType: Instrumental, Genre: Cinematic, Genre: Orchestral, Genre: Medieval. Tense dark cinematic score in D dorian with a nyckelharpa playing a theme in question and answer phrases, low strings ticking a restless staccato ostinato and the cello playing an uneasy bass line, at one steady level from beginning to end, creating anxious, urgent dread. BPM: 90.",
+     "held": "2 of 6",
+     "listen": [
+      {
+       "file": "day.any.nyckelharpa2.k2.stack_section_urgent_s5.ogg",
+       "rank": 1,
+       "seed": 5,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.51,
+       "rise": 11.6,
+       "joins": [
+        1.4,
+        -5.9
+       ],
+       "key": 0.981,
+       "busy": 2.3
+      },
+      {
+       "file": "day.any.nyckelharpa2.k2.stack_section_urgent_s0.ogg",
+       "rank": 2,
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.25,
+       "rise": 8.7,
+       "joins": [
+        3.5,
+        -5.0
+       ],
+       "key": 0.977,
+       "busy": 2.93
+      }
+     ],
+     "all": [
+      {
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.25,
+       "rise": 8.7,
+       "key": 0.977,
+       "busy": 2.93
+      },
+      {
+       "seed": 1,
+       "grid": 0,
+       "tempo": 90.6,
+       "ce": 7.51,
+       "rise": 9.0,
+       "key": 0.991,
+       "busy": 3.47
+      },
+      {
+       "seed": 2,
+       "grid": 11,
+       "tempo": 90.1,
+       "ce": 7.43,
+       "rise": 9.1,
+       "key": 0.979,
+       "busy": 1.08
+      },
+      {
+       "seed": 3,
+       "grid": 7,
+       "tempo": 90.0,
+       "ce": 7.56,
+       "rise": 7.9,
+       "key": 0.992,
+       "busy": 2.74
+      },
+      {
+       "seed": 4,
+       "grid": 1,
+       "tempo": 91.8,
+       "ce": 7.35,
+       "rise": 8.1,
+       "key": 0.989,
+       "busy": 4.03
+      },
+      {
+       "seed": 5,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.51,
+       "rise": 11.6,
+       "key": 0.981,
+       "busy": 2.3
+      }
+     ],
+     "a_busy": 4.17
+    },
+    "intense": {
+     "prompt": "TrackType: Music, VocalType: Instrumental, Genre: Cinematic, Genre: Orchestral, Genre: Medieval. Epic dark cinematic battle score in D dorian with a nyckelharpa racing a theme in question and answer phrases, low strings racing a fast ostinato and the cello hammering the bass line, at one driving level from beginning to end, creating fierce, violent energy. BPM: 90.",
+     "held": "2 of 6",
+     "listen": [
+      {
+       "file": "day.any.nyckelharpa2.k2.stack_section_intense_s0.ogg",
+       "rank": 1,
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.43,
+       "rise": 12.5,
+       "joins": [
+        -0.4,
+        -7.9
+       ],
+       "key": 0.98,
+       "busy": 3.07
+      },
+      {
+       "file": "day.any.nyckelharpa2.k2.stack_section_intense_s3.ogg",
+       "rank": 2,
+       "seed": 3,
+       "grid": 16,
+       "tempo": 89.9,
+       "ce": 7.01,
+       "rise": 12.7,
+       "joins": [
+        -5.1,
+        -8.6
+       ],
+       "key": 0.921,
+       "busy": 3.14
+      }
+     ],
+     "all": [
+      {
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.43,
+       "rise": 12.5,
+       "key": 0.98,
+       "busy": 3.07
+      },
+      {
+       "seed": 1,
+       "grid": 0,
+       "tempo": 90.4,
+       "ce": 7.19,
+       "rise": 12.4,
+       "key": 0.987,
+       "busy": 2.81
+      },
+      {
+       "seed": 2,
+       "grid": 8,
+       "tempo": 89.9,
+       "ce": 7.23,
+       "rise": 10.6,
+       "key": 0.977,
+       "busy": 1.08
+      },
+      {
+       "seed": 3,
+       "grid": 16,
+       "tempo": 89.9,
+       "ce": 7.01,
+       "rise": 12.7,
+       "key": 0.921,
+       "busy": 3.14
+      },
+      {
+       "seed": 4,
+       "grid": 1,
+       "tempo": 90.1,
+       "ce": 7.31,
+       "rise": 8.1,
+       "key": 0.955,
+       "busy": 0.52
+      },
+      {
+       "seed": 5,
+       "grid": 0,
+       "tempo": 90.0,
+       "ce": 7.09,
+       "rise": 14.5,
+       "key": 0.985,
+       "busy": 0.3
+      }
+     ],
+     "a_busy": 4.17
+    }
+   },
+   "bridges": {
+    "now": {
+     "file": "day.any.nyckelharpa2.k2.stack_bridge_now.ogg"
+    },
+    "bridge2": {
+     "file": "day.any.nyckelharpa2.k2.stack_bridge2_s2.ogg",
+     "seed": 2,
+     "grid": "6 of 6",
+     "ce": 6.8,
+     "held": "4 of 4"
+    },
+    "bridge4": {
+     "file": "day.any.nyckelharpa2.k2.stack_bridge4_s2.ogg",
+     "seed": 2,
+     "grid": "8 of 8",
+     "ce": 6.8,
+     "held": "4 of 4"
+    }
+   },
+   "strip": {
+    "today": {
+     "file": "day.any.nyckelharpa2.k2.stack_levels_today.ogg",
+     "onsets": [
+      4.17,
+      4.66,
+      4.83
+     ],
+     "lufs": [
+      -24.0,
+      -20.0,
+      -15.0
+     ]
+    },
+    "strip": {
+     "file": "day.any.nyckelharpa2.k2.stack_levels_strip.ogg",
+     "onsets": [
+      5.02,
+      4.85,
+      4.83
+     ],
+     "lufs": [
+      -24.0,
+      -20.0,
+      -15.0
+     ],
+     "rest_file": "day.any.nyckelharpa2.k2.stack_rest_alone.ogg"
+    }
+   },
+   "song": {
+    "file": "day.any.nyckelharpa2.k2.stack_song.ogg",
+    "seconds": 192.0,
+    "parts": "A (16) \u00b7 contrast s2 (16) \u00b7 A (16) \u00b7 intense s0 (16) \u00b7 A (8, the loop back)",
+    "grid": [
+     16,
+     16
+    ]
+   }
+  },
+  "bloodmoon.any.kantele2.k3.stack": {
+   "a": "calm",
+   "sections": {
+    "contrast": {
+     "prompt": "TrackType: Music, VocalType: Instrumental, Genre: Cinematic, Genre: Orchestral, Genre: Medieval. Dark cinematic score in D phrygian with a kantele playing a slow theme in question and answer phrases, a rising phrase answered by a falling one, tremolo strings holding long dark chords and the double bass playing a slow bass line, at one steady level from beginning to end, creating fierce, mournful calm. BPM: 90.",
+     "held": "5 of 6",
+     "listen": [
+      {
+       "file": "bloodmoon.any.kantele2.k3.stack_section_contrast_s3.ogg",
+       "rank": 1,
+       "seed": 3,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.78,
+       "rise": -2.8,
+       "joins": [
+        -2.3,
+        -1.9
+       ],
+       "key": 0.999,
+       "busy": 3.0
+      },
+      {
+       "file": "bloodmoon.any.kantele2.k3.stack_section_contrast_s0.ogg",
+       "rank": 2,
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.71,
+       "rise": 1.0,
+       "joins": [
+        -4.2,
+        -4.2
+       ],
+       "key": 0.997,
+       "busy": 2.98
+      }
+     ],
+     "all": [
+      {
+       "seed": 0,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.71,
+       "rise": 1.0,
+       "key": 0.997,
+       "busy": 2.98
+      },
+      {
+       "seed": 1,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.64,
+       "rise": 0.0,
+       "key": 0.992,
+       "busy": 3.0
+      },
+      {
+       "seed": 2,
+       "grid": 9,
+       "tempo": 90.0,
+       "ce": 7.54,
+       "rise": 1.4,
+       "key": 0.988,
+       "busy": 2.98
+      },
+      {
+       "seed": 3,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.78,
+       "rise": -2.8,
+       "key": 0.999,
+       "busy": 3.0
+      },
+      {
+       "seed": 4,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.59,
+       "rise": 1.4,
+       "key": 0.997,
+       "busy": 3.02
+      },
+      {
+       "seed": 5,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.49,
+       "rise": 3.5,
+       "key": 0.995,
+       "busy": 2.58
+      }
+     ],
+     "a_busy": 3.12
+    },
+    "urgent": {
+     "prompt": "TrackType: Music, VocalType: Instrumental, Genre: Cinematic, Genre: Orchestral, Genre: Medieval. Tense dark cinematic score in D phrygian with a kantele playing a theme in question and answer phrases, tremolo strings ticking a restless staccato ostinato and the double bass playing an uneasy bass line, at one steady level from beginning to end, creating anxious, urgent dread. BPM: 90.",
+     "held": "2 of 6",
+     "listen": [
+      {
+       "file": "bloodmoon.any.kantele2.k3.stack_section_urgent_s3.ogg",
+       "rank": 1,
+       "seed": 3,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.77,
+       "rise": -2.6,
+       "joins": [
+        -2.1,
+        -2.2
+       ],
+       "key": 0.999,
+       "busy": 3.0
+      },
+      {
+       "file": "bloodmoon.any.kantele2.k3.stack_section_urgent_s1.ogg",
+       "rank": 2,
+       "seed": 1,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.58,
+       "rise": 4.1,
+       "joins": [
+        -1.5,
+        -6.3
+       ],
+       "key": 0.986,
+       "busy": 2.93
+      }
+     ],
+     "all": [
+      {
+       "seed": 0,
+       "grid": 6,
+       "tempo": 90.0,
+       "ce": 7.5,
+       "rise": 3.9,
+       "key": 0.986,
+       "busy": 3.33
+      },
+      {
+       "seed": 1,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.58,
+       "rise": 4.1,
+       "key": 0.986,
+       "busy": 2.93
+      },
+      {
+       "seed": 2,
+       "grid": 7,
+       "tempo": 90.0,
+       "ce": 7.43,
+       "rise": 3.9,
+       "key": 0.982,
+       "busy": 2.7
+      },
+      {
+       "seed": 3,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.77,
+       "rise": -2.6,
+       "key": 0.999,
+       "busy": 3.0
+      },
+      {
+       "seed": 4,
+       "grid": 7,
+       "tempo": 91.3,
+       "ce": 7.49,
+       "rise": 3.3,
+       "key": 0.991,
+       "busy": 2.93
+      },
+      {
+       "seed": 5,
+       "grid": 5,
+       "tempo": 92.0,
+       "ce": 7.22,
+       "rise": 6.0,
+       "key": 0.976,
+       "busy": 2.46
+      }
+     ],
+     "a_busy": 3.12
+    },
+    "intense": {
+     "prompt": "TrackType: Music, VocalType: Instrumental, Genre: Cinematic, Genre: Orchestral, Genre: Medieval. Epic dark cinematic battle score in D phrygian with a kantele racing a theme in question and answer phrases, tremolo strings racing a fast ostinato and the double bass hammering the bass line, at one driving level from beginning to end, creating fierce, violent energy. BPM: 90.",
+     "held": "2 of 6",
+     "listen": [
+      {
+       "file": "bloodmoon.any.kantele2.k3.stack_section_intense_s3.ogg",
+       "rank": 1,
+       "seed": 3,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.76,
+       "rise": 9.3,
+       "joins": [
+        -1.9,
+        -12.3
+       ],
+       "key": 0.997,
+       "busy": 3.16
+      },
+      {
+       "file": "bloodmoon.any.kantele2.k3.stack_section_intense_s2.ogg",
+       "rank": 2,
+       "seed": 2,
+       "grid": 16,
+       "tempo": 89.9,
+       "ce": 7.29,
+       "rise": 7.9,
+       "joins": [
+        -0.5,
+        -10.4
+       ],
+       "key": 0.973,
+       "busy": 2.74
+      }
+     ],
+     "all": [
+      {
+       "seed": 0,
+       "grid": 2,
+       "tempo": 91.7,
+       "ce": 7.35,
+       "rise": 9.3,
+       "key": 0.984,
+       "busy": 4.01
+      },
+      {
+       "seed": 1,
+       "grid": 7,
+       "tempo": 91.1,
+       "ce": 7.31,
+       "rise": 8.2,
+       "key": 0.983,
+       "busy": 3.91
+      },
+      {
+       "seed": 2,
+       "grid": 16,
+       "tempo": 89.9,
+       "ce": 7.29,
+       "rise": 7.9,
+       "key": 0.973,
+       "busy": 2.74
+      },
+      {
+       "seed": 3,
+       "grid": 16,
+       "tempo": 90.0,
+       "ce": 7.76,
+       "rise": 9.3,
+       "key": 0.997,
+       "busy": 3.16
+      },
+      {
+       "seed": 4,
+       "grid": 4,
+       "tempo": 91.9,
+       "ce": 7.36,
+       "rise": 5.0,
+       "key": 0.983,
+       "busy": 2.37
+      },
+      {
+       "seed": 5,
+       "grid": 4,
+       "tempo": 92.3,
+       "ce": 6.8,
+       "rise": 9.8,
+       "key": 0.975,
+       "busy": 2.18
+      }
+     ],
+     "a_busy": 3.12
+    }
+   },
+   "bridges": {
+    "now": {
+     "file": "bloodmoon.any.kantele2.k3.stack_bridge_now.ogg"
+    },
+    "bridge2": {
+     "file": "bloodmoon.any.kantele2.k3.stack_bridge2_s3.ogg",
+     "seed": 3,
+     "grid": "6 of 6",
+     "ce": 7.34,
+     "held": "2 of 4"
+    },
+    "bridge4": {
+     "file": "bloodmoon.any.kantele2.k3.stack_bridge4_s0.ogg",
+     "seed": 0,
+     "grid": "1 of 8",
+     "ce": 7.45,
+     "held": "0 of 4"
+    }
+   },
+   "strip": {
+    "today": {
+     "file": "bloodmoon.any.kantele2.k3.stack_levels_today.ogg",
+     "onsets": [
+      3.12,
+      3.19,
+      3.63
+     ],
+     "lufs": [
+      -24.0,
+      -20.0,
+      -15.0
+     ]
+    },
+    "strip": {
+     "file": "bloodmoon.any.kantele2.k3.stack_levels_strip.ogg",
+     "onsets": [
+      2.98,
+      3.87,
+      3.63
+     ],
+     "lufs": [
+      -24.0,
+      -20.0,
+      -15.0
+     ],
+     "rest_file": "bloodmoon.any.kantele2.k3.stack_rest_alone.ogg"
+    }
+   },
+   "song": {
+    "file": "bloodmoon.any.kantele2.k3.stack_song.ogg",
+    "seconds": 192.0,
+    "parts": "A (16) \u00b7 contrast s3 (16) \u00b7 A (16) \u00b7 intense s3 (16) \u00b7 A (8, the loop back)",
+    "grid": [
+     16,
+     16
+    ]
+   }
+  }
+ }
+}

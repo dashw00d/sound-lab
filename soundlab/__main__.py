@@ -10,7 +10,7 @@
   soundlab [--project PATH] music audition [--seeds 4]
   soundlab [--project PATH] music generate --contexts C ... [--biomes B ...] [--styles S ...] [--profiles P ...]
                                            [--takes 3] [--tries 14]
-  soundlab [--project PATH] music derive --profiles P ... [--sets KEY ...]   new profiles for existing takes
+  soundlab [--project PATH] music derive --profiles P ... [--sets KEY ... | --liked] [--no-new-layers]   new profiles (or new levels) for existing takes
   soundlab [--project PATH] music check [--sets KEY ...]                    measure takes for what sounds off
   soundlab [--project PATH] music promote [--apply] [--add SET.TAKE.PROFILE ...]
   soundlab [--project PATH] balance measure
@@ -164,8 +164,25 @@ def main() -> int:
     p = mu.add_parser("derive")
     p.add_argument("--profiles", nargs="+", required=True)
     p.add_argument("--sets", nargs="*", help="music set keys (default: the newest round's)")
+    p.add_argument("--liked", action="store_true", help="every take liked at these profiles, in any set or round")
+    p.add_argument("--no-new-layers", action="store_true",
+                   help="leave out a layer a take has no stem for, rather than generating it (no generator needed)")
     p = mu.add_parser("check")
     p.add_argument("--sets", nargs="*", help="music set keys (default: all)")
+    p = mu.add_parser("trims", help="measure the shipped tracks for the Songs page: per-bar loudness and guessed cues")
+    p.add_argument("--force", action="store_true", help="measure every track again, not only changed files")
+    p = mu.add_parser("glues", help="a mellow pad per family of shipped tracks, for the Mixer (after music trims)")
+    p.add_argument("--force", action="store_true", help="make every glue again")
+    p = mu.add_parser("stems", help="Demucs stems of every shipped track's calm and battle levels, for the Mixer")
+    p.add_argument("--force", action="store_true", help="split every track again")
+    p = mu.add_parser("joins", help="the designer's votes on Mixer transitions against their join scores: where bad joins slip through")
+    p.add_argument("--fit", action="store_true", help="learn their taste from the votes: the model the Mixer walks by")
+    p = mu.add_parser("retune", help="retuned copies of the tracks off the common pitch, for the Mixer (after music trims)")
+    p.add_argument("--force", action="store_true", help="retune every file again")
+    p = mu.add_parser("fills", help="SA3-generated fills at each shipped track's mellow loop point, for the Mixer")
+    p.add_argument("--seeds", type=int, default=4, help="fills kept per track and loop")
+    p.add_argument("--bars", type=int, default=1)
+    p.add_argument("--only", nargs="*", help="track ids (default: all)")
     p = mu.add_parser("promote")
     p.add_argument("--apply", action="store_true")
     p.add_argument("--add", nargs="+", metavar="SET.TAKE.PROFILE",
@@ -222,11 +239,23 @@ def main() -> int:
             return music.generate(proj, a.contexts, a.biomes, a.takes, a.tries, a.styles, a.profiles)
         if a.action == "check":
             return music.check(proj, a.sets)
+        if a.action == "trims":
+            return music.trims(proj, a.force)
+        if a.action == "glues":
+            return music.glues(proj, a.force)
+        if a.action == "joins":
+            return music.fit_joins(proj) if a.fit else music.joins(proj)
+        if a.action == "retune":
+            return music.retune(proj, a.force)
+        if a.action == "stems":
+            return music.stems(proj, a.force)
+        if a.action == "fills":
+            return music.fills(proj, a.seeds, a.bars, a.only)
         if a.action == "derive":
             bad = [p for p in a.profiles if p not in proj.music["profiles"]]
             if bad:
                 raise SystemExit(f"unknown profiles: {bad}")
-            return music.derive(proj, a.profiles, a.sets)
+            return music.derive(proj, a.profiles, a.sets, a.liked, not a.no_new_layers)
         return music.add(proj, a.add, a.apply, a.replace) if a.add else music.promote(proj, a.apply)
     if a.cmd == "balance":
         from . import balance

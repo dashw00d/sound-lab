@@ -4,10 +4,14 @@
   GET  /api/state           {project, index, votes, shipped}: every take, prompt, set and vote, and the take each
                             sound last shipped from (promoted.json)
   GET  /api/stamp           {index, votes, promoted, tuning}: when those files last changed (the app polls it for news)
+  GET  /api/songs           every shipped music track: its level files (under /shipped/), provenance and song group
+  GET  /api/mixes           the Mixer page's saved sets: {name: {parts: [{track, start, bars}], at}}
+  POST /api/mixes           {name, parts | null}: save a set of parts under a name (null: delete it)
   GET  /api/tuning          {tuning, base, evidence, ...}: the prompt tuning (tuning.json) and what this project's votes say
   POST /api/tuning          {base, tuning}: save it; 409 with the current one if it changed since `base` (an agent wrote it)
   POST /api/vote            {clip, value: 1|-1|0} | {sound, pick: id|"shipped"|null} | {picks: {sound: id|null}}
                             | {sound, note} | {sound, variant, prompt_note, prompt}: a note on one prompt's takes
+                            | {cue: track, level: "mellow"|"intense", bars: [start, end] | null}: the Songs page's cues
   GET  /api/balance         {balance (work/balance.json), mix (the game's mix file), version (1 or 2: the mix file's
                             kind, which the page follows), base (the mix file's stamp)}
   POST /api/mix             {base, version, mix}: the mix's levels; written to the game's mix file (the game re-reads
@@ -163,6 +167,20 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                 traceback.print_exc(file=sys.stderr)
                 self.send_error(500, f"{type(e).__name__}: {e}")
 
+        def send_page(self):
+            """The app's page, each script and stylesheet it loads stamped with its file's time (?v=...): a reload after an
+            edit fetches the new file rather than a copy the browser kept (cache busting)."""
+            def stamp(m):
+                f = _inside(paths.WEB, m.group(2))
+                return f"{m.group(1)}/web/{m.group(2)}?v={f.stat().st_mtime_ns if f else 0}{m.group(3)}"
+            body = re.sub(r'((?:src|href)=")/web/([^"?]+\.(?:js|css))(")', stamp, (paths.WEB / "index.html").read_text()).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
         def send_file(self, path: Path | None):
             if path is None:
                 self.send_error(404)
@@ -182,6 +200,7 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
             self.send_response(status)
             self.send_header("Content-Type", mimetypes.guess_type(path.name)[0] or "application/octet-stream")
             self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Cache-Control", "no-cache")  # (the browser checks back each time: an edited page or a remade file is picked up on reload)
             self.send_header("Content-Length", str(max(0, end - start + 1)))
             if status == 206:
                 self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
@@ -234,7 +253,7 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                 return
             url = unquote(urlparse(self.path).path)
             if url in ("/", "/index.html"):
-                self.send_file(paths.WEB / "index.html")
+                self.send_page()
             elif url.startswith("/web/"):
                 self.send_file(_inside(paths.WEB, url[5:]))
             elif url == "/api/state":
@@ -244,6 +263,15 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
             elif url == "/api/stamp":
                 self.send_json({k: str(p.stat().st_mtime_ns) if p.exists() else "0"  # (strings: exact in JavaScript)
                                 for k, p in (("index", st.index_path), ("votes", st.votes_path), ("promoted", st.promoted_path), ("tuning", tuning.PATH))})
+            elif url == "/api/songs":
+                if not proj.music:
+                    raise HttpError(404, "this project has no music")
+                from . import music
+                with LOCK:
+                    self.send_json(music.library(proj))
+            elif url == "/api/mixes":
+                with LOCK:
+                    self.send_json(Store.read(st.mixes_path, {}))
             elif url == "/api/tuning":
                 with LOCK:
                     self.send_json(dict(tuning=tuning.load(), base=tuning.stamp(), path=str(tuning.PATH), evidence=tuning.evidence(proj),
@@ -325,6 +353,28 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                     t = tuning.save(new)
                     self.send_json(dict(tuning=t, base=tuning.stamp()))
                 return
+            if url == "/api/mixes":  # (a set of parts: shipped tracks' bars, all on the one grid)
+                msg = self.body()
+                name, parts = msg.get("name"), msg.get("parts")
+                if not isinstance(name, str) or not name.strip() or len(name) > 80:
+                    raise HttpError(400, "a mix needs a name (up to 80 characters)")
+                n = (proj.music or {}).get("bars", 16)
+                if parts is not None:
+                    if not isinstance(parts, list) or len(parts) > 200 or not all(
+                            isinstance(x, dict) and isinstance(x.get("track"), str) and all(
+                                isinstance(x.get(k), int) and not isinstance(x.get(k), bool) for k in ("start", "bars"))
+                            and 1 <= x["start"] and 1 <= x["bars"] and x["start"] + x["bars"] - 1 <= n for x in parts):
+                        raise HttpError(400, f"parts are [{{track, start, bars}}] inside the {n} bars")
+                with LOCK:
+                    mixes = Store.read(st.mixes_path, {})
+                    if parts is None:
+                        mixes.pop(name.strip(), None)
+                    else:
+                        mixes[name.strip()] = dict(parts=[dict(track=x["track"], start=x["start"], bars=x["bars"]) for x in parts],
+                                                   at=date.today().isoformat())
+                    st.write(st.mixes_path, mixes, sort=True)
+                    self.send_json(mixes)
+                return
             if url != "/api/vote":
                 self.send_error(404)
                 return
@@ -355,6 +405,23 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                         pn.get(msg["sound"], {}).pop(msg["variant"], None)
                         if not pn.get(msg["sound"]):
                             pn.pop(msg["sound"], None)
+                if "cue" in msg:  # (a shipped track's mellow or intense loop, bars start..end of its 16; null: back to the guess)
+                    lvl, bars = msg.get("level"), msg.get("bars")
+                    if lvl not in ("mellow", "intense"):
+                        raise HttpError(400, "a cue's level is mellow or intense")
+                    cues = v.setdefault("cues", {})
+                    if bars is None:
+                        cues.get(msg["cue"], {}).pop(lvl, None)
+                    else:
+                        n = (proj.music or {}).get("bars", 16)
+                        if (not isinstance(bars, list) or len(bars) != 2 or not all(isinstance(b, int) and not isinstance(b, bool) for b in bars)
+                                or not 1 <= bars[0] < bars[1] <= n):
+                            raise HttpError(400, f"a cue is [start, end] with 1 <= start < end <= {n}")
+                        cues.setdefault(msg["cue"], {})[lvl] = bars
+                    if not cues.get(msg["cue"]):
+                        cues.pop(msg["cue"], None)
+                    if not cues:
+                        v.pop("cues")
                 if "note" in msg:
                     if msg["note"].strip():
                         v["notes"][msg["sound"]] = msg["note"]
