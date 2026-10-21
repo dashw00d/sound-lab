@@ -272,6 +272,17 @@
      "by": "agent",
      "added": "2026-10-15",
      "pinned": false
+    },
+    {
+     "id": "r22",
+     "text": "Music variety: write the spine fresh for every take. Keep the frame (SA3's sentence shape, \"BPM: 90\", the key's common name, the drumless spine, every part named, one idea per part) and draw each part's words per take: the lead (lean on violin and nyckelharpa), the melody's shape (three-note motif, wide leaps, cold pentatonic, question and answer, a theme that ends differently each time), what the strings do (long chords, slow tremolo, pizzicato pulse, col legno, ostinato, counter-melody), what the bass does, an optional feel (half-time, lilting) and a mood word. Keep the draw with the take. Avoid one shared sentence for every take: with the stack profile the mellow IS the spine, so one sentence gives every song the same backbone.",
+     "why": "Emberhold 2026-10-21: last night's 192 takes in 14 styles that each reused one spine sentence (\"... {s} driving a dark ostinato and the {l} pulsing the bass line ...\", only the lead changed) mostly 'sound basically the same' (the designer). The first mini trial of the drawn style (the project's _drawn, DRAWN_SLOTS): 6 of 6 answered 'a new family' on the Trial page, the designer being strict ('only if it can unlock a whole new family'; 'those were legit unique'): day~drawn k0 k1, night~drawn k4 k7, bloodmoon~drawn k1 k5 (votes novel_*). Cost: about 1 in 4 seeds holds the tempo with the drawn words. Leaning: 6 takes, no negatives yet, so no slot's options can be ranked.",
+     "tasks": [
+      "music"
+     ],
+     "by": "agent",
+     "added": "2026-10-21",
+     "pinned": false
     }
    ],
    "templates": {

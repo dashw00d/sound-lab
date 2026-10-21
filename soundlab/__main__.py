@@ -9,9 +9,12 @@
   soundlab [--project PATH] alerts build
   soundlab [--project PATH] music audition [--seeds 4]
   soundlab [--project PATH] music generate --contexts C ... [--biomes B ...] [--styles S ...] [--profiles P ...]
-                                           [--takes 3] [--tries 14]
+                                           [--takes 3] [--tries 14] [--same-round]
   soundlab [--project PATH] music derive --profiles P ... [--sets KEY ... | --liked] [--no-new-layers]   new profiles (or new levels) for existing takes
   soundlab [--project PATH] music check [--sets KEY ...]                    measure takes for what sounds off
+  soundlab [--project PATH] music trial [--takes 2] [--contexts C ...] [--style drawn] [--pending]   a mini trial for the Trial page
+  soundlab [--project PATH] music grow [SET.TAKE] [--n 4]                   seamless extensions of a new-family take
+  soundlab [--project PATH] music candidates [--all] [--cpu]                score new takes: plays nice with the shipped songs, catchiness
   soundlab [--project PATH] music promote [--apply] [--add SET.TAKE.PROFILE ...]
   soundlab [--project PATH] balance measure
 
@@ -161,6 +164,16 @@ def main() -> int:
     p.add_argument("--tries", type=int, default=14)
     p.add_argument("--styles", nargs="*", help="the project's alternative prompt styles (music.styles), for a tuning round")
     p.add_argument("--profiles", nargs="*", help="only these profiles (default: all)")
+    p.add_argument("--same-round", action="store_true", help="add this run's takes to the newest round (one batch in several runs)")
+    p = mu.add_parser("trial", help="a mini trial: a few takes per context in a style that draws its words, for the Trial page")
+    p.add_argument("--takes", type=int, default=2, help="takes per context")
+    p.add_argument("--contexts", nargs="*")
+    p.add_argument("--style", default="drawn")
+    p.add_argument("--pending", action="store_true", help="only print how many trial takes are waiting for an answer")
+    p = mu.add_parser("families", help="sort every song into families and queue what to judge next (work/families.json)")
+    p = mu.add_parser("grow", help="seamless extensions of a take answered 'a new family' on the Trial page")
+    p.add_argument("take", nargs="?", help="<set>.<take> (default: the oldest new-family seed that needs extensions)")
+    p.add_argument("--n", type=int, default=4, help="extensions per seed")
     p = mu.add_parser("derive")
     p.add_argument("--profiles", nargs="+", required=True)
     p.add_argument("--sets", nargs="*", help="music set keys (default: the newest round's)")
@@ -177,6 +190,10 @@ def main() -> int:
     p.add_argument("--force", action="store_true", help="split every track again")
     p = mu.add_parser("joins", help="the designer's votes on Mixer transitions against their join scores: where bad joins slip through")
     p.add_argument("--fit", action="store_true", help="learn their taste from the votes: the model the Mixer walks by")
+    p = mu.add_parser("candidates", help="score new takes before you hear them: plays nice with the shipped songs, catchiness (work/candidates.json)")
+    p.add_argument("--all", action="store_true", help="every round's takes, not only the newest round's")
+    p.add_argument("--cpu", action="store_true", help="split stems on the CPU (while a generator holds the GPU)")
+    p.add_argument("--catchy", type=float, default=0.0, help="catchiness's weight in the ranking (default 0: plays nice and unique)")
     p = mu.add_parser("retune", help="retuned copies of the tracks off the common pitch, for the Mixer (after music trims)")
     p.add_argument("--force", action="store_true", help="retune every file again")
     p = mu.add_parser("fills", help="SA3-generated fills at each shipped track's mellow loop point, for the Mixer")
@@ -236,7 +253,7 @@ def main() -> int:
                   [p for p in a.profiles or [] if p not in proj.music["profiles"]]
             if bad:
                 raise SystemExit(f"unknown contexts/biomes/styles/profiles: {bad}")
-            return music.generate(proj, a.contexts, a.biomes, a.takes, a.tries, a.styles, a.profiles)
+            return music.generate(proj, a.contexts, a.biomes, a.takes, a.tries, a.styles, a.profiles, a.same_round)
         if a.action == "check":
             return music.check(proj, a.sets)
         if a.action == "trims":
@@ -247,6 +264,19 @@ def main() -> int:
             return music.fit_joins(proj) if a.fit else music.joins(proj)
         if a.action == "retune":
             return music.retune(proj, a.force)
+        if a.action == "families":
+            from . import families
+            return families.build(proj)
+        if a.action == "grow":
+            return music.grow(proj, a.take, a.n)
+        if a.action == "trial":
+            if a.pending:
+                print(music.trial_pending(proj))
+                return 0
+            return music.trial(proj, a.takes, a.contexts, a.style)
+        if a.action == "candidates":
+            from . import candidates
+            return candidates.candidates(proj, a.all, a.cpu, a.catchy)
         if a.action == "stems":
             return music.stems(proj, a.force)
         if a.action == "fills":

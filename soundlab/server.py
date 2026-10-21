@@ -7,6 +7,13 @@
   GET  /api/songs           every shipped music track: its level files (under /shipped/), provenance and song group
   GET  /api/mixes           the Mixer page's saved sets: {name: {parts: [{track, start, bars}], at}}
   POST /api/mixes           {name, parts | null}: save a set of parts under a name (null: delete it)
+  GET  /api/mixer           the Mixer's settings (data/mixer.json), so they're the same in any browser
+  POST /api/mixer           {settings}: save them
+  GET  /api/families        every song sorted into families, and the queue of what to judge next (work/families.json)
+  GET  /api/streams         the Mixer's listening sessions (data/streams.json), for the review of low-rated blocks
+  POST /api/review          {stream, block, piece, mode, note?}: the piece the designer marked as what spoiled a block
+  POST /api/stream          {id, settings, stream}: a Mixer listening session, in the order it played: each block
+                            (a part of a song, a glue or a fill) with its stars (1-5) and each transition with its thumb
   GET  /api/tuning          {tuning, base, evidence, ...}: the prompt tuning (tuning.json) and what this project's votes say
   POST /api/tuning          {base, tuning}: save it; 409 with the current one if it changed since `base` (an agent wrote it)
   POST /api/vote            {clip, value: 1|-1|0} | {sound, pick: id|"shipped"|null} | {picks: {sound: id|null}}
@@ -35,7 +42,7 @@ import re
 import sys
 import threading
 import traceback
-from datetime import date
+from datetime import date, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -112,6 +119,12 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
 
     def mix_stamp() -> str:  # (a string: nanoseconds don't survive a trip through a JavaScript number)
         return str(mix_path.stat().st_mtime_ns) if mix_path and mix_path.exists() else "0"
+
+    def candidate_scores() -> dict:  # (music candidates' scores for the Music page, without the measurements)
+        c = Store.read(proj.work / "candidates.json", {})
+        keep = ("pick", "pick_beats", "nice", "nice_beats", "catchy", "catchy_in_style", "unique", "nearest", "rank", "notes_per_bar")
+        return dict(made=c.get("made"), songs=c.get("library", {}).get("songs"),
+                    takes={k: {x: v.get(x) for x in keep} for k, v in c.get("takes", {}).items()})
 
     info = dict(name=proj.name, root=str(proj.root), features=dict(
         alerts=bool(proj.alerts), music=bool(proj.music), balance=bool(proj.balance)),
@@ -259,16 +272,26 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
             elif url == "/api/state":
                 with LOCK:
                     shipped = {n: p.get("clip") for n, p in Store.read(st.promoted_path, {}).items()}
-                    self.send_json(dict(project=info, index=st.index(), votes=st.votes(), shipped=shipped))
+                    self.send_json(dict(project=info, index=st.index(), votes=st.votes(), shipped=shipped, candidates=candidate_scores()))
             elif url == "/api/stamp":
                 self.send_json({k: str(p.stat().st_mtime_ns) if p.exists() else "0"  # (strings: exact in JavaScript)
-                                for k, p in (("index", st.index_path), ("votes", st.votes_path), ("promoted", st.promoted_path), ("tuning", tuning.PATH))})
+                                for k, p in (("index", st.index_path), ("votes", st.votes_path), ("promoted", st.promoted_path), ("tuning", tuning.PATH),
+                                             ("candidates", proj.work / "candidates.json"), ("families", proj.work / "families.json"))})
             elif url == "/api/songs":
                 if not proj.music:
                     raise HttpError(404, "this project has no music")
-                from . import music
-                with LOCK:
-                    self.send_json(music.library(proj))
+                from . import candidates, music
+                with LOCK:  # (the new takes, scored, ride along: the Mixer adds them to the walk when asked)
+                    self.send_json(music.library(proj) | dict(candidates=candidates.mixer_tracks(proj)))
+            elif url == "/api/families":
+                f = Store.read(proj.work / "families.json", {})
+                for it in f.get("items", {}).values():
+                    it.pop("feat", None)  # (the measurements stay on the server)
+                self.send_json(f)
+            elif url == "/api/streams":
+                self.send_json(dict(streams=Store.read(st.streams_path, {}), reviews=Store.read(st.reviews_path, [])))
+            elif url == "/api/mixer":
+                self.send_json(Store.read(st.mixer_settings_path, {}))
             elif url == "/api/mixes":
                 with LOCK:
                     self.send_json(Store.read(st.mixes_path, {}))
@@ -374,6 +397,44 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                                                    at=date.today().isoformat())
                     st.write(st.mixes_path, mixes, sort=True)
                     self.send_json(mixes)
+                return
+            if url == "/api/mixer":  # (the Mixer's settings: one small object)
+                new = self.body().get("settings")
+                if not isinstance(new, dict) or len(json.dumps(new)) > 20000:
+                    raise HttpError(400, "settings are one object")
+                with LOCK:
+                    st.write(st.mixer_settings_path, new, sort=True)
+                    self.send_json(dict(ok=True))
+                return
+            if url == "/api/review":  # (a mark on a low-rated block's piece: data/reviews.json, a list)
+                msg = self.body()
+                if not isinstance(msg.get("stream"), str) or not isinstance(msg.get("block"), int) or not isinstance(msg.get("piece"), dict) \
+                        or len(json.dumps(msg)) > 5000:
+                    raise HttpError(400, "a review is {stream, block, piece, mode, note?}")
+                with LOCK:
+                    reviews = Store.read(st.reviews_path, [])
+                    reviews.append(dict(stream=msg["stream"], block=msg["block"], piece=msg["piece"], mode=str(msg.get("mode", ""))[:20],
+                                        note=str(msg.get("note") or "")[:500], at=datetime.now().strftime("%Y-%m-%d %H:%M")))
+                    st.write(st.reviews_path, reviews)
+                    self.send_json(dict(ok=True, reviews=len(reviews)))
+                return
+            if url == "/api/stream":  # (a listening session: data/streams.json, {id: {at, settings, stream}})
+                msg = self.body()
+                sid, stream = msg.get("id"), msg.get("stream")
+                if not isinstance(sid, str) or not sid or len(sid) > 40 or not isinstance(stream, list) or len(stream) > 4000 \
+                        or not all(isinstance(x, dict) and x.get("kind") in ("part", "glue", "rest", "fill", "transition") for x in stream):
+                    raise HttpError(400, "a stream is {id, stream: [{kind: part | glue | rest | fill | transition, ...}]}")
+                for x in stream:
+                    if x["kind"] == "transition":
+                        if x.get("like") not in (None, 1, -1):
+                            raise HttpError(400, "a transition's like is 1, -1 or null")
+                    elif x.get("stars") is not None and (not isinstance(x["stars"], int) or isinstance(x["stars"], bool) or not 1 <= x["stars"] <= 5):
+                        raise HttpError(400, "stars are 1 to 5, or null")
+                with LOCK:
+                    streams = Store.read(st.streams_path, {})
+                    streams[sid] = dict(at=datetime.now().strftime("%Y-%m-%d %H:%M"), settings=msg.get("settings") or {}, stream=stream)
+                    st.write(st.streams_path, streams, sort=True)
+                    self.send_json(dict(ok=True, blocks=sum(1 for x in stream if x["kind"] != "transition")))
                 return
             if url != "/api/vote":
                 self.send_error(404)

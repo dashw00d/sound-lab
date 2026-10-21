@@ -32,6 +32,67 @@ The ask was more melodic variety. Tried in turn: MIDI-LLM (Llama 3.2 1B) writing
 
 ## Stable Audio 3 Medium (SA3)
 
+### 2026-10-21: the tuning measurement and the retune were both wrong (corrects "SA3 takes weren't at one pitch")
+
+The research on audio backends found ffmpeg's rubberband filter runs Rubber Band's older real-time engine (R2) on each channel apart. Testing it showed worse.
+
+- **Solid. The tuning estimate was 3× too big and wrapped.** `music._tuning` asked librosa for 36 bins an octave and read the fraction of a bin (33 cents) as a fraction of a semitone. On test tones: a true +10 cents read +26, −10 read −24, +25 read −28 (wrapped), +37 read +17.
+  - Fixed: 12 bins an octave. Test tones now read within 2 cents; known shifts on music are tracked within a few.
+  - The library is at **+2 cents** from A440 (was "+8.5"). **4 of 98** shipped songs are over 6 cents off (was "42").
+  - The earlier entries' figures (median +8 cents, extremes ±37, "12% of pairs 20 cents apart", "the played gap now 3 cents") came from the broken estimate. They're void.
+- **Solid. ffmpeg's rubberband pitch shift was unreliable.** On a two-tone test, −45 to +28 cents asked: 0 moved. On a 440 Hz tone: −28.5 asked, −53.7 moved.
+  - Pedalboard's `time_stretch` (R3, high quality, channels together): exact on the same tests. It now does all retuning and tempo correction (`dsp.stretch`).
+- **So the Mixer had been playing about 38 in-tune songs shifted by noise.** Among them was night.violinbed.k0: truly +5 cents, "retuned" −28.5. It was the sibling the designer marked as the weird piece in a 2-star block.
+- Fixed in the code and in the work files: tunings measured again (`TUNING_V` 2), the retune redone with Pedalboard (4 songs), and the new takes' retunes redone.
+
+### 2026-10-21: the first blind ratings in the Mixer (73 blocks, 68 transitions)
+
+Stars from the Mixer's blind queue (streams.json; scale: 5 unique, 4 good but common, 3 filler, 2 broken, 1 avoid), and the designer's review marks (reviews.json) on the 2-star blocks.
+
+- **Anecdote, small n. Variations inside a block cost stars.**
+  - Mean stars with a fill 3.6 (n 5) against 4.15 without; with a sparse phrase 3.6 (n 7) against 4.2; with a sibling swap 3.5 (n 2); with drums out 3.9 (n 7).
+  - Marked as what spoiled a 2-star block: a sibling swap (winter.violinbed.k0 into night.violinbed.k0, which is retuned -28.5 cents); a fill (bloodmoon.war2.k6, 5-12.1); a new take's own loop (night~war2 k5, fixed since).
+- **Anecdote. The overnight takes rate like the shipped songs** (4.12, n 26, against 4.10, n 41).
+- **Anecdote, against the ranking.** New takes rated 5 against 4:
+  - uniqueness +0.12 against +0.29;
+  - plays nice 7.7 against 14.2 good transitions;
+  - rank median 45 against 25.
+  - So what joins easily may sound common, and CLAP plus bar fingerprints don't match "completely unique" by ear. Don't weight the measured uniqueness up until more stars agree.
+- **Anecdote. By style:** violin 4.9 (n 7), nyckelharpa2 4.8 (n 4), war2 3.5 (n 12), trailer 3.9 (n 8).
+
+### 2026-10-21: guessed loops chosen by likeness alone stepped, dipped and looped silence
+
+The designer rated a new take 2 of 5 ("otherwise 5 stars", a volume issue): night~war2 k5 looped bars 2-11, and bar 2 sits 6 dB under bar 11 (SA3's quiet bars 2-4). The cue guesser had scored loops only by how alike the bars either side of the jump are.
+
+- **Solid. Uneven guesses were common.** Seam step over 4 dB: 18 of 89 shipped guesses, 44 of 192 new takes. A bar 5+ dB under its loop's median: 11 and 21. The designer's own cues: 1 of 9.
+- **Solid. Some new takes are half silence.** Their bars 2-7 or 2-8 sit 13 to 25 dB under the music that follows: night~tagelharpa k7, day~nyckelharpa k7, and a few more nyckelharpa takes. They ranked #1 and #4 on plays nice, which their loud half earned. The Audiobox gate passed them.
+- `music trims` and `music candidates` now score loops on likeness less loudness (`LOUD_PEN` 0.15 per dB):
+  - a seam step over 2 dB;
+  - a bar dipping over 4 dB under the loop's median;
+  - twice over, a loop more than 3 dB under the take's own 75th-percentile bar, so it can't loop a silent stretch.
+  - Loops may be 6 bars too, which gives more places where the level holds. On all 281 guessed loops, 6-bar options cut the uneven ones from 57 to 13 and raised the median seam likeness from 0.785 to 0.823.
+- Guesses are sticky: a loop already guessed moves only if it's uneven (`uneven_loop`: step over 4, dip 5+, quiet 6+). 21 shipped loops moved, and new fills were made for them. 56 new takes' loops moved. Takes still uneven are ranked down.
+- A take probably the same piece as a shipped song (bar fingerprints 0.85+) now has its uniqueness capped at -1. night~nyckelharpa k3 (0.86 to day.nyckelharpa.k6) fell from #9 to #147.
+
+### 2026-10-21: a similarity scan of the overnight batch against the shipped songs
+
+`music candidates` now scores how unlike the rest each take is, with two measures, each standardised on pairs of shipped songs and averaged: bar fingerprints at the best of 16 offsets ("same piece"), and CLAP centred on the library ("sounds like"). The designer: the top should be "unique + plays nice".
+
+- **Solid. The bar fingerprint is too coarse to call a copy by itself.** Over the shipped songs, unrelated pairs have a median 0.66, with 1% at 0.81 or more; siblings a median 0.82, with a 10th percentile of 0.70. The best offset adds little: 0.63 at no offset. At 0.8, 39 of 192 new takes had a match, about what chance gives over 18,816 pairs. At 0.85, 4 did (night~nyckelharpa k3 ~ day.nyckelharpa.k6 at 0.86).
+- **Solid. Adding uniqueness to plays nice let unjoinable takes in.** day~violin k9 (1 good transition, unique +2.8) reached the top 10. The pick is now the weaker of the two plus a quarter of their sum, ranked one at a time against the shipped songs and the takes above.
+  - Top 50: every take has 10+ good transitions (median 16) and is unique −0.15 or more.
+  - It spans 15 styles: bloodmoon 21, night 14, day 11, winter 4.
+  - winter~winterwater k9 (CLAP 0.85 to the shipped winterwater k1) fell from #9 out of the top 50.
+- Untested: whether uniqueness agrees with the designer's 5 against 4 stars ("unique" against "common in the library"). Check once there are a few dozen rated blocks.
+
+### 2026-10-21: the Mixer's stem variations changed the volume, not just the texture
+
+The designer rated bloodmoon.any.war2.k6.stack 2 of 5 ("volume issue inside") in a blind session: 13 bars with a fill and two stem variations. Measured over its mellow loop (bars 5-12, mean power per bar): full -26.2 dB, drums out -28.2, sparse (bass -6 dB) -32.5. So a sparse phrase dropped about 6 dB at an 80 ms switch.
+
+- **Solid. Across the library (98 songs) the variations weren't level with the full mix.** Drums out was a median 0.6 dB quieter (worst 4.6); sparse 2.3 dB quieter (worst 6.5); pulse (the battle drums in at -10 dB) a median 3.1 dB louder.
+- `music stems` now measures each variation's gain back to the full calm level (`_stem_gains`, stems.json `gain`, within -6 and +9 dB), and the Mixer applies it. A variation changes the texture, not the volume.
+- The same session: songs mastered to one LUFS still differ by up to 7 dB in their median beat (sparse takes sit far under their peaks). The Mixer's "Even levels" trims each song toward the library's median beat, within 6 dB.
+
 ### 2026-10-21: a song-level score: which shipped songs are the best (compatible, complex, calm, diverse)
 
 `research/song_scores.py` (data: research/data/song_scores.json). The designer's working definition of a very good song is diverse, complex, doesn't red-line, and plays nice often. Each of the 98 shipped songs' calm levels was scored on those terms, standardised (clipped at ±2.5 SD), and checked against the 18 songs in their saved Mixer sets (AUC; 0.5 = no relation).

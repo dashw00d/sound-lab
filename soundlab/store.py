@@ -26,7 +26,10 @@ class Store:
         self.prompts_path = proj.data / "prompts.json"
         self.promoted_path = proj.data / "promoted.json"
         self.music_promoted_path = proj.data / "music_promoted.json"
-        self.mixes_path = proj.data / "mixes.json"  # (the Mixer page's saved sets of parts: the user's)
+        self.mixes_path = proj.data / "mixes.json"
+        self.mixer_settings_path = proj.data / "mixer.json"  # (the Mixer's settings: the same in any browser)
+        self.streams_path = proj.data / "streams.json"
+        self.reviews_path = proj.data / "reviews.json"  # (the designer's marks on the piece that spoiled a low-rated block)  # (the Mixer's listening sessions: what played, rated as it went)  # (the Mixer page's saved sets of parts: the user's)
 
     @staticmethod
     def read(path: Path, default):

@@ -58,6 +58,42 @@ def ffmpeg_filter(x: np.ndarray, af: str) -> np.ndarray:
     return np.frombuffer(out, dtype=np.float32).reshape(-1, ch).astype(np.float64)
 
 
+def stretch(x: np.ndarray, tempo: float = 1.0, cents: float = 0.0) -> np.ndarray:
+    """Change the tempo (>1: faster and shorter) and/or the pitch (cents) without the other: Rubber Band's offline R3
+    ("finer") engine through Pedalboard, both channels together, formants kept. ffmpeg's rubberband filter, used before
+    2026-10-21, runs the older real-time R2 engine on each channel apart (the research on retuning: a heavily retuned
+    sibling, -28.5 cents, was the piece the designer marked as "weird"). Falls back to ffmpeg without Pedalboard."""
+    if abs(tempo - 1.0) < 1e-6 and abs(cents) < 1e-3:
+        return x
+    try:
+        import pedalboard
+    except ImportError:
+        af = ",".join(f for f in (f"rubberband=tempo={tempo:.6f}:channels=together" if abs(tempo - 1) >= 1e-6 else "",
+                                  f"rubberband=pitch={2 ** (cents / 1200):.6f}:pitchq=quality:channels=together" if abs(cents) >= 1e-3 else "") if f)
+        return ffmpeg_filter(x, af)
+    y = pedalboard.time_stretch(np.ascontiguousarray(x.T, dtype=np.float32), float(SR), stretch_factor=float(tempo),
+                                pitch_shift_in_semitones=float(cents) / 100.0, high_quality=True)
+    return y.T.astype(np.float64)
+
+
+def click_ratio(x: np.ndarray, at: int, around: float = 0.2) -> float:
+    """How much the waveform jumps at sample `at` against its own biggest normal steps nearby: the largest sample
+    step within 2 samples of it, over the 99.9th percentile of the steps in the `around` seconds either side (the seam
+    check in waivepulse's ACE-Step engine, 2026-10-21 research). Over about 3 a click is heard."""
+    w = int(around * SR)
+    a, b = max(1, at - w), min(len(x), at + w)
+    d = np.abs(np.diff(x[a:b], axis=0)).max(axis=1)
+    k = at - a - 1
+    near = d[max(0, k - 2):k + 3]
+    rest = np.concatenate([d[:max(0, k - 2)], d[k + 3:]])
+    ref = float(np.percentile(rest, 99.9)) if len(rest) else 0.0
+    return round(float(near.max()) / (ref + 1e-9), 2) if len(near) else 0.0
+
+
+CLICK = 3.0  # (a seam whose click_ratio is over this clicks)
+STRETCH = "r3"  # (the engine dsp.stretch uses: part of the retune caches' signatures, so a new engine redoes them)
+
+
 # --------------------------------------------------------------------------- level
 
 def loudness_stats(x: np.ndarray) -> tuple[float, float]:

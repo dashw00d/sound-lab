@@ -79,7 +79,7 @@ Lab.fillRange = function (el) {
 };
 
 // ---- API
-Lab.apply = function (r) { Lab.project = r.project; Lab.S = r.index; Lab.V = r.votes; Lab.shipped = r.shipped || {}; };
+Lab.apply = function (r) { Lab.project = r.project; Lab.S = r.index; Lab.V = r.votes; Lab.shipped = r.shipped || {}; Lab.C = r.candidates || { takes: {} }; };
 Lab.load = async function () {
   const r = await fetch("/api/state");
   if (!r.ok) throw new Error(`state refused: ${r.status}`);
@@ -155,6 +155,11 @@ Lab.poll = async function () {
         b.hidden = false;
       } else if (s.index !== was.index) { s.index = was.index; }  // (counted again on a later poll)
       if (s.tuning !== was.tuning && Lab.tab === "tuning" && Lab.tabs.tuning.reload) Lab.tabs.tuning.reload();  // (an agent wrote it)
+      if (s.candidates !== was.candidates) {  // (music candidates scored the takes: the Music page shows it at once)
+        const r = await (await fetch("/api/state")).json();
+        Lab.C = r.candidates || { takes: {} };
+        if (Lab.tab === "music") Lab.refresh();
+      }
       const voted = s.votes !== was.votes, shipped = s.promoted !== was.promoted;
       if ((voted || shipped) && (!document.activeElement || !/TEXTAREA|INPUT/.test(document.activeElement.tagName))) {
         const r = await (await fetch("/api/state")).json();

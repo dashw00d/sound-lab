@@ -26,6 +26,9 @@
   const isCurrent = (t, k = M.key) => (t.round ?? set(k).round ?? "") === (set(k).round ?? "");
   const current = (k = M.key) => set(k).takes.filter(t => isCurrent(t, k));
   const voteId = (k = M.key, t = set().takes[M.take].id, p = M.prof) => `mesh_${k}.${t}.${p}`;
+  // music candidates: each new take scored before it's heard (plays nice with the shipped songs, catchiness)
+  const score = (k, id) => ((Lab.C || {}).takes || {})[`${k}.${id}`];
+  const bestIn = k => current(k).map(t => score(k, t.id)).filter(Boolean).reduce((b, x) => !b || x.rank < b.rank ? x : b, null);
   function buf(rel) {
     if (bufs.has(rel)) { const b = bufs.get(rel); bufs.delete(rel); bufs.set(rel, b); return b; }
     const b = fetch("/clips/" + rel).then(r => { if (!r.ok) throw new Error(`${r.status} ${rel}`); return r.arrayBuffer(); }).then(x => Lab.actx.decodeAudioData(x));
@@ -82,22 +85,45 @@
   function setChip(k) {
     const sc = mesh().contexts[k], n = ships(k).liked, fresh = setNew(k);
     return `<button class="setc ${k === M.key ? "on" : ""}" data-key="${esc(k)}">
-        <b>${esc(k.replace(/[.~]/g, " · "))}${!fresh ? "" : setAllNew(k) ? NEW : MIXES}</b><small><span>${esc(sc.mode)}</span><span>${current(k).length} take${current(k).length === 1 ? "" : "s"}${sc.takes.length > current(k).length ? ` · ${sc.takes.length - current(k).length} earlier` : ""}</span>${n ? `<span class="liked">${n} liked</span>` : ""}</small></button>`;
+        <b>${esc(k.replace(/[.~]/g, " · "))}${!fresh ? "" : setAllNew(k) ? NEW : MIXES}${bestIn(k) ? `<span class="rankb" data-tip="Its best take's place in the scores (music candidates)">#${bestIn(k).rank}</span>` : ""}</b><small><span>${esc(sc.mode)}</span><span>${current(k).length} take${current(k).length === 1 ? "" : "s"}${sc.takes.length > current(k).length ? ` · ${sc.takes.length - current(k).length} earlier` : ""}</span>${n ? `<span class="liked">${n} liked</span>` : ""}</small></button>`;
   }
   // Only the newest round is out; everything older is folded away: what you liked first, then each round.
   function setList() {
-    const top = keys().filter(k => roundOf(k) === newest()), old = keys().filter(k => roundOf(k) !== newest());
+    const rank = k => (bestIn(k) || { rank: 1e9 }).rank;
+    const top = keys().filter(k => roundOf(k) === newest()).sort((a, b) => rank(a) - rank(b)), old = keys().filter(k => roundOf(k) !== newest());
     const liked = old.filter(k => likedIn(k).length), rest = old.filter(k => !likedIn(k).length);
     const group = (title, ks, cls = "") => ks.length ? `<div class="round ${cls}"><div class="roundh">${title}</div>
         <div class="sets">${ks.map(setChip).join("")}</div></div>` : "";
     const rounds = [...new Set(rest.map(roundOf))].sort().reverse(), oldNew = old.filter(setNew).length;
-    return (top.length ? group(roundLabel(newest(), "Newest round"), top, "now")
+    return (top.length ? bestStrip(top) + group(roundLabel(newest(), "Newest round"), top, "now")
         : newest() ? `<div class="round now"><div class="roundh">${roundLabel(newest(), "Newest round")}</div><p class="lede">No take passed in this round: every seed was rejected. The sets below are from earlier rounds.</p></div>` : "")
       + (old.includes(M.key) ? group("The set playing, from an earlier round", [M.key]) : "")  // (so what's loaded is in view while the list is folded)
       + (old.length ? `<div class="sets"><button class="setc older ${M.older ? "on" : ""}" id="molder" data-tip="Everything from earlier rounds">
           <b>${icon("right")}Earlier rounds</b><small><span>${old.length} set${old.length === 1 ? "" : "s"}</span>${liked.length ? `<span class="liked">${liked.length} liked</span>` : ""}${oldNew ? `<span>${oldNew} with new mixes</span>` : ""}</small></button></div>
       ${M.older ? `<div class="olderbox">${group("Liked", liked) + rounds.map(r => group(roundLabel(r), rest.filter(k => roundOf(k) === r))).join("")}</div>` : ""}` : "");
   }
+  // The newest round's takes in score order, across sets: where to start listening (N: the next, B: back).
+  const bestOrder = () => keys().filter(k => roundOf(k) === newest()).flatMap(k => current(k).map(t => [k, t, score(k, t.id)]))
+    .filter(x => x[2]).sort((a, b) => a[2].rank - b[2].rank);
+  function stepBest(d) {
+    const all = bestOrder();
+    if (!all.length) return;
+    const at = all.findIndex(([k, t]) => k === M.key && set().takes[M.take] === t);
+    const [k, t] = all[at < 0 ? (d > 0 ? 0 : all.length - 1) : (at + d + all.length) % all.length];
+    switchTo({ key: k, take: set(k).takes.indexOf(t) });
+  }
+  function bestStrip(ks) {
+    const all = bestOrder();
+    if (!all.length) return "";
+    const n = (Lab.C || {}).songs, open = M.bestAll ? all : all.slice(0, 12);
+    return `<div class="best"><div class="roundh">Best first<small><kbd>N</kbd> next · <kbd>B</kbd> back · scored before you've heard them: plays nice with your ${n} shipped songs and sounds unlike them (and unlike the takes above it) · ${all.length} takes</small></div>
+      <div class="bestl">${open.map(([k, t, c]) => `<button class="bestc ${k === M.key && set().takes[M.take] === t ? "on" : ""}" data-best="${esc(k)}|${set(k).takes.indexOf(t)}"
+          data-tip="Plays nice: ${c.nice} good transitions, more than ${c.nice_beats} of ${n} shipped songs · unique ${c.unique == null ? "?" : (c.unique > 0 ? "+" : "") + c.unique.toFixed(1)}${c.nearest ? ` · most like ${esc(c.nearest.id.replace(/\.any|\.stack/g, ""))}` : ""}">
+          <b>#${c.rank}</b><span>${esc(k.replace(/[.~]/g, " · "))} · ${esc(t.id)}</span>${dot2(k, t)}<small>beats ${c.pick_beats} of ${n}</small></button>`).join("")}
+        ${all.length > 12 ? `<button class="btn" id="mbestall">${icon("right")}<span>${M.bestAll ? "Fewer" : `All ${all.length}`}</span></button>` : ""}</div></div>`;
+  }
+  const dot2 = (k, t) => { const x = Object.keys(t.profiles).map(p => Lab.V.clips[`mesh_${k}.${t.id}.${p}`] || 0).find(v => v) || 0;
+    return x === 1 ? `<span class="vote up">${icon("up")}</span>` : x === -1 ? `<span class="vote down">${icon("down")}</span>` : ""; };
   function likedIn(k) {
     return set(k).takes.flatMap(t => Object.keys(t.profiles).filter(p => (Lab.V.clips[voteId(k, t.id, p)] || 0) > 0).map(p => `${t.id} · ${p}`));
   }
@@ -317,7 +343,7 @@
     const dot = t => { const x = Lab.V.clips[voteId(M.key, t.id)]; return x === 1 ? `<span class="vote up">${icon("up")}</span>` : x === -1 ? `<span class="vote down">${icon("down")}</span>` : ""; };  // (this profile's vote)
     const cur = c.takes.filter(t => isCurrent(t)), olderT = c.takes.filter(t => !isCurrent(t)), showOld = M.olderTakes || olderT.includes(take);
     const likedTake = t => Object.keys(t.profiles).some(p => (Lab.V.clips[voteId(M.key, t.id, p)] || 0) > 0);
-    const takeSeg = ts => Lab.seg(ts.map(t => [String(c.takes.indexOf(t)), `${dot(t)}${esc(t.id)}${warned(t) ? `<span class="qwarn" data-tip="A level of this take is flagged">${icon("flag")}</span>` : ""}`]), String(M.take), "take");
+    const takeSeg = ts => Lab.seg(ts.map(t => [String(c.takes.indexOf(t)), `${dot(t)}${esc(t.id)}${score(M.key, t.id) ? `<span class="rankt">#${score(M.key, t.id).rank}</span>` : ""}${warned(t) ? `<span class="qwarn" data-tip="A level of this take is flagged">${icon("flag")}</span>` : ""}`]), String(M.take), "take");
     const page = document.querySelector(".page.music"), y = page ? page.scrollTop : 0;
     Lab.view().innerHTML = `<div class="page music"><div class="wrap">
       <div class="page-head"><div><div class="eyebrow">${m.bpm} BPM · ${m.bar_beats}/4 · ${m.bars}-bar loops · ${loopS().toFixed(1)} s</div><h1>Music</h1>
@@ -357,7 +383,7 @@
         <div class="field"><label>Intensity changes</label>${Lab.seg([["now", "now"], ["bar", "on the next bar"]], M.quant ? "bar" : "now", "quant")}</div>
         <div class="field"><label>A switch enters</label>${Lab.seg([["start", "at bar 1"], ["same", "at the same bar"]], M.enter, "enter")}</div>
       </div>
-      <div class="facts"><span>tempo <b>${take.measured_bpm} → ${take.corrected_bpm} BPM</b></span>${take.beat_spread_ms != null ? `<span>beat spread <b>${take.beat_spread_ms} ms</b></span>` : ""}
+      <div class="facts">${(sc => sc ? `<span data-tip="music candidates: scored against your shipped songs before you heard it">score <b>#${sc.rank}</b>, over ${sc.pick_beats} of ${Lab.C.songs} shipped songs · plays nice <b>${sc.nice}</b> good transitions (over ${sc.nice_beats}) · unique <b>${sc.unique == null ? "?" : (sc.unique > 0 ? "+" : "") + sc.unique.toFixed(1)}</b>${sc.nearest ? ` · most like <b>${esc(sc.nearest.id.replace(/\.any|\.stack/g, ""))}</b> (same piece ${sc.nearest.same_piece.toFixed(2)}, sounds like ${sc.nearest.sounds_like.toFixed(2)})` : ""}</span>` : "")(score(M.key, take.id))}<span>tempo <b>${take.measured_bpm} → ${take.corrected_bpm} BPM</b></span>${take.beat_spread_ms != null ? `<span>beat spread <b>${take.beat_spread_ms} ms</b></span>` : ""}
         <span>beat lock <b>${esc(m.levels.map(lv => info[lv] ? `${lv} ${info[lv].lock}` : "").filter(Boolean).join(", "))}</b></span>
         <span>ships <b>${sh.list.length ? esc(sh.list.join(", ")) : "nothing"}</b>${sh.liked ? "" : sh.list.length ? " (none liked yet: every take of the newest batch not thumbed down, at its default profile)" : c.style ? " (a style's takes ship only when liked)" : sh.sibling ? " (a style of this set is liked instead)" : current().length ? " (every take of the newest batch is thumbed down)" : ""}</span></div>
       <div class="notebox ${Lab.V.notes["mesh_" + M.key] ? "has" : ""}">${icon("pen")}<textarea id="mnote" rows="1"
@@ -376,6 +402,8 @@
       Lab.play("/clips/" + b.dataset.stem, { id, onEnd: paint }); paint();
     });
     vw.querySelectorAll("[data-take]").forEach(b => b.onclick = () => switchTo({ take: +b.dataset.take }));
+    vw.querySelectorAll("[data-best]").forEach(b => b.onclick = () => { const [k, i] = b.dataset.best.split("|"); switchTo({ key: k, take: +i }); });
+    if ($("mbestall")) $("mbestall").onclick = () => { M.bestAll = !M.bestAll; render(); };
     vw.querySelectorAll("[data-prof]").forEach(b => b.onclick = () => switchTo({ prof: b.dataset.prof }));
     vw.querySelectorAll("[data-fade]").forEach(b => b.onclick = () => { M.fade = b.dataset.fade; render(); });
     vw.querySelectorAll("[data-quant]").forEach(b => b.onclick = () => { M.quant = b.dataset.quant === "bar"; render(); });
@@ -420,7 +448,7 @@
   Lab.register("music", {
     title: "Music", icon: "layers", show, refresh: () => show(), dock: false, enabled: () => Lab.project.features.music, leave: stop,
     keys: [["Space", "play or stop"], ["1 2 3", "quietest … fullest level"], ["S", "stack every level"], ["← →", "jump a bar back / forward"],
-           ["[ ]", "previous / next take"], ["P", "next profile"], ["U", "like this take"], ["D", "dislike this take"], ["Esc", "stop"]],
+           ["[ ]", "previous / next take"], ["N B", "next / back in Best first (across sets)"], ["P", "next profile"], ["U", "like this take"], ["D", "dislike this take"], ["Esc", "stop"]],
     onKey(e) {
       if (!mesh() || !M.key || !set().takes.length) return;
       const k = e.key;
@@ -436,6 +464,8 @@
         const have = mesh().profiles.filter(p => set().takes[M.take].profiles[p]);
         if (have.length) switchTo({ prof: have[(have.indexOf(M.prof) + 1) % have.length] });
       }
+      else if (k === "n" || k === "N") stepBest(1);  // (the next take in score order, across sets)
+      else if (k === "b" || k === "B") stepBest(-1);
       else if (k === "u" || k === "U") vote(1);
       else if (k === "d" || k === "D") vote(-1);
       else if (k === "Escape") { stop(); Lab.stop(); paint(); }

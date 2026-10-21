@@ -191,7 +191,7 @@ def _layer_stem(eng, M: dict, prompt: str, seed: int, spine: np.ndarray):
         if abs(got / bpm - 1) > M.get("layer_stretch", 0.3) or wobble > 40:
             why = f"{got:.1f} BPM, beat spread {wobble:.0f} ms"
             continue
-        x = dsp.ffmpeg_filter(x, f"rubberband=tempo={bpm / got:.6f}")
+        x = dsp.stretch(x, tempo=bpm / got)
         start = int(dsp.first_downbeat(x, bpm, bb) * SR)
         x = x[start:start + int(round(need * SR))]
         if len(x) < int(round(need * SR)):
@@ -240,10 +240,10 @@ def _make_profiles(eng, M: dict, st: Store, key: str, take: dict, prompts: dict,
     writes, stems = {}, {}
 
     def raw(lv, cfg, prof):
+        if lv == spine_lv:  # (first: a profile needn't give the spine's own level a strength)
+            return spine[0], spine[1], base
         if isinstance(cfg[lv], str):  # (another level's audio, before its layers)
             return raw(cfg[lv], cfg, prof)
-        if lv == spine_lv:
-            return spine[0], spine[1], base
         if cfg[lv] == 0:  # (strength 0: the spine itself at this level's loudness, so every level is the same music)
             k = (lv, 0)
             if k not in made:
@@ -333,9 +333,11 @@ def current_takes(c: dict) -> list[dict]:
 
 
 def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int = 3, tries: int = 14,
-             styles: list[str] | None = None, profiles: list[str] | None = None) -> int:
+             styles: list[str] | None = None, profiles: list[str] | None = None, same_round: bool = False, trial: bool = False) -> int:
     """Sets for every context x biome (x style, when given: the project's alternative prompt styles): a new batch of
-    `takes` takes each, at every profile (or only `profiles`). Earlier takes of a set stay, but are no longer the batch."""
+    `takes` takes each, at every profile (or only `profiles`). Earlier takes of a set stay, but are no longer the batch.
+    With `same_round`, this run's takes join the newest round (one batch made in several runs, e.g. other styles for
+    other contexts) instead of starting a new one."""
     tuning.require("music")
     M, st = proj.music, Store(proj)
     bpm, bar_beats, bars = M["bpm"], M["bar_beats"], M["bars"]
@@ -363,12 +365,20 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
     mesh.setdefault("contexts", {})
     runs = [(c, b, s) for c in contexts for b in biomes for s in (styles or [None])]
     shipped, votes_now = Store.read(st.music_promoted_path, {}), st.votes()["clips"]
+    # (what a new take mustn't be the same piece as: the shipped songs, then this run's own takes as they're made)
+    refs = [(t, np.array(r["feat"])[:bars]) for t, r in Store.read(proj.work / "songs.json", {}).items() if "feat" in r]
     now = datetime.now()
     rid = now.strftime("%Y-%m-%d %H:%M")  # a round: this run's takes (the Music page shows the newest batch)
     if any(r["id"] == rid for r in mesh.get("rounds", [])):  # (a second run in the same minute is still its own batch)
         rid = now.strftime("%Y-%m-%d %H:%M:%S")
-    mesh.setdefault("rounds", []).append(dict(id=rid, contexts=contexts, biomes=biomes, styles=styles or [],
-                                              profiles=list(profs), takes=takes))
+    if same_round and mesh.get("rounds"):
+        r = mesh["rounds"][-1]
+        rid = r["id"]
+        for f, new in (("contexts", contexts), ("biomes", biomes), ("styles", styles or []), ("profiles", list(profs))):
+            r[f] = r.get(f, []) + [x for x in new if x not in r.get(f, [])]
+    else:
+        mesh.setdefault("rounds", []).append(dict(id=rid, contexts=contexts, biomes=biomes, styles=styles or [],
+                                                  profiles=list(profs), takes=takes, **({"trial": True} if trial else {})))
     for ctx, biome, style in runs:
         key = key_of(ctx, biome, style)
         make = M["styles"][style] if style else M["prompts"]
@@ -389,7 +399,11 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
             if len(found) == takes:
                 break
             roles = take_roles(pool, key, seed)
-            prompts = make(ctx, mode, mood, {r: names[p] for r, p in roles.items()})
+            # (a style may draw some of its words per take, seeded like the instruments: style.draws(context) -> {slot:
+            # [options]}; the draw is kept with the take, so the votes can say which words win)
+            draws = getattr(make, "draws", None)
+            words = {sl: random.Random(f"{key}:{seed}:{sl}").choice(opts) for sl, opts in (draws(ctx) if draws else {}).items()}
+            prompts = make(ctx, mode, mood, {r: names[p] for r, p in roles.items()} | ({"_words": words} if words else {}))
             first_prompts = first_prompts or prompts
             # The loop is cut from the middle of a longer piece: SA3 writes each take as a whole piece, opening and
             # heading for an ending (a late crescendo, "weird stuff toward the end", the designer 2026-10-15), so the
@@ -399,7 +413,7 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
             if abs(got / bpm - 1) > 0.06 or wobble > 40:
                 print(f"  {key} seed {seed}: rejected ({got:.1f} BPM, beat spread {wobble:.0f} ms)", flush=True)
                 continue
-            spine = dsp.ffmpeg_filter(spine, f"rubberband=tempo={bpm / got:.6f}")  # onto the grid, same pitch
+            spine = dsp.stretch(spine, tempo=bpm / got)  # onto the grid, same pitch
             start = int((dsp.first_downbeat(spine, bpm, bar_beats) + LEAD_IN * bar) * SR)
             spine = spine[start:start + int(round(need * SR))]
             if len(spine) < int(round(need * SR)):
@@ -408,6 +422,7 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
             after, _ = dsp.tempo_of(spine, bpm)
             tid = f"k{seed}"
             take = dict(id=tid, seed=seed, sa3_seed=sa3_seed(key, seed), round=rid, measured_bpm=round(got, 2), corrected_bpm=round(after, 2),
+                        **({"words": words} if words else {}), **({"trial": True} if trial else {}),
                         beat_spread_ms=round(wobble, 1), profiles={}, prompts=prompts,
                         instruments={r: names[p] for r, p in roles.items()  # (the ones its prompts name)
                                      if any(names[p].lower() in t.lower() for t in prompts.values())})
@@ -434,7 +449,18 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
                 for f in {spine_file, *writes}:
                     (st.clips / f).unlink(missing_ok=True)
                 continue
-            print(f"  {key} {tid}: {got:.1f} -> {after:.1f} BPM, " + ", ".join(take["instruments"].values()), flush=True)
+            # (the same piece as a shipped song, or as a take this run already made: another seed instead; 2026-10-21, the
+            # similarity scan found 4 of an overnight 192 were; the designer: "most tracks sound basically the same")
+            F = _fingerprint(dsp.normalise(base, M["lufs"]["calm"], -2.5), M)
+            dup = max(((same_piece(F, G), name) for name, G in refs), default=(0.0, ""))
+            if dup[0] >= SAME_PIECE:
+                print(f"  {key} seed {seed}: rejected (the same piece as {dup[1]}: {dup[0]:.2f})", flush=True)
+                for f in {spine_file, *writes}:
+                    (st.clips / f).unlink(missing_ok=True)
+                continue
+            refs.append((f"{key}.{tid}", F))
+            print(f"  {key} {tid}: {got:.1f} -> {after:.1f} BPM, " + ", ".join(take["instruments"].values())
+                  + (" · " + " · ".join(words.values()) if words else ""), flush=True)
             found.append(take)
         for t in old.get("takes", []):  # (takes made before takes carried their round: the set's)
             t.setdefault("round", old.get("round", ""))
@@ -449,6 +475,142 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
                                 for c, b, s in runs)
           + (" (provisional pool)" if provisional else ""), flush=True)
     return 0
+
+
+TRIAL_CONTEXTS = ("day", "night", "bloodmoon", "winter")
+
+
+def trial(proj: P.Project, takes: int = 2, contexts: list[str] | None = None, style: str = "drawn") -> int:
+    """A mini trial (2026-10-21, the designer: "a 'is this unique and good' mini trial over and over so we can build up
+    samples"): a small batch of takes in a style that draws its words per take, `takes` per context, made like any
+    round (the quality gate, the same-piece check) and marked as a trial, for the Trial page: one at a time, blind, the
+    designer answers "new family" (votes novel_<set>.<take> = 1, strict: only what could open a whole new family of
+    songs) or not (-1). Their answers, with each take's drawn words, are the samples the next draws learn from."""
+    M = proj.music
+    if style not in M.get("styles", {}):
+        raise SystemExit(f"no style {style!r} in the project")
+    return generate(proj, list(contexts or [c for c in TRIAL_CONTEXTS if c in M["contexts"]]), ["any"], takes=takes,
+                    tries=max(12, takes * 8), styles=[style], profiles=[M.get("default_profile", "stack")], trial=True)
+
+
+GROW_KEEP, GROW_BARS = 4, 16  # (bars of the seed kept either side; bars written between them)
+GROW_CHANGES = ("none", "melody", "accomp", "lead")  # (the slot each next extension of a seed draws anew, in turn)
+
+
+def grow(proj: P.Project, src: str | None = None, n: int = 4, auto: bool = False) -> int:
+    """Seamless extensions of a take the designer called a new family (2026-10-21, the designer: "should we frame the
+    grow like the mixer where we try and grow seamless extensions?"). SA3 inpaints GROW_BARS new bars between the seed's
+    last GROW_KEEP bars and its first GROW_KEEP bars, so the extension comes out of the seed's end and lands back on its
+    start: seed -> extension -> seed joins by construction, on the grid (inpainting with both ends kept held the key and
+    grid, MODELS_LOG section probe). Each extension draws one slot of the seed's words anew (GROW_CHANGES: none, the
+    melody, the strings' part, the lead), so the family grows rather than repeats. Kept when it holds the grid, sits
+    within 2.5 dB of the seed, doesn't click at either seam, isn't the same piece as the seed, and passes the quality
+    gate; its levels use the seed's own layers (the family's drums). A new take in the seed's set, id <seed>g<j>, marked
+    trial and grow={of, change, ...}: the Trial page plays it between the seed's tail and head, and the designer answers.
+    `src` "<set>.<take>", else (auto) the oldest new-family seed with fewer than `n` extensions. Returns 3 if none."""
+    from . import quality
+    from .engine import Engine
+
+    tuning.require("music")
+    M, st = proj.music, Store(proj)
+    idx, votes = st.index(), st.votes()["clips"]
+    mesh = idx.get("mesh", {})
+    sets = mesh.get("contexts", {})
+    bpm, bar_beats = M["bpm"], M["bar_beats"]
+    bar = int(round(bar_beats * 60.0 / bpm * SR))
+    spine_lv, prof = spine_level(M), M.get("default_profile", "stack")
+    grown = lambda key, tid: [t for t in sets[key]["takes"] if (t.get("grow") or {}).get("of") == tid]
+    seeds = [(key, t) for key, c in sets.items() for t in c["takes"]
+             if votes.get(f"novel_{key}.{t['id']}", 0) > 0 and not t.get("grow")]
+    if src:
+        key, tid = src.rsplit(".", 1)
+        pick = [(key, t) for t in sets.get(key, {}).get("takes", []) if t["id"] == tid]
+    else:
+        pick = [(k, t) for k, t in seeds if len(grown(k, t["id"])) < n]
+    if not pick:
+        print("no new-family seed left to grow" if not src else f"no take {src}")
+        return 3
+    key, take = pick[0]
+    c = sets[key]
+    ctx, biome, style = c["context"], c.get("biome", "any"), c.get("style")
+    make = M["styles"][style] if style else M["prompts"]
+    mode, mood = M["contexts"][ctx]
+    if M["biomes"].get(biome):
+        mood = f"{mood}, {M['biomes'][biome]}"
+    pool, _ = pool_of(proj)
+    names = {p: i["name"] for p, i in M["instruments"].items()}
+    nm = {r: names[p] for r, p in take_roles(pool, key, take["seed"]).items()}
+    S = dsp.decode(st.clips / f"mesh_{key}/{spine_lv}.{take['id']}.ogg")  # (the seed's spine: its loop, at the spine's level)
+    keep = np.concatenate([S[-GROW_KEEP * bar:], np.zeros((GROW_BARS * bar, 2)), S[:GROW_KEEP * bar]])
+    a0, a1 = GROW_KEEP * bar, (GROW_KEEP + GROW_BARS) * bar
+    F_S, ref = _fingerprint(dsp.normalise(S, M["lufs"]["calm"], -2.5), M), dsp.loudness_stats(S)[0]
+    draws = getattr(make, "draws", None)
+    eng = Engine()
+    done, made, tries = len(grown(key, take["id"])), 0, 0
+    print(f"growing {key} {take['id']} (has {done})", flush=True)
+    while done + made < n and tries < n * 4:
+        j = done + made
+        change = GROW_CHANGES[j % len(GROW_CHANGES)]
+        words = dict(take.get("words") or {})
+        slots = draws(ctx) if draws else {}
+        if change in slots:
+            words[change] = random.Random(f"{key}:{take['id']}:grow:{j}:{tries}").choice([o for o in slots[change] if o != words.get(change)])
+        prompts = make(ctx, mode, mood, nm | ({"_words": words} if words else {}))
+        gseed = int(hashlib.sha256(f"{key}:{take['id']}:grow:{j}:{tries}".encode()).hexdigest()[:6], 16)
+        tries += 1
+        y = eng.generate(prompts[spine_lv], len(keep) / SR, gseed, keep=keep, fill=[(a0 / SR, a1 / SR)])
+        E = y[a0:a1]
+        ph, lock = dsp.grid_phase(y[a0 - bar:a1 + bar], bpm)
+        loud = dsp.loudness_stats(E)[0] - ref
+        click = max(dsp.click_ratio(y, a0), dsp.click_ratio(y, a1))
+        same = same_piece(_fingerprint(dsp.normalise(E, M["lufs"]["calm"], -2.5), M), F_S)
+        why = ("off the grid" if lock < 0.8 or abs(ph) > 0.04 else f"{loud:+.1f} dB from the seed" if abs(loud) > 2.5
+               else f"a click at a seam ({click})" if click > dsp.CLICK else f"the same as the seed ({same:.2f})" if same >= SAME_PIECE else None)
+        if why:
+            print(f"  {change}: rejected ({why})", flush=True)
+            continue
+        tid = f"{take['id']}g{j}"
+        new = dict(id=tid, seed=take["seed"], sa3_seed=gseed, round=take.get("round", c.get("round", "")), trial=True,
+                   grow=dict(of=take["id"], change=change, lock=round(float(lock), 2), loud=round(float(loud), 1), click=click,
+                             same=round(same, 3)),
+                   words=words, prompts=prompts, instruments=dict(take.get("instruments", {})), layers=dict(take.get("layers", {})),
+                   profiles={}, measured_bpm=bpm, corrected_bpm=bpm)
+        base = dsp.normalise(E, M["lufs"][spine_lv], -2.5)
+        spine_file = f"mesh_{key}/{spine_lv}.{tid}.ogg"
+        try:
+            writes = _make_profiles(eng, M, st, key, new, prompts, base, base, (spine_file, dict(lock=round(float(lock), 2))),
+                                    {prof: M["profiles"][prof]}, (ctx, mode, mood), new_layers=False)
+        except _Failed as e:
+            print(f"  {change}: rejected ({e})", flush=True)
+            continue
+        dsp.write(st.clips / spine_file, base)
+        for f, a in writes.items():
+            dsp.write(st.clips / f, a)
+        gate = quality.gate({lv: str(st.clips / f) for lv, f in new["profiles"][prof]["levels"].items()}) if M.get("quality_gate", True) else None
+        if gate:
+            print(f"  {change}: rejected ({gate})", flush=True)
+            for f in {spine_file, *writes}:
+                (st.clips / f).unlink(missing_ok=True)
+            continue
+        c["takes"].append(new)
+        st.save_index(idx)
+        made += 1
+        print(f"  {key} {tid}: {change}" + (f" -> {words.get(change)}" if change in slots else "") + f" (grid {lock:.2f}, {loud:+.1f} dB, "
+              f"seams {click}, like the seed {same:.2f})", flush=True)
+    print(f"grew {made} extensions of {key} {take['id']} in {tries} tries")
+    return 0
+
+
+def trial_pending(proj: P.Project) -> int:
+    """How many trial takes the designer hasn't answered yet (the trial loop keeps one batch ahead of them)."""
+    from .families import mixer_id
+
+    st = Store(proj)
+    votes = st.votes()["clips"]
+    prof = proj.music.get("default_profile", "stack")
+    said = {k.split("_", 1)[1].split("|", 1)[0] for k in votes if k.startswith(("ok_", "link_", "dup_", "novel_"))}
+    return sum(1 for key, c in st.index().get("mesh", {}).get("contexts", {}).items() for t in c["takes"]
+               if t.get("trial") and f"novel_{key}.{t['id']}" not in votes and mixer_id(c, t, prof) not in said)
 
 
 def derive(proj: P.Project, profiles: list[str], keys: list[str] | None = None, liked: bool = False,
@@ -650,8 +812,9 @@ def library(proj: P.Project) -> dict:
     for t in tracks:
         if t["id"] in stem_index:
             t["stems"] = stem_index[t["id"]]["files"]
+            t["stem_gain"] = stem_index[t["id"]].get("gain", {})  # (each variation's gain back to the full level, dB)
         if t["id"] in fill_index:
-            t["fills"] = {k: [dict(file=f["file"], bars=f["bars"], seed=f["seed"], beats=f.get("beats")) for f in v] for k, v in fill_index[t["id"]].items()
+            t["fills"] = {k: [dict(file=f["file"], bars=f["bars"], seed=f["seed"], beats=f.get("beats"), click=f.get("click")) for f in v] for k, v in fill_index[t["id"]].items()
                           if not k.endswith(".tried") and v}
     glue_index = Store.read(proj.work / "glues.json", {})  # (music glues: a mellow pad per family, for the Mixer)
     of = {tid: g for g in glue_index.values() for tid in g["members"]}
@@ -702,12 +865,18 @@ def _onsets(x: np.ndarray, bpm: float) -> dict:
     return dict(busy=busy, attack=attack)
 
 
+TUNING_V = 2  # (2026-10-21: the estimate before this was 3x too big and wrapped at 17 cents; measured again when older)
+
+
 def _tuning(x: np.ndarray) -> float:
-    """How far the music sits from A440, in cents (librosa's estimate, a third of a semitone's resolution)."""
+    """How far the music sits from A440, in cents, within half a semitone (librosa's estimate in fractions of a
+    semitone: on test tones within 2 cents, on music a few). Until 2026-10-21 it asked for 36 bins an octave and read the
+    fraction of a bin (33 cents) as a fraction of a semitone: every tuning came out 3x too big and wrapped past 17 cents
+    (a true +10 read +26, +25 read -28), so the retunes it drove were mostly noise."""
     import librosa
 
     y = librosa.resample(x.mean(axis=1).astype(np.float32), orig_sr=SR, target_sr=22050)
-    return round(100 * float(librosa.estimate_tuning(y=y, sr=22050, bins_per_octave=36)), 1)
+    return round(100 * float(librosa.estimate_tuning(y=y, sr=22050, bins_per_octave=12)), 1)
 
 
 def _phrase(feat: np.ndarray, length: int = 4) -> dict:
@@ -722,7 +891,109 @@ def _phrase(feat: np.ndarray, length: int = 4) -> dict:
     return dict(start=o + 1, contrast=round(float(contrast[o]), 3))
 
 
-TRIM_REGION, TRIM_LENGTHS, TRIM_KEEP = (2, 12), (8, 10), 4  # (bars a mellow loop may use; its lengths; cuts offered)
+TRIM_REGION, TRIM_LENGTHS, TRIM_KEEP = (2, 12), (6, 8, 10), 4  # (bars a mellow loop may use; its lengths (6: more places to loop where the level holds, 2026-10-21); cuts offered)
+
+
+LOUD_PEN = 0.15  # (a cut's score loses this per dB: of level step at its seam over 2, of a bar dipping under its median over 4)
+
+
+def _cuts(sim: np.ndarray, loud: list[float]) -> list[dict]:
+    """The best mellow loops of a level, from its bars' similarity and loudness. A cut bars s..e (1-based, inside
+    TRIM_REGION) jumps from bar e back to bar s: scored by how alike bar s is to the bar that really follows e, less
+    how much the level steps at that jump and how deep a bar inside it dips (2026-10-21: chosen by likeness alone, 18
+    of 89 shipped guesses and 44 of 192 new takes stepped over 4 dB at the seam, some 13 dB, and SA3's quiet bars 2-4
+    made loops dip; the designer heard it: "otherwise 5 stars")."""
+    nb = sim.shape[0]
+    lo, hi = TRIM_REGION
+    ref = float(np.percentile(loud, 75))  # (the take's own loud part: a loop well under it is a near-silent stretch)
+    cuts = []
+    for length in TRIM_LENGTHS:
+        for s in range(lo, hi - length + 2):
+            e = s + length - 1
+            if e >= nb:  # (bar e + 1 must exist to judge the jump)
+                continue
+            seam = float(sim[s - 1, e])  # (0-based: bar s against the bar after e)
+            loop = loud[s - 1:e]
+            step, dip = abs(loud[e - 1] - loud[s - 1]), float(np.median(loop)) - min(loop)
+            quiet = max(0.0, ref - float(np.median(loop)))  # (2026-10-21: two takes' bars 2-8 were near silence, 13-25 dB under)
+            score = seam + 0.01 * (length - 8) - LOUD_PEN * (max(0.0, step - 2) + max(0.0, dip - 4) + 2 * max(0.0, quiet - 3))
+            cuts.append(dict(bars=[s, e], seam=round(seam, 3), step=round(step, 1), dip=round(dip, 1), quiet=round(quiet, 1), score=round(score, 3)))
+    cuts.sort(key=lambda c: -c["score"])
+    return cuts[:TRIM_KEEP]
+
+
+UNEVEN_STEP, UNEVEN_DIP, UNEVEN_QUIET = 4.0, 5.0, 6.0  # (a loop is uneven when its seam steps more than this, a bar dips this far
+# under it, or it sits this far under the take's own loud part)
+uneven_loop = lambda c: c.get("step", 0) > UNEVEN_STEP or c.get("dip", 0) >= UNEVEN_DIP or c.get("quiet", 0) >= UNEVEN_QUIET
+
+
+def recut(rec: dict, keep: list[int] | None = None) -> None:
+    """The calm level's cuts again from what's measured (its bar fingerprints and loudness), without the audio. With
+    `keep` (the loop guessed before), that loop stays first unless it's uneven: a guess the designer has been hearing
+    changes only to fix it (2026-10-21: re-guessing everything moved 58 of 89 shipped loops, most of them fine)."""
+    if "feat" not in rec or "calm" not in rec.get("loud", {}):
+        return
+    F = np.array(rec["feat"])
+    loud = rec["loud"]["calm"][:len(F)]
+    cuts = _cuts(F @ F.T, loud)
+    if keep:
+        s, e = keep
+        loop = loud[s - 1:e]
+        was = dict(bars=[s, e], seam=round(float((F @ F.T)[s - 1, min(e, len(F) - 1)]), 3), step=round(abs(loud[e - 1] - loud[s - 1]), 1),
+                   dip=round(float(np.median(loop)) - min(loop), 1), quiet=round(max(0.0, float(np.percentile(loud, 75)) - float(np.median(loop))), 1))
+        if not uneven_loop(was):
+            was["score"] = round(was["seam"] - LOUD_PEN * (max(0.0, was["step"] - 2) + max(0.0, was["dip"] - 4) + 2 * max(0.0, was["quiet"] - 3)), 3)
+            cuts = [was] + [c for c in cuts if c["bars"] != [s, e]][:TRIM_KEEP - 1]
+    rec.setdefault("cuts", {})["calm"] = cuts
+
+
+def _fingerprint(x: np.ndarray, M: dict) -> np.ndarray:
+    """A level's bar fingerprints (bars x features: beat chroma and MFCC, each bar a unit vector), as songs.json "feat"."""
+    from . import quality
+
+    q = quality.features(x, M["bpm"])
+    B = quality._bars(np.vstack([q["beat_chroma"], q["beat_mfcc"] * 0.3]), M["bar_beats"])
+    B = B / (np.linalg.norm(B, axis=0, keepdims=True) + 1e-9)
+    return B.T[:M["bars"]]
+
+
+SAME_PIECE = 0.85  # (bar fingerprints this alike at the best offset: the same piece; candidates.py flags the same)
+
+
+def same_piece(F: np.ndarray, G: np.ndarray) -> float:
+    """How alike two songs' bar fingerprints are at the best of their offsets (1 = the same, unrelated songs ~0.66)."""
+    n = min(len(F), len(G))
+    F, G = F[:n], G[:n]
+    return float(max(np.mean(np.sum(F * np.roll(G, -L, axis=0), axis=1)) for L in range(n)))
+
+
+def _measure(files: dict[str, Path], M: dict) -> dict:
+    """One track's measurements (its calm and battle levels' files), as songs.json keeps them: per-bar and per-beat
+    loudness, the best mellow cuts, the bar-to-bar step, and of the calm level the bar fingerprints, tuning, onsets
+    and phrase grid. For `music trims` (shipped tracks) and `music candidates` (new takes)."""
+    from . import quality
+
+    bar = int(round(M["bar_beats"] * 60.0 / M["bpm"] * dsp.SR))
+    rec = dict(loud={}, cuts={}, step={})
+    for lv, f in files.items():
+        x = dsp.decode(f)
+        m = x.mean(axis=1)
+        rec["loud"][lv] = [round(float(10 * np.log10((m[i * bar:(i + 1) * bar] ** 2).mean() + 1e-12)), 2)
+                           for i in range(len(m) // bar)]
+        rec.setdefault("beats", {})[lv] = _beats(x, bar // M["bar_beats"])
+        q = quality.features(x, M["bpm"])
+        B = quality._bars(np.vstack([q["beat_chroma"], q["beat_mfcc"] * 0.3]), M["bar_beats"])
+        B = B / (np.linalg.norm(B, axis=0, keepdims=True) + 1e-9)
+        sim = B.T @ B
+        nb = sim.shape[0]
+        rec["cuts"][lv] = _cuts(sim, rec["loud"][lv])
+        rec["step"][lv] = round(float(np.median([sim[k, k + 1] for k in range(nb - 1)])), 3)  # (this level's own bar-to-bar step)
+        if lv == "calm":  # (the bars' fingerprints, to find the songs in step with this one: families)
+            rec["feat"] = np.round(B.T[:M["bars"]], 3).tolist()
+            rec["tuning"], rec["tuning_v"] = _tuning(x), TUNING_V
+            rec["onset"] = _onsets(x, M["bpm"])
+            rec["phrase"] = _phrase(np.array(rec["feat"]))
+    return rec
 
 
 def trims(proj: P.Project, force: bool = False) -> int:
@@ -748,43 +1019,16 @@ def trims(proj: P.Project, force: bool = False) -> int:
         sig = {lv: f"{f.stat().st_size}:{f.stat().st_mtime_ns}" for lv, f in files.items()}
         if old.get(t["id"], {}).get("sig") == sig:
             out[t["id"]] = old[t["id"]]
-            if "tuning" not in out[t["id"]]:
-                out[t["id"]]["tuning"] = _tuning(dsp.decode(files["calm"]))
+            if "tuning" not in out[t["id"]] or out[t["id"]].get("tuning_v") != TUNING_V:
+                out[t["id"]]["tuning"], out[t["id"]]["tuning_v"] = _tuning(dsp.decode(files["calm"])), TUNING_V
             if "beats" not in out[t["id"]]:
                 out[t["id"]]["beats"] = {lv: _beats(dsp.decode(f), bar // M["bar_beats"]) for lv, f in files.items()}
             if "onset" not in out[t["id"]]:
                 out[t["id"]]["onset"] = _onsets(dsp.decode(files["calm"]), M["bpm"])
             out[t["id"]]["phrase"] = _phrase(np.array(out[t["id"]]["feat"]))
+            recut(out[t["id"]], old[t["id"]]["cuts"]["calm"][0]["bars"] if old[t["id"]].get("cuts", {}).get("calm") else None)
             continue
-        rec = dict(sig=sig, loud={}, cuts={}, step={})
-        for lv, f in files.items():
-            x = dsp.decode(f)
-            m = x.mean(axis=1)
-            rec["loud"][lv] = [round(float(10 * np.log10((m[i * bar:(i + 1) * bar] ** 2).mean() + 1e-12)), 2)
-                               for i in range(len(m) // bar)]
-            rec.setdefault("beats", {})[lv] = _beats(x, bar // M["bar_beats"])
-            q = quality.features(x, M["bpm"])
-            B = quality._bars(np.vstack([q["beat_chroma"], q["beat_mfcc"] * 0.3]), M["bar_beats"])
-            B = B / (np.linalg.norm(B, axis=0, keepdims=True) + 1e-9)
-            sim = B.T @ B
-            nb = sim.shape[0]
-            lo, hi = TRIM_REGION
-            cuts = []
-            for length in TRIM_LENGTHS:
-                for s in range(lo, hi - length + 2):
-                    e = s + length - 1
-                    if e >= nb:  # (bar e + 1 must exist to judge the jump)
-                        continue
-                    seam = float(sim[s - 1, e])  # (0-based: bar s against the bar after e)
-                    cuts.append(dict(bars=[s, e], seam=round(seam, 3), score=round(seam + 0.01 * (length - 8), 3)))
-            cuts.sort(key=lambda c: -c["score"])
-            rec["cuts"][lv] = cuts[:TRIM_KEEP]
-            rec["step"][lv] = round(float(np.median([sim[k, k + 1] for k in range(nb - 1)])), 3)  # (this level's own bar-to-bar step)
-            if lv == "calm":  # (the bars' fingerprints, to find the songs in step with this one: families)
-                rec["feat"] = np.round(B.T[:M["bars"]], 3).tolist()
-                rec["tuning"] = _tuning(x)
-                rec["onset"] = _onsets(x, M["bpm"])
-                rec["phrase"] = _phrase(np.array(rec["feat"]))
+        rec = dict(sig=sig, **_measure(files, M))
         out[t["id"]] = rec
         n += 1
         print(f"  {t['id']}: " + ", ".join(f"{lv} bars {c[0]['bars'][0]}-{c[0]['bars'][1]} (join {c[0]['seam']}, its steps "
@@ -800,6 +1044,30 @@ def trims(proj: P.Project, force: bool = False) -> int:
           + "".join(f"\n  {f['key']}: {len(f['members'])} songs, in step {f['in_step']}" for f in fams))
     print(f"measured {n} tracks ({len(out) - n} unchanged); {path.relative_to(proj.root) if path.is_relative_to(proj.root) else path}")
     return 0
+
+
+STEM_MIX = {"nodrums": {"calm.other": 0, "calm.bass": 0}, "sparse": {"calm.other": 0, "calm.bass": -6},
+             "pulse": {"calm": 0, "battle.drums": -10}}  # (the Mixer's stem variations: what each mixes, in dB; mixer.js prepare)
+
+
+def _stem_gains(proj: P.Project, st: "Store", t: dict, files: dict) -> dict:
+    """Each stem variation's gain back to the full calm level (dB, within -6 and +9): a variation changes the texture,
+    not the volume (2026-10-21: war2 k6's "sparse" sat 6.3 dB under its full mix, a drop mid-song the designer heard
+    and rated 2 of 5). Measured as mean power over the whole loop."""
+    def power(x):
+        m = x.mean(axis=1)
+        return float((m ** 2).mean())
+    have = {"calm": dsp.decode(Path(proj.assets) / t["files"]["calm"])}
+    have.update({k: dsp.decode(st.clips / f) for k, f in files.items()})
+    ref = power(have["calm"])
+    out = {}
+    for v, parts in STEM_MIX.items():
+        if not all(k in have for k in parts):
+            continue
+        n = min(len(have[k]) for k in parts)
+        x = sum(have[k][:n] * 10 ** (g / 20) for k, g in parts.items())
+        out[v] = round(float(np.clip(10 * np.log10(ref / (power(x) + 1e-12)), -6, 9)), 1)
+    return out
 
 
 def stems(proj: P.Project, force: bool = False) -> int:
@@ -822,6 +1090,8 @@ def stems(proj: P.Project, force: bool = False) -> int:
         sig = {lv: f"{(Path(proj.assets) / t['files'][lv]).stat().st_mtime_ns}" for lv in ("calm", "battle") if lv in t["files"]}
         if old.get(t["id"], {}).get("sig") == sig and all((st.clips / f).exists() for f in old[t["id"]]["files"].values()):
             index[t["id"]] = old[t["id"]]
+            if "gain" not in index[t["id"]]:  # (made before the variations were level-matched)
+                index[t["id"]]["gain"] = _stem_gains(proj, st, t, index[t["id"]]["files"])
         else:
             todo.append((t, sig))
     print(f"{len(todo)} tracks to split ({len(index)} unchanged)", flush=True)
@@ -846,7 +1116,7 @@ def stems(proj: P.Project, force: bool = False) -> int:
                         rel = f"stems/{t['id']}/{lv}.{k}.ogg"
                         dsp.write(st.clips / rel, x)
                         files[f"{lv}.{k}"] = rel
-                index[t["id"]] = dict(sig=sig, files=files)
+                index[t["id"]] = dict(sig=sig, files=files, gain=_stem_gains(proj, st, t, files))
         st.write(path, index, sort=True)
         print(f"  split {min(i + 12, len(todo))} of {len(todo)}", flush=True)
     st.write(path, index, sort=True)
@@ -858,10 +1128,10 @@ RETUNE_MIN = 6.0  # (cents off the common pitch before a track is retuned)
 
 
 def retune(proj: P.Project, force: bool = False) -> int:
-    """One pitch for the Mixer (2026-10-21): SA3's takes sit at slightly different pitches (98 tracks: median 8 cents
-    sharp of A440, 10th-90th percentile 0 to +20, extremes -37 and +37; 12% of pairs more than 20 cents apart, enough
-    to sound sour when one follows the other). Every track more than RETUNE_MIN cents off the median is shifted to it
-    with rubberband (pitch only: the tempo and the grid stay), with everything the Mixer plays from it: its calm,
+    """One pitch for the Mixer (2026-10-21): a take more than RETUNE_MIN cents off the library's median pitch is shifted
+    to it (98 shipped tracks: the median +2 cents from A440, 4 tracks off by more than 6; the first measurement, 3x too
+    big, had found 42, MODELS_LOG), with dsp.stretch (Rubber Band R3 through Pedalboard, pitch only: the tempo and the
+    grid stay; ffmpeg's rubberband filter, before, shifted unreliably), with everything the Mixer plays from it: its calm,
     tension, action and battle levels, its stems, its fills and its family's glue (by the glue's source track). The
     copies go under work/clips/tuned/ (the shipped files are never touched); work/tuned.json lists them. Needs
     `music trims` (the tunings) first; run it again after new stems, fills or glues."""
@@ -891,13 +1161,13 @@ def retune(proj: P.Project, force: bool = False) -> int:
             src = Path(proj.assets) / rel[len("shipped/"):] if rel.startswith("shipped/") else st.clips / rel
             if not src.exists():
                 continue
-            sig = f"{src.stat().st_mtime_ns}:{cents}"
+            sig = f"{src.stat().st_mtime_ns}:{cents}:{dsp.STRETCH}"
             dst = st.clips / "tuned" / rel
             if done.get(rel) == sig and dst.exists():
                 files[rel] = sig
                 continue
             x = dsp.decode(src)
-            y = dsp.ffmpeg_filter(x, f"rubberband=pitch={2 ** (cents / 1200):.6f}:pitchq=quality")
+            y = dsp.stretch(x, cents=cents)
             y = y[:len(x)] if len(y) >= len(x) else np.pad(y, ((0, len(x) - len(y)), (0, 0)))  # (the grid: the same length exactly)
             dst.parent.mkdir(parents=True, exist_ok=True)
             dsp.write(dst, y)
@@ -973,8 +1243,9 @@ def fills(proj: P.Project, seeds: int = 4, bars: int = 1, only: list[str] | None
             wav = tmp / f"{t['id']}.{seed}.wav"
             dsp.write_wav(wav, around)
             ce = (quality.aesthetics([str(wav)])[0] or {}).get("CE")
-            ok = c >= 0.8 and abs(ph) <= 0.04 and abs(loud - ref) <= 3.0 and (ce is None or ce >= quality.GATE.get("calm", 0))
-            info = dict(seed=seed, grid=round(float(c), 2), loud=round(float(loud - ref), 1), ce=ce)
+            click = max(dsp.click_ratio(y, a0), dsp.click_ratio(y, a1))  # (where the inpainted bar meets the kept audio)
+            ok = c >= 0.8 and abs(ph) <= 0.04 and abs(loud - ref) <= 3.0 and (ce is None or ce >= quality.GATE.get("calm", 0)) and click <= dsp.CLICK
+            info = dict(seed=seed, grid=round(float(c), 2), loud=round(float(loud - ref), 1), ce=ce, click=click)
             if ok:
                 rel = f"fills/{t['id']}/{key}.{seed}.ogg"
                 dsp.write(st.clips / rel, y[a0 - pad:a1 + pad])
@@ -993,8 +1264,10 @@ def fills(proj: P.Project, seeds: int = 4, bars: int = 1, only: list[str] | None
             if key.endswith(".tried"):
                 continue
             for f in fl:
-                if "beats" not in f and (st.clips / f["file"]).exists():
-                    f["beats"] = _beats(dsp.decode(st.clips / f["file"])[pad:-pad], beat)
+                if ("beats" not in f or "click" not in f) and (st.clips / f["file"]).exists():
+                    y = dsp.decode(st.clips / f["file"])
+                    f["beats"] = _beats(y[pad:-pad], beat)
+                    f["click"] = max(dsp.click_ratio(y, pad), dsp.click_ratio(y, len(y) - pad))  # (the Mixer skips one that clicks)
                     n += 1
     st.write(path, index, sort=True)
     print(f"kept {kept} new fills of {tried} tried; measured {n} fills' beats")
@@ -1150,7 +1423,9 @@ def _fit_logistic(X: np.ndarray, y: np.ndarray, l2: float = 2.0):
 def fit_joins(proj: P.Project) -> int:
     """Learn the designer's taste in transitions from their votes (join_*): a logistic model on JOIN_FEATURES, judged
     by leave-one-out (each vote predicted by a model fit without it), saved to work/join_model.json for the Mixer."""
-    measured = Store.read(proj.work / "songs.json", {})
+    from . import candidates  # (votes on new takes' transitions, heard in the Mixer before they shipped)
+
+    measured = Store.read(proj.work / "songs.json", {}) | candidates.measures(proj)
     rows, ys, songs = [], [], []
     for k, v in Store(proj).votes()["clips"].items():
         if not k.startswith("join_"):
