@@ -1,17 +1,40 @@
 // A new take, whole: what it is (its kind, its words: what SA3 was asked for), how it scored, where the sort puts it (its
 // scene, its energy), its spectrogram, and its answers (one key each).
-import { useFamilies } from '../../data/resources'
+import { useMemo } from 'react'
+import { api } from '../../api/client'
+import { put } from '../../data/live'
+import { useFamilies, useVotesData, VOTES } from '../../data/resources'
+import { toast } from '../../shell/toast'
 import { useEngine } from '../../player/hooks'
 import { usePlayer } from '../../player/store'
 import { Icon } from '../../shell/Icon'
 import { Energy } from '../../ui/Energy'
 import { Timeline } from '../../ui/Timeline'
-import { colour, hue, label } from '../families/model'
+import { colour, FamilyView, hue, label } from '../families/model'
 import { KIND, type Answer, type Take } from './model'
 
 export function TakeInspector({ t, onPlay, onAnswer }: { t: Take; onPlay: () => void; onAnswer: (a: Answer) => void }) {
-  const m = usePlayer().m, F = useFamilies().data
+  const m = usePlayer().m, F = useFamilies().data, votes = useVotesData()
   useEngine(m)
+  // (where it belongs: the scenes it nearly fits, and the new families nearest it; + links it there, a real vote)
+  const fv = useMemo(() => (F ? new FamilyView(F, votes) : null), [F, votes])
+  const belongs = useMemo(() => {
+    if (!fv || !F?.items[t.id]) return []
+    const own = fv.family(t.id).id, out = new Map<string, { root: string; size: number; why: string }>()
+    for (const g of fv.guessesFor(t.id)) out.set(g.family.id, { root: g.family.root, size: g.family.members.length, why: `fits ${g.worst.toFixed(2)}` })
+    for (const o of F.items[t.id].nearest ?? []) {
+      const f = F.items[o] ? fv.family(o) : null
+      if (f && f.id !== own && !out.has(f.id) && out.size < 4) out.set(f.id, { root: f.root, size: f.members.length, why: 'flows with it' })
+    }
+    return [...out.entries()].slice(0, 4)
+  }, [fv, F, t.id])
+  const join = async (root: string) => {
+    if (!fv || !F) return
+    let v = null
+    for (const [k, x] of fv.set(t.id, root, 'match')) v = await api.vote(k, x)
+    if (v) put(VOTES, v)
+    toast(`${t.style} ${t.take} belongs with ${label(root, F.items[root])}`, 'check')
+  }
   const playing = !!m?.playing && (m.tag === t.id || m.heard().track === t.id)
   const seed = t.seed ? F?.items[t.seed] : null, near = F?.items[t.id]?.nearest?.filter(o => F?.items[o]?.kind === 'shipped').slice(0, 3) ?? []
   const pct = (x: number | null) => (x == null ? '–' : `${Math.round(100 * x)}`)
@@ -52,6 +75,18 @@ export function TakeInspector({ t, onPlay, onAnswer }: { t: Take; onPlay: () => 
           <div className="tile"><span className="lbl">Plays nice</span><b>{pct(t.nice)}<small>%</small></b></div>
           <div className="tile"><span className="lbl">Unique</span><b>{pct(t.unique)}<small>%</small></b></div>
           <div className="tile"><span className="lbl">Catchy</span><b>{t.catchy == null ? '–' : t.catchy.toFixed(1)}</b></div>
+        </div>
+      )}
+      {belongs.length > 0 && (
+        <div className="insp-sec">
+          <span className="lbl">Belongs with</span>
+          <div className="mates">{belongs.map(([fid, b]) => (
+            <div key={fid} className="mate">
+              <span className="nm"><span className="sw2" style={{ background: colour(hue(fid)) }} /><b>{label(b.root, F!.items[b.root])}</b> <span className="dim">scene of {b.size} · {b.why}</span></span>
+              <span />
+              <button className="addb" title="It belongs in this scene (a link to its root: the same vote as dragging it there in Scenes)" onClick={() => void join(b.root)}>+</button>
+            </div>
+          ))}</div>
         </div>
       )}
       {near.length > 0 && (
