@@ -150,7 +150,11 @@ def main() -> int:
          "--index-url", f"https://download.pytorch.org/whl/{a.cuda}"], env=env)
     say("installing Stable Audio 3 and the lab's libraries")
     run([uv, "pip", "install", "--python", PY, "-e", SA3, "librosa", "soundfile", "requests", "huggingface_hub[hf_xet]",
-         "audiobox_aesthetics"], env=env)  # (audiobox_aesthetics: music check and the quality gate)
+         "audiobox_aesthetics", "pedalboard", "demucs", "transformers", "scikit-learn"], env=env)
+    # (audiobox_aesthetics: music check and the quality gate; pedalboard: retuning; demucs: stems; transformers: CLAP)
+    say("Basic Pitch (the catchiness score), on ONNX: its own requirements pull TensorFlow")
+    run([uv, "pip", "install", "--python", PY, "onnxruntime", "pretty_midi", "mir_eval", "resampy"], env=env)
+    run([uv, "pip", "install", "--python", PY, "--no-deps", "basic-pitch==0.4.0"], env=env)
     if not a.no_flash_attn:
         say("flash-attn (optional: a faster attention kernel)")
         wheel = flash_attn_wheel(a.cuda)
@@ -170,6 +174,10 @@ def main() -> int:
         say(f"the music quality model: facebook/audiobox-aesthetics into {hf_home} (small)")
         run([PY, "-c", "from audiobox_aesthetics.infer import initialize_predictor; initialize_predictor()"],
             env=dict(env, HF_HOME=str(hf_home)))  # (into the lab's cache: the generator runs offline)
+        say(f"the music analysis models: CLAP into {hf_home}, the Demucs stem splitter (small)")
+        run([PY, "-c", "from transformers import ClapModel, ClapProcessor as P; m = 'laion/larger_clap_music_and_speech'; "
+             "ClapModel.from_pretrained(m); P.from_pretrained(m); from demucs.pretrained import get_model; get_model('htdemucs')"],
+            env=dict(env, HF_HOME=str(hf_home)))
     say("checking it all works")
     rc = subprocess.run([str(PY), "-m", "soundlab", "doctor"] + ([] if a.no_model else ["--generate"]),
                         env=dict(env, PYTHONPATH=str(ROOT)), cwd=ROOT).returncode
