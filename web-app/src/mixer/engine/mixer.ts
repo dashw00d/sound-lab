@@ -42,6 +42,8 @@ export class Mixer {
   playing = false
   /** What a page asked to play (a song's id), so it can light it; null for the walk. */
   tag: string | null = null
+  /** The meeting playing or last played (playMeeting): its two songs and its parts, for a page to draw. */
+  meeting: { a: string; b: string; segs: { track: string; start: number; bars: number }[] } | null = null
   /** The queue (a page's choice of songs): Play plays it when there is one; kept when stopped, until cleared. */
   queue: QueueItem[] | null = null
   private heardRun: Run | null = null
@@ -165,7 +167,7 @@ export class Mixer {
     this.halt()
     if (!script && !pin && !queue && !this.walk.pool().length) { toast('Add some parts first'); return }
     this.script = script ? [...script] : null
-    this.pinned = pin; this.queueOn = !!queue; this.tag = opts.tag ?? null
+    this.pinned = pin; this.queueOn = !!queue; this.tag = opts.tag ?? null; this.meeting = null
     this.heardRun = this.prevRun = null
     if (queue) this.queue = queue
     this.plan = []
@@ -232,8 +234,14 @@ export class Mixer {
    * entry, inside its loop), into b's first 4 bars, back into a's first 3; about 25 seconds, then it stops. */
   playMeeting(a: string, b: string, tag = `${a}~${b}`) {
     const [, hiA] = this.jd.cueOf(a), eA = this.jd.entryOf(a), exit = Math.min(hiA, eA + 7)
-    void this.play([this.part({ track: a, start: Math.max(1, exit - 1) }, 0, 2), this.part({ track: b, start: this.jd.entryOf(b) }, 0, 4),
-                    this.part({ track: a, start: eA }, 0, 3)], null, { tag })
+    const segs = [{ track: a, start: Math.max(1, exit - 1), bars: 2 }, { track: b, start: this.jd.entryOf(b), bars: 4 }, { track: a, start: eA, bars: 3 }]
+    void this.play(segs.map((g, k) => ({ ...this.part({ track: g.track, start: g.start }, 0, g.bars), seg: k })), null, { tag }).then(() => { this.meeting = { a, b, segs }; this.changed() })
+  }
+  /** Where a meeting is: the part playing and how far into it (0..1). */
+  meetingPos(): { i: number; f: number } | null {
+    const c = this.playing ? this.nowChunk() : null
+    if (!c || c.seg == null) return null
+    return { i: c.seg, f: Math.max(0, Math.min(1, (this.now() - c.T!) / (c.bars * this.jd.barS()))) }
   }
   playGlue(gid: string) { void this.play([{ kind: 'glue', bar: 1, glue: gid, bars: this.prefs.glueBars }]) }
 

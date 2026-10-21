@@ -9,6 +9,7 @@ import { useEngine } from '../../player/hooks'
 import { usePlayer } from '../../player/store'
 import { Icon } from '../../shell/Icon'
 import { Energy } from '../../ui/Energy'
+import { Meeting } from '../../ui/Meeting'
 import { Timeline } from '../../ui/Timeline'
 import { colour, FamilyView, hue, label } from '../families/model'
 import { KIND, type Answer, type Take } from './model'
@@ -83,6 +84,12 @@ export function TakeInspector({ t, onPlay, onAnswer }: { t: Take; onPlay: () => 
           <div className="tile"><span className="lbl">Plays nice</span><b>{pct(t.nice)}<small>%</small></b></div>
           <div className="tile"><span className="lbl">Unique</span><b>{pct(t.unique)}<small>%</small></b></div>
           <div className="tile"><span className="lbl">Catchy</span><b>{t.catchy == null ? '–' : t.catchy.toFixed(1)}</b></div>
+        </div>
+      )}
+      {m?.meeting && m.meeting.a === t.id && (
+        <div className="insp-sec">
+          <span className="lbl">Where they meet {m.playing && m.meetingPos() ? '· playing' : '· ⇄ to hear it again'}</span>
+          <Meeting m={m} names={id => (id === t.id ? `${t.style} ${t.take}` : F?.items[id] ? label(id, F.items[id]) : id)} />
         </div>
       )}
       {belongs.length > 0 && (

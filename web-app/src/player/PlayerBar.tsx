@@ -71,7 +71,12 @@ function Bar({ m }: { m: Mixer }) {
       </div>
       <div className="pb-lane">
         {walk && <Lane m={m} snap={snap} />}
-        {queue && (
+        {snap.mode === 'script' && m.meeting && (  // (a meeting: its three parts, the one playing lit)
+          <div className="pb-queue">
+            {m.meeting.segs.map((g, i) => <span key={i} className={`chip ${m.meetingPos()?.i === i ? 'on' : ''}`}><small>{i + 1}</small>{g.track.split('.').slice(2, -1).join(' · ')} {g.start}–{g.start + g.bars - 1}</span>)}
+          </div>
+        )}
+        {queue && !(snap.mode === 'script' && m.meeting) && (
           <div className="pb-queue">
             {queue.map((q, i) => <button key={`${q.id}#${i}`} className={`chip ${inQueue && i === snap.qi ? 'on' : ''}`} title={`Play from ${q.label}`} onClick={() => m.playQueue(queue, i)}><small>{i + 1}</small>{q.label}</button>)}
             <button className="pb-clear" title="Clear the queue (Play then plays the walk)" onClick={() => m.setQueue(null)}><Icon name="x" /></button>

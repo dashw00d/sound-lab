@@ -100,6 +100,8 @@ export interface Chunk {
   heard?: boolean
   replay?: boolean
   rev?: number
+  /** Its place in a meeting (playMeeting): which of the parts it is. */
+  seg?: number
 }
 /** A block in the lane: a run's visit (its chunks folded), or a glue or a rest. */
 export interface Block {
