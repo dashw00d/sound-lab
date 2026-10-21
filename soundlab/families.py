@@ -168,13 +168,23 @@ def build(proj: P.Project) -> int:
         leads = sorted({items[ids[k]]["lead"] for k in fam})
         out_f[fid] = dict(members=[ids[k] for k in fam], medoid=ids[med], leads=leads,
                           shipped=sum(1 for k in fam if items[ids[k]]["kind"] == "shipped"))
+    # a map for the Families graph: the songs placed by likeness (classical MDS on the likeness, two axes), so families
+    # show as clusters; scaled to about 1000 units across
+    K = S.copy()
+    np.fill_diagonal(K, K.max())
+    Dm = (K.max() - K) ** 2
+    J = np.eye(n) - 1.0 / n
+    B = -0.5 * J @ Dm @ J
+    w, V = np.linalg.eigh(B)
+    XY = V[:, -2:] * np.sqrt(np.maximum(w[-2:], 1e-9))
+    XY = (XY - XY.mean(axis=0)) / (np.abs(XY).max() + 1e-9) * 500
     for i in ids:  # confidence: own family's average likeness against the next best family's
         k, own = pos[i], fam_of[i]
         mine = [pos[m] for m in out_f[own]["members"] if m != i]
         a = float(S[k, mine].mean()) if mine else 0.0
         others = [(float(S[k, [pos[m] for m in f["members"]]].mean()), fid) for fid, f in out_f.items() if fid != own]
         b, nxt = max(others) if others else (-9.0, None)
-        items[i].update(family=own, conf=round(a - b, 2), next=nxt,
+        items[i].update(family=own, conf=round(a - b, 2), next=nxt, xy=[round(float(XY[k, 0]), 1), round(float(XY[k, 1]), 1)],
                         nearest=[ids[x] for x in np.argsort(-S[k])[:6] if ids[x] != i][:5], feat=np.round(feats[i], 3).tolist())
 
     # the queue
