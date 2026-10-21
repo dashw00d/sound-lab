@@ -1,0 +1,145 @@
+{
+ "bar_s": 2.6666666666666665,
+ "switches": {
+  "night_samestyle": {
+   "a": "night~violinbed/k0/stack/calm",
+   "b": "night~violinbed/k1/stack/calm",
+   "chroma": 0.969,
+   "best_shift": 0,
+   "best_chroma": 0.969,
+   "lag_ms": 11.6,
+   "files": {
+    "now": "overlap/switch_night_samestyle_now.ogg",
+    "1bar": "overlap/switch_night_samestyle_1bar.ogg",
+    "2bar": "overlap/switch_night_samestyle_2bar.ogg"
+   },
+   "lufs": {
+    "a": -23.7,
+    "b": -24.9,
+    "overlap": -24.6,
+    "both_full": -21.4
+   }
+  },
+  "night_violinbed_to_violin": {
+   "a": "night~violinbed/k4/stack/calm",
+   "b": "night~violin/k2/stack/calm",
+   "chroma": 0.912,
+   "best_shift": 0,
+   "best_chroma": 0.912,
+   "lag_ms": 11.6,
+   "files": {
+    "now": "overlap/switch_night_violinbed_to_violin_now.ogg",
+    "1bar": "overlap/switch_night_violinbed_to_violin_1bar.ogg",
+    "2bar": "overlap/switch_night_violinbed_to_violin_2bar.ogg"
+   },
+   "lufs": {
+    "a": -24.6,
+    "b": -25.9,
+    "overlap": -25.6,
+    "both_full": -21.9
+   }
+  },
+  "night_trailer_to_tagelharpa": {
+   "a": "night~trailer/k2/close/calm",
+   "b": "night~tagelharpa2/k0/stack/calm",
+   "chroma": 0.98,
+   "best_shift": 0,
+   "best_chroma": 0.98,
+   "lag_ms": 11.6,
+   "files": {
+    "now": "overlap/switch_night_trailer_to_tagelharpa_now.ogg",
+    "1bar": "overlap/switch_night_trailer_to_tagelharpa_1bar.ogg",
+    "2bar": "overlap/switch_night_trailer_to_tagelharpa_2bar.ogg"
+   },
+   "lufs": {
+    "a": -22.3,
+    "b": -27.3,
+    "overlap": -24.1,
+    "both_full": -21.1
+   }
+  },
+  "day_action_war2": {
+   "a": "day~war2/k0/stack/action",
+   "b": "day~war2/k2/stack/action",
+   "chroma": 0.977,
+   "best_shift": 0,
+   "best_chroma": 0.977,
+   "lag_ms": 11.6,
+   "files": {
+    "now": "overlap/switch_day_action_war2_now.ogg",
+    "1bar": "overlap/switch_day_action_war2_1bar.ogg",
+    "2bar": "overlap/switch_day_action_war2_2bar.ogg"
+   },
+   "lufs": {
+    "a": -15.4,
+    "b": -18.4,
+    "overlap": -16.8,
+    "both_full": -13.6
+   }
+  }
+ },
+ "ramps": {
+  "night_violinbed": {
+   "song": "night~violinbed/k0/stack",
+   "other": "night~trailer/k2/close",
+   "own": {
+    "chroma": 0.925,
+    "best_shift": 0,
+    "best_chroma": 0.925,
+    "lag_ms": 11.6
+   },
+   "other_m": {
+    "chroma": 0.956,
+    "best_shift": 0,
+    "best_chroma": 0.956,
+    "lag_ms": 11.6
+   },
+   "files": {
+    "now": "overlap/ramp_night_violinbed_now.ogg",
+    "own": "overlap/ramp_night_violinbed_own.ogg",
+    "other": "overlap/ramp_night_violinbed_other.ogg"
+   },
+   "lufs_own": {
+    "calm": -24.1,
+    "top": -17.1,
+    "both": -17.0
+   },
+   "lufs_other": {
+    "calm": -24.1,
+    "top": -17.3,
+    "both": -17.0
+   }
+  },
+  "day_violinbed": {
+   "song": "day~violinbed/k0/stack",
+   "other": "day~war2/k0/stack",
+   "own": {
+    "chroma": 0.902,
+    "best_shift": 0,
+    "best_chroma": 0.902,
+    "lag_ms": 11.6
+   },
+   "other_m": {
+    "chroma": 0.874,
+    "best_shift": 1,
+    "best_chroma": 0.881,
+    "lag_ms": 11.6
+   },
+   "files": {
+    "now": "overlap/ramp_day_violinbed_now.ogg",
+    "own": "overlap/ramp_day_violinbed_own.ogg",
+    "other": "overlap/ramp_day_violinbed_other.ogg"
+   },
+   "lufs_own": {
+    "calm": -25.2,
+    "top": -17.6,
+    "both": -17.0
+   },
+   "lufs_other": {
+    "calm": -25.2,
+    "top": -17.1,
+    "both": -17.0
+   }
+  }
+ }
+}
