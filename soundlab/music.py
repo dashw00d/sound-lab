@@ -1102,7 +1102,7 @@ def glues(proj: P.Project, force: bool = False) -> int:
 JOIN_WEAK = 0.75  # (the Mixer's threshold for a straight transition: web/js/mixer.js WEAK)
 
 
-JOIN_FEATURES = ("level_a", "entry_phrase", "attack_b", "held_a")
+JOIN_FEATURES = ("level_a", "entry_phrase", "attack_b", "held_a", "rec_a", "rec_b")
 
 
 def join_features(m: dict, a: str, e: int, b: str, s: int) -> dict:
@@ -1124,6 +1124,13 @@ def join_features(m: dict, a: str, e: int, b: str, s: int) -> dict:
                 held_a=float(np.log(oa["busy"][ia[-1]] / (oa["attack"][(e * 4) % len(oa["attack"])] + 1e-6))))
 
 
+def song_record(good: int, bad: int) -> float:
+    """A song's record in the designer's transition votes (rec_a, rec_b: as the song leaving or coming in, either way):
+    good less bad over all, shrunk toward 0 for songs with few votes (2026-10-21, 315 votes: adds 2 points to the
+    model, 65% -> 67% right on votes it didn't see). The Mixer counts it live from votes.json."""
+    return (good - bad) / (good + bad + 3)
+
+
 def _fit_logistic(X: np.ndarray, y: np.ndarray, l2: float = 2.0):
     """Logistic regression on standardised features (Newton steps, L2 on the weights): (mu, sd, [bias, weights])."""
     mu, sd = X.mean(0), X.std(0) + 1e-9
@@ -1140,7 +1147,7 @@ def fit_joins(proj: P.Project) -> int:
     """Learn the designer's taste in transitions from their votes (join_*): a logistic model on JOIN_FEATURES, judged
     by leave-one-out (each vote predicted by a model fit without it), saved to work/join_model.json for the Mixer."""
     measured = Store.read(proj.work / "songs.json", {})
-    rows, ys = [], []
+    rows, ys, songs = [], [], []
     for k, v in Store(proj).votes()["clips"].items():
         if not k.startswith("join_"):
             continue
@@ -1151,9 +1158,15 @@ def fit_joins(proj: P.Project) -> int:
             f = join_features(measured, a, int(e), b, int(st))
         except (ValueError, KeyError):
             continue
-        rows.append([f[x] for x in JOIN_FEATURES])
+        rows.append(f)
         ys.append(1.0 if v > 0 else 0.0)
-    X, y = np.array(rows), np.array(ys)
+        songs.append((a, b))
+    for i, f in enumerate(rows):  # (a song's record from the other votes: a vote never explains itself)
+        for side, t in (("rec_a", songs[i][0]), ("rec_b", songs[i][1])):
+            g = sum(1 for j, (a, b) in enumerate(songs) if j != i and t in (a, b) and ys[j] > 0)
+            bd = sum(1 for j, (a, b) in enumerate(songs) if j != i and t in (a, b) and ys[j] == 0)
+            f[side] = song_record(g, bd)
+    X, y = np.array([[f[x] for x in JOIN_FEATURES] for f in rows]), np.array(ys)
     if len(y) < 20 or y.min() == y.max():
         raise SystemExit(f"{len(y)} transition votes: rate at least 20, good and bad, in the Mixer first")
     p = np.zeros(len(y))

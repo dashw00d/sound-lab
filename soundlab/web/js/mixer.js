@@ -279,6 +279,16 @@
   // a's bar e into part p. The same features as music.py join_features: keep the two the same. Without a model, the
   // join score stands in. The join score stays as a floor against plain clashes (CLASH).
   const CLASH = 0.6, med = xs => { const v = [...xs].sort((x, y) => x - y), n = v.length; return n % 2 ? v[(n - 1) / 2] : (v[n / 2 - 1] + v[n / 2]) / 2; };
+  let recs = null, recsAt = -1;
+  function records() {  // each song's record in the transition votes (music.py song_record), recounted when the votes change
+    const keys = Object.keys(Lab.V.clips).filter(k => k.startsWith("join_"));
+    if (recs && recsAt === keys.length) return recs;
+    const n = {};
+    for (const k of keys) { const v = Lab.V.clips[k], a = k.slice(5, k.lastIndexOf("@")), b = k.slice(k.indexOf(">") + 1, k.lastIndexOf("|"));
+      for (const t of new Set([a, b])) { (n[t] ||= [0, 0])[v > 0 ? 0 : 1]++; } }
+    recs = {}; for (const [t, [g, b]] of Object.entries(n)) recs[t] = (g - b) / (g + b + 3);
+    recsAt = keys.length; return recs;
+  }
   function taste(a, e, p) {
     const M = L().join_model, A = (track(a) || {}).measure, B = (track(p.track) || {}).measure;
     if (!M || !A || !B || !A.beats || !A.onset || !B.onset || !B.phrase) return null;
@@ -286,7 +296,8 @@
     const f = { level_a: ia.reduce((t, i) => t + ba[i], 0) / 4 - med(ba),
                 entry_phrase: ((((s - B.phrase.start) % 4) + 4) % 4) === 0 ? 1 : 0,
                 attack_b: Math.log(B.onset.attack[((s - 1) * 4) % B.onset.attack.length] / med(B.onset.busy)),
-                held_a: Math.log(A.onset.busy[ia[3]] / (A.onset.attack[(e * 4) % A.onset.attack.length] + 1e-6)) };
+                held_a: Math.log(A.onset.busy[ia[3]] / (A.onset.attack[(e * 4) % A.onset.attack.length] + 1e-6)),
+                rec_a: records()[a] || 0, rec_b: records()[p.track] || 0 };
     let z = M.w[0]; M.features.forEach((k, i) => { z += M.w[i + 1] * (f[k] - M.mu[i]) / M.sd[i]; });
     return 1 / (1 + Math.exp(-z));
   }
