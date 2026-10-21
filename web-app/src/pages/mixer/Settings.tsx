@@ -1,0 +1,106 @@
+// The Mixer's settings (data/mixer.json): what the walk draws from and how long it stays, how two songs join, the glue
+// between them, and the two listening tools (training, the review of low-rated blocks).
+import { CAND_TOP, WEAK } from '../../mixer/judge'
+import type { Mixer } from '../../mixer/engine/mixer'
+import { SWAP_HZ } from '../../mixer/curves'
+import type { Prefs } from '../../mixer/prefs'
+import { Icon } from '../../shell/Icon'
+import { Field, Toggle } from '../../ui/Field'
+import { Seg } from '../../ui/Seg'
+
+export function Settings({ m, reviewOpen, onReview }: { m: Mixer; reviewOpen: boolean; onReview: () => void }) {
+  const p = m.prefs, set = (x: Partial<Prefs>) => m.setPrefs(x), lib = m.lib, n = lib.candidates?.length ?? 0
+  const hasStems = lib.tracks.some(t => t.stems), hasFills = lib.tracks.some(t => t.fills && Object.keys(t.fills).length)
+  const vary = (k: keyof Prefs['vary'], label: string, tip: string, made: boolean) =>
+    <Toggle on={p.vary[k]} label={label} disabled={!made} tip={made ? tip : `${tip}: none made yet`} onChange={on => set({ vary: { ...p.vary, [k]: on } })} />
+  const bars = (k: number) => `${k} bar${k > 1 ? 's' : ''}`
+  return (
+    <div className="mx-settings">
+      <div className="mx-group">
+        <div className="mx-gh">What plays</div>
+        <Field label="Draw from">
+          <Seg value={p.scope} onChange={scope => set({ scope })} options={[
+            { value: 'set', label: 'the set', tip: 'The parts of the set below' },
+            { value: 'all', label: 'everything', tip: 'Every song in the library, entering at its phrase starts inside its mellow cues (mellows you thumbed down left out)' }]} />
+        </Field>
+        {n > 0 && (
+          <Field label="New takes">
+            <Seg value={p.cands} onChange={cands => set(cands === 'off' ? { cands } : { cands, scope: 'all' })} options={[
+              { value: 'off', label: 'off', tip: 'Only the shipped songs' },
+              { value: 'top', label: `best ${CAND_TOP}`, tip: `The ${CAND_TOP} best new takes (music candidates) join everything and training` },
+              { value: 'all', label: `all ${n}`, tip: 'Every scored new take joins everything and training' }]} />
+          </Field>
+        )}
+        <Field label="Order">
+          <Seg value={p.mode} onChange={mode => set({ mode })} options={[
+            { value: 'any', label: 'any order', tip: 'A random part each time, never the one just heard: as the game would' },
+            { value: 'order', label: 'in order', tip: "The set's order, round and round (O)" }]} />
+        </Field>
+        <Field label="Stay">
+          <Seg value={p.stay} onChange={stay => set({ stay })} options={[4, 8, 12, 16].map(k => ({
+            value: k, label: bars(k), tip: k === 4 ? 'Just the part' : `Each song plays on from its part for at least ${k} bars, then leaves where it joins a part well` }))} />
+        </Field>
+        <Field label="Taste bar">
+          <Seg value={p.strict} onChange={strict => set({ strict })} options={[0.5, 0.7, 0.8, 0.9].map(v => ({
+            value: v, label: `${Math.round(100 * v)}%`,
+            tip: v === 0.5 ? 'Anything the model puts at 50% or more (you liked about 60% of those)'
+              : `Wait for a transition the model puts at ${Math.round(100 * v)}% or more; settle for 50% only when it must${v === 0.8 ? ' (you liked 89% of those at 80%)' : ''}` }))} />
+        </Field>
+        <Field label="Variation">
+          {vary('siblings', 'Siblings', 'A phrase may go on in a sibling: the same piece made for another context, in step bar for bar', true)}
+          {vary('stems', 'Stems', 'A phrase may drop the drums, thin to the melody and harmony, or bring the battle drums in quietly (music stems)', hasStems)}
+          {vary('fills', 'Fills', "Round the loop, a fill SA3 wrote for that song's loop point (music fills)", hasFills)}
+        </Field>
+        <Field label="Intense is">
+          <Seg value={p.intense} onChange={intense => set({ intense })} options={[{ value: 'battle', label: 'battle' }, { value: 'action', label: 'action' }]} />
+        </Field>
+      </div>
+
+      <div className="mx-group">
+        <div className="mx-gh">How songs join</div>
+        <Field label="Joins">
+          <Seg value={p.joins} onChange={joins => set({ joins })} options={[
+            { value: 'tight', label: 'tight', tip: 'A song change is an 80 ms crossfade at the bar line' },
+            { value: 'beat', label: '1 beat', tip: 'The two songs overlap for a beat around the bar line' },
+            { value: 'two', label: '2 beats', tip: 'The two songs overlap for two beats around the bar line' }]} />
+        </Field>
+        <Field label="Levels">
+          <Toggle on={p.even} label="Even levels" onChange={even => set({ even })} tip="Each song trimmed toward the library's typical level (by its median beat, within 6 dB)" />
+          <Toggle on={p.match} label="Match levels" onChange={match => set({ match })} tip="The song coming in starts at the level of the one going out (within 6 dB), then eases to its own over 2 bars" />
+          <Toggle on={p.bassSwap} label="Bass swap" onChange={bassSwap => set({ bassSwap })} tip={`Only the melody and harmony cross over; the bass and kick (under ${SWAP_HZ} Hz) swap on the bar line`} />
+        </Field>
+        <Field label="Bed">
+          <Seg value={p.bed} onChange={bed => set({ bed })} options={[
+            { value: 'off', label: 'off' },
+            { value: 'low', label: 'low', tip: "The playing song's glue under everything, 12 dB down" },
+            { value: 'mid', label: 'mid', tip: "The playing song's glue under everything, 6 dB down" }]} />
+        </Field>
+        <Field label="Glue">
+          <Seg value={p.glue} onChange={glue => set({ glue })} options={[
+            { value: 'off', label: 'off', tip: 'Runs go straight into each other, even where nothing joins well' },
+            { value: 'weak', label: 'weak joins', tip: `Through the glue where no part joins well (${WEAK}) within 8 bars of Stay` },
+            { value: 'breaths', label: 'breaths', tip: 'That, and a breath of glue every 2 to 4 runs' }]} />
+          <Seg value={p.glueKind} onChange={glueKind => set({ glueKind })} options={[
+            { value: 'rest', label: 'rest', tip: 'The song tapers over its last bar into silence (the bed too), then the next comes in' },
+            { value: 'pad', label: 'pad', tip: "The song's glue: a pad frozen from its own steadiest bar" }]} />
+          <Seg value={p.glueBars} onChange={glueBars => set({ glueBars })} options={[1, 2, 4].map(k => ({
+            value: k, label: bars(k), tip: `${bars(k)} of ${p.glueKind === 'rest' ? 'silence' : 'pad'}` }))} />
+        </Field>
+      </div>
+
+      <div className="mx-group">
+        <div className="mx-gh">Listen</div>
+        <Field label="Training">
+          <button className={`btn ${m.train.on ? 'on' : ''}`} onClick={() => m.trainToggle()} title="Rate transitions one after another, one key each: the ones a vote teaches the most (T)">
+            <Icon name="up" /><span>Train transitions</span><kbd>T</kbd>
+          </button>
+        </Field>
+        <Field label="Review">
+          <button className={`btn ${reviewOpen ? 'on' : ''}`} onClick={onReview} title="The blocks you rated 1 or 2 stars, played again so you can mark the piece that spoiled each">
+            <Icon name="flag" /><span>Low-rated blocks</span>
+          </button>
+        </Field>
+      </div>
+    </div>
+  )
+}

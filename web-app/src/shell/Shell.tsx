@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import './shell.css'
+import { Toaster } from './toast'
 
 export interface PageDef { id: string; title: string }
 
@@ -16,6 +17,7 @@ export function Shell({ pages, current, project, children }: { pages: PageDef[];
         </nav>
       </header>
       <main>{children}</main>
+      <Toaster />
     </div>
   )
 }

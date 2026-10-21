@@ -60,3 +60,6 @@ export interface Families {
   families: Record<string, Family>
   queue: QueueEntry[]
 }
+
+/** data/mixes.json: the Mixer's saved sets of parts. */
+export type Mixes = Record<string, { parts: { track: string; start: number; bars: number }[]; at: string }>
