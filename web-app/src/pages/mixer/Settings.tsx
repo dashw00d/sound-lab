@@ -21,8 +21,17 @@ export function Settings({ m, reviewOpen, onReview }: { m: Mixer; reviewOpen: bo
         <Field label="Draw from">
           <Seg value={p.scope} onChange={scope => set({ scope })} options={[
             { value: 'set', label: 'the set', tip: 'The parts of the set below' },
-            { value: 'all', label: 'everything', tip: 'Every song in the library, entering at its phrase starts inside its mellow cues (mellows you thumbed down left out)' }]} />
+            { value: 'all', label: 'everything', tip: 'Every song in the library, entering at its phrase starts inside its mellow cues (mellows you thumbed down left out)' },
+            { value: 'graph', label: 'the graph', tip: 'Scenes (music families): a scene for a while, cutting from song to song inside it, then a rest and the next scene, from chill to less chill and back in waves' }]} />
         </Field>
+        {p.scope === 'graph' && <>
+          <Field label="Scene">
+            <Seg value={p.sceneBars} onChange={sceneBars => set({ sceneBars })} options={[24, 48, 96].map(k => ({ value: k, label: `${k} bars`, tip: `About ${Math.round(k * 4 * 60 / m.lib.bpm / 6) / 10} minutes in one scene, then a rest and the next` }))} />
+          </Field>
+          <Field label="Wave">
+            <Seg value={p.wave} onChange={wave => set({ wave })} options={[4, 8, 16].map(k => ({ value: k, label: `${k} min`, tip: `From chill to less chill and back in ${k} minutes` }))} />
+          </Field>
+        </>}
         {n > 0 && (
           <Field label="New takes">
             <Seg value={p.cands} onChange={cands => set(cands === 'off' ? { cands } : { cands, scope: 'all' })} options={[

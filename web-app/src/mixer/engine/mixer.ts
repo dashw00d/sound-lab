@@ -10,11 +10,13 @@ import { getVotes, vote } from '../../state/votes'
 import { joinKey, Judge, LEN, name, WEAK, XF } from '../judge'
 import { PartMatrix } from '../matrix'
 import { savePrefs, type Prefs } from '../prefs'
+import type { Families } from '../../api/types'
 import type { Block, Chunk, Level, Library, Part, Piece, ReviewItem, Run } from '../types'
 import { loadReview, reviewScript, VARIANT } from './review'
 import { Scheduler } from './scheduler'
 import { blockKey, Session } from './session'
 import { freshTraining, trainPair, type Training } from './training'
+import { Graph } from './graph'
 import { Walk } from './walk'
 
 /** A song in a queue, with the name the page gave it. */
@@ -215,6 +217,10 @@ export class Mixer {
   }
   playPart(p: Part) { void this.play([this.part(p)]) }
   playGlue(gid: string) { void this.play([{ kind: 'glue', bar: 1, glue: gid, bars: this.prefs.glueBars }]) }
+
+  /** The music graph (work/families.json: scenes, energies, cuts), read again when the sort changes. */
+  setGraph(F: Families | null) { this.walk.setGraph(F ? new Graph(F, this.jd) : null); this.changed() }
+  graphState() { return this.walk.graphState() }
 
   // ---- songs, for any page
   /** A song that isn't in the library (a take on the Music page, a trial, an extension): its level files by url. */

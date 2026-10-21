@@ -3,7 +3,9 @@
 // song to go to it; a page fills it, e.g. the songs chosen on the Families graph), the two levels (mellow, intense)
 // with their meters, and the spectrum. Space with nothing playing plays the queue when there is one, else the walk:
 // the game's music.
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
+import { api } from '../api/client'
+import { useLive } from '../shell/useLive'
 import { drawSpectrum } from '../audio/spectrum'
 import type { Mixer } from '../mixer/engine/mixer'
 import { STATES } from '../mixer/types'
@@ -25,6 +27,8 @@ export function PlayerBar() {
 function Bar({ m }: { m: Mixer }) {
   const snap = useSnapshot(m)  // (only the bar redraws as the clock moves)
   useEngine(m)  // (and when a star or thumb changes)
+  const fams = useLive(api.families, ['families'], 10000)  // (the graph follows the sort)
+  useEffect(() => { if (fams.data) m.setGraph(fams.data) }, [fams.data, m])
   useKeys((k) => {
     if (k === ' ') { if (m.playing) m.stop(); else m.playDefault(); return true }
     if (k === 'ArrowLeft' && (m.walking || m.mode === 'queue')) { m.back(); return true }

@@ -77,7 +77,18 @@ function Page({ m, mixes, setMixes }: { m: Mixer; mixes: Mixes; setMixes: (x: Mi
 
 /** What the walk played this session, each block rated or not yet. */
 function Session({ m }: { m: Mixer }) {
-  const snap = useSnapshot(m)
-  if (!snap.session.length) return null
-  return <section className="card mx-sess"><SessionList m={m} snap={snap} /></section>
+  const snap = useSnapshot(m), g = m.walking ? m.graphState() : null
+  if (!snap.session.length && !g) return null
+  return (
+    <section className="card mx-sess">
+      {g && (  // (the graph: where the wave is, and the song against it)
+        <div className="mx-wave">
+          <span className="lbl">the graph</span> scene {g.scene} · {g.bars} of {m.prefs.sceneBars} bars · energy aimed at {g.target.toFixed(2)}
+          {g.energy != null && <> · this song {g.energy.toFixed(2)}</>}
+          <span className="bar"><i style={{ left: `${Math.max(0, Math.min(100, 50 + 25 * g.target))}%` }} /></span>
+        </div>
+      )}
+      {snap.session.length > 0 && <SessionList m={m} snap={snap} />}
+    </section>
+  )
 }

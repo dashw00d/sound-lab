@@ -38,6 +38,10 @@ export interface FamilyItem {
   xy: [number, number]
   /** Its splice score with the songs it splices best with (the share of seamless cuts at their best offset). */
   splice?: Record<string, number>
+  /** How un-chill it is (music families: beat, bass and noise, standardised; the graph's waves). */
+  energy?: number
+  /** Where it cuts seamlessly into the other members of its scene: after its bar e, the other from its bar s. */
+  cuts?: Record<string, { offset: number; at: [number, number][] }>
   /** The families it nearly splices with: its worst splice with their members just under the bar. */
   guess?: { family: string; worst: number; mean: number }[]
 }

@@ -19,14 +19,17 @@ export interface Prefs {
   match: boolean
   even: boolean
   bassSwap: boolean
-  scope: 'set' | 'all'
+  scope: 'set' | 'all' | 'graph'
+  /** The graph: bars in one scene before a rest and the next; minutes for a wave from chill to less chill and back. */
+  sceneBars: number
+  wave: number
   strict: number
   cands: 'off' | 'top' | 'all'
 }
 export const DEFAULTS: Prefs = {
   set: [], name: '', mode: 'any', intense: 'battle', pick: '', glue: 'breaths', glueKind: 'rest', glueBars: 1, stay: 12,
   vary: { siblings: true, stems: true, fills: true }, bed: 'low', joins: 'two', match: true, even: true, bassSwap: false,
-  scope: 'all', strict: 0.8, cands: 'off',
+  scope: 'all', strict: 0.8, cands: 'off', sceneBars: 48, wave: 8,
 }
 export const PREF_KEYS = Object.keys(DEFAULTS) as (keyof Prefs)[]
 

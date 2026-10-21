@@ -81,7 +81,7 @@ export class Session {
         if (i < recs.length - 1) stream.push({ kind: 'transition', like: this.likes.get(id) || null, ...(r.join ? { join: r.join } : {}) })
       })
       const settings = { stay: P.stay, joins: P.joins, match: P.match, even: P.even, bassSwap: P.bassSwap, glue: P.glue, glueKind: P.glueKind,
-                         glueBars: P.glueBars, bed: P.bed, intense: P.intense, strict: P.strict, scope: P.scope, cands: P.cands, vary: P.vary }
+                         glueBars: P.glueBars, bed: P.bed, intense: P.intense, strict: P.strict, scope: P.scope, cands: P.cands, vary: P.vary, sceneBars: P.sceneBars, wave: P.wave }
       try { await fetch('/api/stream', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: this.id, settings, stream }) }) }
       catch { toast("Couldn't save the ratings", 'x') }
     }, 400)

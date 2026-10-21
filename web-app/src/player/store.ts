@@ -26,12 +26,14 @@ export function loadPlayer(again = false): Promise<void> {
     try {
       const { project } = await api.state()
       if (!project.features.music) { set({ status: 'none', m: null }); return }
-      const [lib, prefs] = await Promise.all([api.songs(), loadPrefs(), refreshVotes(true)])
+      const [lib, prefs, fams] = await Promise.all([api.songs(), loadPrefs(), api.families().catch(() => null), refreshVotes(true)])
       lib.tracks = [...lib.tracks, ...(lib.candidates ?? [])]  // (new takes join the walk when asked)
       if (!lib.tracks.some(t => t.measure?.feat)) { set({ status: 'error', m: null, error: "The songs aren't measured: run soundlab music trims (the player needs each song's bar fingerprints)." }); return }
       if (state.m?.playing) return  // (something started while it read)
       const was = state.m
-      set({ status: 'ready', m: new Mixer(lib, prefs) })
+      const m = new Mixer(lib, prefs)
+      m.setGraph(fams)
+      set({ status: 'ready', m })
       was?.dispose()
     } catch (e) {
       if (state.status !== 'ready') set({ status: 'error', m: null, error: `Couldn't read the game's music (${(e as Error).message}). Check the terminal running soundlab serve.` })

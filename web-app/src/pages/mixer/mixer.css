@@ -76,3 +76,6 @@
 .mx .bpart.on { border-color: var(--accent-line); } .mx .bpart span { font-size: 10.5px; }
 .mx-sess { padding: 14px 16px; }
 .mx .mx-gh .dim { font-weight: 400; }
+.mx .mx-wave { display: flex; align-items: center; gap: 8px; font: 500 12px var(--mono); color: var(--dim); margin-bottom: 10px; }
+.mx .mx-wave .bar { position: relative; width: 160px; height: 6px; border-radius: 6px; background: linear-gradient(90deg, #5bd6ff, #ffc857, #ff6b7f); opacity: .8; }
+.mx .mx-wave .bar i { position: absolute; top: -3px; width: 3px; height: 12px; margin-left: -1px; background: #fff; border-radius: 2px; }
