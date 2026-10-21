@@ -283,7 +283,8 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
             elif url == "/api/stamp":
                 self.send_json({k: str(p.stat().st_mtime_ns) if p.exists() else "0"  # (strings: exact in JavaScript)
                                 for k, p in (("index", st.index_path), ("votes", st.votes_path), ("promoted", st.promoted_path), ("tuning", tuning.PATH),
-                                             ("candidates", proj.work / "candidates.json"), ("families", proj.work / "families.json"))})
+                                             ("candidates", proj.work / "candidates.json"), ("families", proj.work / "families.json"),
+                                             ("streams", st.streams_path))})
             elif url == "/api/songs":
                 if not proj.music:
                     raise HttpError(404, "this project has no music")

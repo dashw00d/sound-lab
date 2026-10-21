@@ -16,7 +16,7 @@ export interface ProjectInfo {
 }
 
 /** GET /api/stamp: when each file last changed (strings: nanoseconds). */
-export type Stamp = Record<'index' | 'votes' | 'promoted' | 'tuning' | 'candidates' | 'families', string>
+export type Stamp = Record<'index' | 'votes' | 'promoted' | 'tuning' | 'candidates' | 'families' | 'streams', string>
 
 /** A song in work/families.json (music families). Ids are track ids (a new take's: the id `music promote` gives it). */
 export interface FamilyItem {

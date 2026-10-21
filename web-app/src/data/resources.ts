@@ -7,7 +7,7 @@ import { resource, useResource } from './live'
 export const SONGS = resource<Library>('songs', api.songs, ['index', 'candidates', 'promoted'])
 export const FAMILIES = resource<Families>('families', api.families, ['families'])
 export const VOTES = resource<Votes>('votes', api.votes, ['votes'])
-export const STREAMS = resource<{ streams: Record<string, StreamSession> }>('streams', () => fetch('/api/streams').then(r => r.json()), ['votes'])
+export const STREAMS = resource<{ streams: Record<string, StreamSession> }>('streams', () => fetch('/api/streams').then(r => r.json()), ['streams'])
 
 const NO_VOTES: Votes = { clips: {}, picks: {}, notes: {}, cues: {} }
 export const useSongs = () => useResource<Library>(SONGS)

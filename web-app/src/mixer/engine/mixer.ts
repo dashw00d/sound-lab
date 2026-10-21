@@ -331,6 +331,8 @@ export class Mixer {
 
   // ---- the review
   async reviewLoad() { this.review.items = null; this.changed(); try { this.review.items = await loadReview(this.jd) } catch { this.review.items = [] } this.changed() }
+  /** One block of a saved session, played as it played or piece by piece (the Sessions page); W marks the piece. */
+  async playBlock(it: ReviewItem, mode: 'exact' | 'pieces') { this.review.items = [it]; await this.reviewPlay(0, mode) }
   async reviewPlay(i: number, mode: 'exact' | 'pieces') {
     const it = this.review.items?.[i]; if (!it) return
     const { pieces, script } = reviewScript(this.jd, it, mode)

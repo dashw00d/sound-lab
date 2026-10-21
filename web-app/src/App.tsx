@@ -6,6 +6,7 @@ import FamiliesPage from './pages/families/FamiliesPage'
 import InboxPage, { useInboxCount } from './pages/inbox/InboxPage'
 import LibraryPage from './pages/library/LibraryPage'
 import MixerPage from './pages/mixer/MixerPage'
+import SessionsPage from './pages/sessions/SessionsPage'
 import { Shell } from './shell/Shell'
 
 // The app's sections (2026-10-21: Library, Scenes and the Mixer first; Inbox, Sessions, sound effects, the mix and
@@ -19,6 +20,7 @@ export default function App() {
     { id: 'inbox', title: 'Inbox', count: inbox, view: () => <InboxPage /> },
     { id: 'library', title: 'Library', count: songs ? songs.tracks.filter(t => !t.candidate).length : null, view: () => <LibraryPage /> },
     { id: 'scenes', title: 'Scenes', count: fams ? Object.values(fams.families).filter(f => f.members.length > 1).length : null, view: () => <FamiliesPage /> },
+    { id: 'sessions', title: 'Sessions', view: () => <SessionsPage /> },
     { id: 'mixer', title: 'Mixer', view: () => <MixerPage /> },
   ]
   const page = pages.find(p => p.id === (route.section === 'families' ? 'scenes' : route.section)) ?? pages[0]
