@@ -87,7 +87,7 @@ Rules:
 |---|---|
 | `name` | the project's name |
 | `root` | the game's folder |
-| `work` | generated output (gitignored; e.g. `.work/soundlab`) |
+| `work` | generated output: takes, the index, measurements (gitignored; e.g. the lab's `work/<project>`). Not a scratch folder that gets cleaned: unshipped takes and the index live only here |
 | `data` | authored data (tracked) |
 | `assets` | the game's audio root (served at `/shipped/`) |
 | `sounds()` | returns `[Sound(name, kind "oneshot"/"loop", seconds, channels, prompt, out, core, palette, shipped)]` |

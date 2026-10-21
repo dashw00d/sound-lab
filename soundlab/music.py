@@ -362,6 +362,7 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
                 profiles=list(M["profiles"]), pool={r: [names[p] for p in ps] for r, ps in pool.items()})
     mesh.setdefault("contexts", {})
     runs = [(c, b, s) for c in contexts for b in biomes for s in (styles or [None])]
+    shipped, votes_now = Store.read(st.music_promoted_path, {}), st.votes()["clips"]
     now = datetime.now()
     rid = now.strftime("%Y-%m-%d %H:%M")  # a round: this run's takes (the Music page shows the newest batch)
     if any(r["id"] == rid for r in mesh.get("rounds", [])):  # (a second run in the same minute is still its own batch)
@@ -378,8 +379,11 @@ def generate(proj: P.Project, contexts: list[str], biomes: list[str], takes: int
         # Regenerating a key never reuses a take id: votes (mesh_<key>.<id>.<profile>) and the page's "seen" markers
         # are keyed by it, and a take's files are named by it. Seeds (and so ids) continue after the highest this
         # key has used. The earlier takes stay (hidden on the page once this batch exists), tagged with their round.
-        first_seed = max([old.get("next_seed", 0)] + [int(t["id"][1:]) + 1 for t in old.get("takes", [])
-                                                      if t["id"][1:].isdigit()])
+        # The ids the votes and the shipped tracks name count too: a work folder lost (cleaned) takes the index with
+        # it, and a new k0 would inherit an old k0's votes and its track's name.
+        used = [t["id"] for t in old.get("takes", [])] + [r["take"] for r in shipped.values() if r.get("key") == key]
+        used += [k[len(f"mesh_{key}."):].split(".")[0] for k in votes_now if k.startswith(f"mesh_{key}.")]
+        first_seed = max([old.get("next_seed", 0)] + [int(i[1:]) + 1 for i in used if i[:1] == "k" and i[1:].isdigit()])
         found, first_prompts = [], None
         for seed in range(first_seed, first_seed + tries):
             if len(found) == takes:
@@ -1328,6 +1332,22 @@ def promote(proj: P.Project, apply: bool = False) -> int:
                         M["seed_file"](files[lv])
                     written.append(files[lv])
         print(f"  {key}: " + ", ".join(f"{t['id']} {p}" for t, p in chosen) + ("" if liked[key] else " (none liked yet)"))
+    # A shipped track whose take isn't in the work folder (cleaned away, or made on another machine) stays as it is,
+    # unless voted down: the index can't choose it, so it can't unchoose it either.
+    shipped_before = Store.read(st.music_promoted_path, {})
+    in_manifest = {t["id"]: t for t in Store.read(Path(M["manifest"]), {}).get("tracks", [])}
+    kept = []
+    for tid, r in sorted(shipped_before.items()):
+        c = sets.get(r.get("key"))
+        if (tid in record or tid not in in_manifest or (c and any(t["id"] == r["take"] for t in c["takes"]))
+                or votes.get(f"mesh_{r['key']}.{r['take']}.{r['profile']}", 0) < 0
+                or not all((out_dir / f"{tid}_{lv}.ogg").exists() for lv in levels)):
+            continue
+        tracks.append(in_manifest[tid])
+        record[tid] = r
+        kept.append(tid)
+    if kept:
+        print(f"  {len(kept)} shipped tracks stay as they are (their takes aren't in the work folder)")
     grouped = None
     if G:
         grouped = Store.read(Path(G["file"]), {})

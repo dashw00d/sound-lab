@@ -7,3 +7,5 @@ __pycache__/
 # Local scratch
 /logs/
 *.tmp
+# Projects' work folders (takes, index, measurements): generated, but not disposable
+/work/
