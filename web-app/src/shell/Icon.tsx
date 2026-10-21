@@ -5,6 +5,7 @@ const THUMB = <><path d="M7 11v9" /><path d="M7 11l3.6-6.6A1.8 1.8 0 0 1 14 5.6l
 const ICONS = {
   play: <path {...FILL} d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" />,
   stop: <rect {...FILL} x="6" y="6" width="12" height="12" rx="2.2" />,
+  pause: <g {...FILL}><rect x="6.5" y="5.5" width="4" height="13" rx="1.3" /><rect x="13.5" y="5.5" width="4" height="13" rx="1.3" /></g>,
   up: THUMB, down: <g transform="rotate(180 12 12)">{THUMB}</g>,
   star: <path d={STAR} />, starFill: <path {...FILL} d={STAR} />,
   refresh: <><path d="M20.5 12a8.5 8.5 0 1 1-2.5-6" /><path d="M20.5 4v4.5H16" /></>,

@@ -1,11 +1,14 @@
 // The timeline (2026-10-21, the designer's mock): what played, plays and is planned, a card per block (a song's visit, a
-// glue, a rest) on a ruler, the playhead's handle on top. Each card: its shape (the loudness of each beat it plays, lit
-// up to the playhead while it plays) and under it, always there, its rating (the five uses: remove, flag, fill, good,
+// glue, a rest) between a rail and a ruler. Each card: its shape (the loudness of each beat it plays, lit up to the
+// playhead while it plays) and under it, always there, its rating (the five uses: remove, flag, fill, good,
 // exceptional; at its right end, so a card half out of view still shows it); between two cards, the transition, its
-// thumbs once it has played (as the lane had them). Press a card's
-// shape, or drag the handle, to play from there; near a transition (its last 2 bars, shaded, or the seam) it lands 2
-// bars before it, and the seam's marker goes there in one click ("easy to skip to right before transitions"). The cards
-// move along a block at a time, and hold still while the pointer is over them (the wheel looks back and ahead).
+// thumbs once it has played (as the lane had them).
+// The rail on top is the progress: lit up to the playhead, a dot per transition, and before each transition its last 2
+// bars in gold, which play from there in one click ("easy to skip to right before transitions"). The ruler below: a
+// tick a beat, a bar, a phrase (the song's own bars numbered), each block's start timed, lit as it's played. The
+// playhead's head reads the time; the pointer shows where a press would land (2 bars before the transition near one).
+// Press a card's shape, or drag the head, to play from there. The cards move along a block at a time, and hold still
+// while the pointer is over them (the wheel looks back and ahead).
 import { useEffect, useRef, useState } from 'react'
 import { audio } from '../audio/context'
 import type { Mixer } from '../mixer/engine/mixer'
@@ -16,13 +19,14 @@ import { useFrame } from './hooks'
 import { RATING } from './Rating'
 import './timelineStrip.css'
 
-const G = 50, BARW = 46, MINW = 156, MAXW = 380, EASE = 0.15, SNAP = 14, WAVE_H = 36
+const G = 50, BARW = 48, MINW = 192, MAXW = 640, EASE = 0.15, SNAP = 14, WAVE_H = 34
+const RULER_H = 26, TICK = [4, 7, 11, 16]  // (the ruler's height; a beat's tick, a bar's, a phrase's, a block's start)
 type TL = ReturnType<Mixer['timeline']>
 type Blk = TL['blocks'][number]
 type Ghost = TL['ghosts'][number]
 interface Card { id: string; T: number; end: number; bars: number; x: number; w: number; b: Blk | null; g: Ghost | null }
 
-const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, '0')}`
+const mmss = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, '0')}`
 
 /** The cards side by side, a seam between each two; the first where it was last time, so the row doesn't jump as old
  * blocks leave it. */
@@ -61,11 +65,37 @@ function wave(shape: number[], w: number, h: number) {
   }
   return d
 }
+/** The ruler: its ticks by kind, its labels (each block's start timed, the song's bars numbered), on past the cards. */
+function ruler(cards: Card[], beatsPerBar: number, origin: number, w: number) {
+  const lv: number[][] = [[], [], [], []], labels: { x: number; text: string; time: boolean }[] = []
+  const beats = (x: number, pb: number) => { if (pb >= 18) for (let j = 1; j < beatsPerBar; j++) lv[0].push(x + (j * pb) / beatsPerBar) }
+  for (const c of cards) {
+    const pb = c.w / c.bars, nums = c.b?.nums ?? []
+    for (let k = 0; k < c.bars; k++) {
+      const x = c.x + k * pb, n = nums[k] ?? null, phrase = n != null && (n - 1) % 4 === 0
+      lv[k === 0 ? 3 : phrase ? 2 : 1].push(x); beats(x, pb)
+      if (k === 0) labels.push({ x, text: mmss(c.T - origin), time: true })
+      else if (n != null && (pb >= 30 || phrase)) labels.push({ x, text: String(n), time: false })
+    }
+    lv[1].push(c.x + c.w)
+  }
+  if (cards.length) {
+    const a = cards[0].x - G, z = cards[cards.length - 1].x + cards[cards.length - 1].w + G
+    for (let k = 0; k * BARW < 1.5 * w; k++) {
+      lv[k % 4 ? 1 : 2].push(a - k * BARW, z + k * BARW)
+      beats(a - (k + 1) * BARW, BARW); beats(z + k * BARW, BARW)
+    }
+  }
+  const all = lv.flat(), lo = all.length ? Math.min(...all) - 2 : 0, hi = all.length ? Math.max(...all) + 2 : 0
+  const path = (xs: number[], h: number) => xs.map(x => `M${Math.round(x - lo) + 0.5} 0V${h}`).join('')
+  return { lo, hi, labels, paths: lv.map((xs, i) => path(xs, TICK[i])), grid: [path(lv[1], 1), path(lv[2], 1), path(lv[3], 1)] }
+}
 
 export function TimelineStrip({ m }: { m: Mixer }) {
   const box = useRef<HTMLDivElement>(null), film = useRef<HTMLDivElement>(null), head = useRef<HTMLDivElement>(null), lit = useRef<HTMLDivElement | null>(null)
+  const readout = useRef<HTMLElement>(null), played = useRef<HTMLDivElement>(null), railFill = useRef<HTMLDivElement>(null)
   const memo = useRef(new Map<string, number>()), applied = useRef(0), hold = useRef<number | null>(null), pan = useRef(0)
-  const [w, setW] = useState(900), [scrub, setScrub] = useState<number | null>(null), [panned, setPanned] = useState(false)
+  const [w, setW] = useState(900), [scrub, setScrub] = useState<number | null>(null), [hov, setHov] = useState<number | null>(null), [panned, setPanned] = useState(false)
   useEffect(() => {
     const b = box.current; if (!b) return
     const ro = new ResizeObserver(() => setW(b.clientWidth)); ro.observe(b); setW(b.clientWidth)
@@ -75,23 +105,29 @@ export function TimelineStrip({ m }: { m: Mixer }) {
   const tl = m.timeline(), cards = layout(tl, memo.current), playing = m.playing, now = tl.now
   const cur = playing ? cards.find(c => c.b && c.T <= now && now < c.end) ?? null : null
   const first = cards[0], lastR = cards.length ? cards[cards.length - 1].x + cards[cards.length - 1].w : 0
+  const R = ruler(cards, tl.beats, tl.origin, w)
   // (the row's place: the card playing ends three quarters along, the next one's start in view; stopped, the newest)
-  const desired = cur ? w * 0.76 - (cur.x + cur.w) : first ? Math.min(16 - first.x, w - 16 - lastR) : 0
+  const desired = cur ? Math.max(w * 0.76 - (cur.x + cur.w), w * 0.2 - cur.x) : first ? Math.min(16 - first.x, w - 16 - lastR) : 0
   const clampOff = (o: number) => (first ? Math.max(Math.min(o, 16 - first.x + w * 0.4), w - 16 - lastR - w * 0.4) : o)
-  const live = useRef({ cards, desired, cur, playing })
-  live.current = { cards, desired, cur, playing }
+  const live = useRef({ cards, desired, cur, playing, lo: R.lo, origin: tl.origin })
+  live.current = { cards, desired, cur, playing, lo: R.lo, origin: tl.origin }
 
   useFrame(() => {
-    const L = live.current, t = audio().currentTime
+    const L = live.current, t = audio().currentTime, hx = L.playing ? xOf(L.cards, t) : 0
+    const want = L.playing ? Math.min(L.desired, w - 56 - hx) : L.desired  // (a long card: the row follows the playhead near the edge)
     if (L.playing && hold.current != null) {  // (held under the pointer, unless the playhead would leave the view)
-      const hx = xOf(L.cards, t) + hold.current + pan.current
-      if (hx < 8 || hx > w - 8) { hold.current = L.desired; pan.current = 0; setPanned(false) }
+      const sx = hx + hold.current + pan.current
+      if (sx < 8 || sx > w - 8) { hold.current = want; pan.current = 0; setPanned(false) }
     }
-    const base = hold.current ?? L.desired, off = pan.current ? clampOff(base + pan.current) : base
+    const base = hold.current ?? want, off = pan.current ? clampOff(base + pan.current) : base
     if (off !== applied.current) { applied.current = off; if (film.current) film.current.style.transform = `translateX(${off}px)` }
     if (!L.playing) return
-    const hx = xOf(L.cards, t)
     if (head.current) head.current.style.transform = `translateX(${hx}px)`
+    const pw = `${Math.max(0, hx - L.lo)}px`
+    if (played.current && played.current.style.width !== pw) played.current.style.width = pw
+    if (railFill.current && railFill.current.style.width !== pw) railFill.current.style.width = pw
+    const txt = mmss(t - L.origin)
+    if (readout.current && readout.current.textContent !== txt) readout.current.textContent = txt
     if (lit.current && L.cur) lit.current.style.clipPath = `inset(0 ${Math.max(0, 100 - (100 * (hx - L.cur.x)) / L.cur.w)}% 0 0)`
   })
   useEffect(() => {  // (the wheel: look back and ahead, while the pointer is over the row)
@@ -106,7 +142,7 @@ export function TimelineStrip({ m }: { m: Mixer }) {
     return () => b.removeEventListener('wheel', wheel)
   }, [])
   const enter = () => { if (hold.current == null) hold.current = applied.current }
-  const leave = () => { hold.current = null; pan.current = 0; setPanned(false); box.current?.classList.remove('panning') }
+  const leave = () => { hold.current = null; pan.current = 0; setPanned(false); setHov(null); box.current?.classList.remove('panning') }
 
   // ---- landing: a time from a point on the row (in the row's own coordinates)
   const before = (c: Card) => c.end - 2 * tl.barS
@@ -127,46 +163,68 @@ export function TimelineStrip({ m }: { m: Mixer }) {
     const c = cards.find(x => x.T <= t && t < x.end)
     if (!c) return null
     if (c.g) return `${c.g.label} · from its start`
-    const b = c.b!, name = b.label ?? (b.kind === 'part' ? 'this song' : b.kind)
-    return b.kind === 'part' ? `${name} · bar ${b.bar + Math.floor((t - b.T) / tl.barS)}` : name
+    const b = c.b!, n = b.nums[Math.floor((t - b.T) / tl.barS)], at = mmss(t - tl.origin)
+    if (b.kind !== 'part') return `${b.kind} · ${at}`
+    return `${b.label ? `${b.label} · ` : ''}${n != null ? `bar ${n}` : 'fill'} · ${at}`
   }
   const go = (tg: { t: number; card: Card | null } | null) => {
     if (!tg || !playing) return
-    if (tg.card?.g && m.queue && tg.t >= tg.card.T) { m.playQueue(m.queue, tg.card.g.qi); return }
+    if (tg.card?.g && tg.t >= tg.card.T) { m.jumpQueue(tg.card.g.qi); return }
     if (!m.seekTo(tg.t)) toast('Nothing to play from there', 'x')
   }
+  const NOT_HERE = '.tlc-ctl, .tls-seam, .tls-now, .tls-lead'
+  const local = (clientX: number) => clientX - box.current!.getBoundingClientRect().left - applied.current
   const drag = (e: React.PointerEvent) => {
-    if (!playing || (e.target as HTMLElement).closest('.tlc-ctl, .tls-seam, .tls-now')) return
+    if (!playing || (e.target as HTMLElement).closest(NOT_HERE)) return
     e.preventDefault()
-    const r = box.current!.getBoundingClientRect(), pos = (ev: { clientX: number }) => ev.clientX - r.left - applied.current
     const x0 = e.clientX
-    setScrub(pos(e))
-    const move = (ev: PointerEvent) => setScrub(pos(ev))
+    setScrub(local(e.clientX))
+    const move = (ev: PointerEvent) => setScrub(local(ev.clientX))
     const up = (ev: PointerEvent) => {
       removeEventListener('pointermove', move); removeEventListener('pointerup', up)
       setScrub(null)
       const onHead = (e.target as HTMLElement).closest('.tls-knob') && Math.abs(ev.clientX - x0) < 3
-      if (!onHead) go(target(pos(ev)))
+      if (!onHead) go(target(local(ev.clientX)))
     }
     addEventListener('pointermove', move); addEventListener('pointerup', up)
   }
+  const hover = (e: React.PointerEvent) => setHov(playing && !(e.target as HTMLElement).closest(NOT_HERE) ? local(e.clientX) : null)
 
-  // (the ruler runs on past the cards, a tick a bar, so the timeline reaches across the whole strip)
-  const ext: number[] = []
-  if (first) {
-    for (let x = first.x - G; x > first.x - 2 * w; x -= BARW) ext.push(x)
-    for (let x = lastR + G; x < lastR + 2 * w; x += BARW) ext.push(x)
-  }
-  const tg = scrub == null ? null : target(scrub), tip = tg ? where(tg.t) : null
+  const px = scrub ?? hov, tg = px == null || !playing ? null : target(px), tip = tg ? where(tg.t) : null
+  const cx = tg ? (tg.snap ? xOf(cards, tg.t) : px!) : 0
   const state = (c: Card) => (c.g || c.T > now + 0.01 ? 'next' : c.end <= now || !playing ? 'past' : 'cur')
   return (
-    <div className={`tls ${playing ? 'live' : ''}`}>
-      <div className="tls-track" ref={box} onPointerDown={drag} onPointerEnter={enter} onPointerLeave={leave}>
-        <div className="tls-rule tls-top" /><div className="tls-rule tls-base" />
+    <div className={`tls ${playing ? 'live' : ''} ${m.paused ? 'paused' : ''}`}>
+      <div className="tls-track" ref={box} onPointerDown={drag} onPointerMove={hover} onPointerEnter={enter} onPointerLeave={leave}>
+        <div className="tls-rail" /><div className="tls-band" />
         <div className="tls-film" ref={film}>
-          <div className="tls-ticks">{ext.map(x => <i key={x} style={{ left: x }} />)}</div>
+          {/* the grid behind the cards, on past them */}
+          <svg className="tls-grid" style={{ left: R.lo }} width={R.hi - R.lo} height={1} preserveAspectRatio="none" viewBox={`0 0 ${R.hi - R.lo} 1`}>
+            <path className="g1" d={R.grid[0]} /><path className="g2" d={R.grid[1]} /><path className="g3" d={R.grid[2]} />
+          </svg>
+          {/* the rail: the progress, the transitions, the last 2 bars before each */}
+          {playing && <div className="tls-rail-fill" ref={railFill} style={{ left: R.lo }} />}
+          {cards.slice(0, -1).map((c, i) => {
+            const b = c.b, sx = c.x + c.w + G / 2, lx = b?.kind === 'part' && c.bars >= 3 ? xOf(cards, before(c)) : null
+            return (
+              <div key={`r${c.id}`}>
+                {lx != null && playing && <button className="tls-lead" style={{ left: lx, width: sx - lx }} title="Play from 2 bars before this transition" onClick={() => go({ t: before(c), card: c })}><i /></button>}
+                <span className={`tls-dot ${b && b.like > 0 ? 'up' : b && b.like < 0 ? 'down' : ''} ${c.end <= now + 0.01 && playing ? 'passed' : ''} ${cards[i + 1].g ? 'later' : ''}`} style={{ left: sx }} />
+              </div>
+            )
+          })}
+          {/* the ruler: its ticks, lit as they're played, and its labels */}
+          <div className="tls-ruler" style={{ left: R.lo, width: R.hi - R.lo }}>
+            <svg width={R.hi - R.lo} height={RULER_H}>{R.paths.map((d, i) => <path key={i} className={`t${i}`} d={d} />)}</svg>
+            {playing && (
+              <div className="tls-played" ref={played}>
+                <svg width={R.hi - R.lo} height={RULER_H}>{R.paths.map((d, i) => <path key={i} className={`t${i}`} d={d} />)}</svg>
+              </div>
+            )}
+            {R.labels.map(l => <span key={`${l.x}`} className={l.time ? 'time' : 'num'} style={{ left: l.x - R.lo }}>{l.text}</span>)}
+          </div>
           {cards.map((c, i) => {
-            const st = state(c), b = c.b, nx = cards[i + 1], ticks = Array.from({ length: c.bars + 1 }, (_, k) => k)
+            const st = state(c), b = c.b, nx = cards[i + 1]
             const leadX = b?.kind === 'part' && c.bars >= 3 && nx ? xOf(cards, before(c)) - c.x : null
             const path = wave(b?.shape ?? [], c.w - 16, WAVE_H)
             return (
@@ -185,7 +243,7 @@ export function TimelineStrip({ m }: { m: Mixer }) {
                         {[1, 2, 3, 4, 5].map(k => <button key={k} className={`r${k} ${b.rating === k ? 'on' : ''}`} title={`${RATING[k].name}: ${STARS[k]}`} onClick={() => m.star(b.key, k)}><Icon name={RATING[k].icon} /></button>)}
                       </span>
                     ) : c.g ? (
-                      <button className="tlc-label" title="Play it now" onClick={() => m.queue && m.playQueue(m.queue, c.g!.qi)}><Icon name="play" />{c.g.label}</button>
+                      <button className="tlc-label" title="Play it now" onClick={() => m.jumpQueue(c.g!.qi)}><Icon name="play" />{c.g.label}</button>
                     ) : b?.label ? (
                       <span className="tlc-label">{b.label}</span>
                     ) : (
@@ -194,13 +252,9 @@ export function TimelineStrip({ m }: { m: Mixer }) {
                     <span className="tlc-bars">{c.bars} bar{c.bars > 1 ? 's' : ''}</span>
                   </div>
                 </div>
-                <div className="tls-ruler" style={{ left: c.x, width: c.w }}>
-                  {ticks.map(k => <i key={k} className={k === 0 ? 'major' : ''} style={{ left: `${(100 * k) / c.bars}%` }} />)}
-                  <span>{mmss(c.T - tl.origin)}</span>
-                </div>
                 {nx && (
                   <div className={`tls-seam ${b && b.like > 0 ? 'up' : b && b.like < 0 ? 'down' : ''} ${c.end <= now + 0.01 && playing ? 'passed' : ''}`} style={{ left: c.x + c.w, width: G }}>
-                    <button className="tls-jump" disabled={!playing} title="Play from 2 bars before this transition" onClick={() => go({ t: before(c), card: c })}><i /></button>
+                    <button className="tls-jump" disabled={!playing} title="Play from 2 bars before this transition" onClick={() => go({ t: before(c), card: c })}><i><Icon name="next" /></i></button>
                     {b?.rated && b.end <= now + 0.01 && !nx.g && (
                       <span className="thumbs">
                         <button className={b.like > 0 ? 'on up' : 'up'} title="Good transition" onClick={() => void m.like(b.key, 1)}><Icon name="up" /></button>
@@ -214,12 +268,14 @@ export function TimelineStrip({ m }: { m: Mixer }) {
           })}
           {playing && cards.length > 0 && (
             <div className="tls-head" ref={head}>
-              <span className="tls-knob" title="Drag to play from anywhere in what played or is planned"><i /><i /><i /></span>
+              <span className="tls-beam" />
+              <span className="tls-knob" title={m.paused ? 'Paused: drag to move the playhead; Space goes on from it' : 'Drag to play from anywhere in what played or is planned'}>{m.paused && <Icon name="pause" />}<b ref={readout}>0:00</b></span>
+              <span className="tls-foot" />
             </div>
           )}
           {tg && (
-            <div className={`tls-scrub ${tip ? '' : 'none'} ${tg.snap ? 'snap' : ''} ${scrub! + applied.current > w * 0.6 ? 'flip' : ''}`} style={{ transform: `translateX(${tg.snap ? xOf(cards, tg.t) : scrub}px)` }}>
-              <span className="tls-tip">{tip ? <>{tg.snap ? '2 bars before the transition · ' : tg.t > now ? 'ahead · ' : 'back · '}{tip}</> : 'nothing there'}</span>
+            <div className={`tls-cursor ${scrub != null ? 'down' : ''} ${tip ? '' : 'none'} ${tg.snap ? 'snap' : ''} ${cx + applied.current > w * 0.62 ? 'flip' : ''}`} style={{ transform: `translateX(${cx}px)` }}>
+              <span className="tls-bubble">{tip ? <>{tg.snap && <Icon name="next" />}{tg.snap ? `2 bars before the transition · ${tip}` : tip}</> : 'nothing there'}</span>
             </div>
           )}
         </div>

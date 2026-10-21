@@ -32,7 +32,7 @@ function Bar({ m }: { m: Mixer }) {
   const fams = useFamilies()  // (the graph follows the sort)
   useEffect(() => { if (fams.data) m.setGraph(fams.data) }, [fams.data, m])
   useKeys((k) => {
-    if (k === ' ') { if (m.playing) m.stop(); else m.playDefault(); return true }
+    if (k === ' ') { if (m.playing) m.togglePause(); else m.playDefault(); return true }
     if (k === 'ArrowLeft' && (m.walking || m.mode === 'queue')) { m.back(); return true }
     if (k === 'ArrowRight' && (m.walking || m.mode === 'queue')) { m.skip(); return true }
     if (k === '1' || k === '2') { m.setState(k === '1' ? 'mellow' : 'intense'); return true }
@@ -45,11 +45,11 @@ function Bar({ m }: { m: Mixer }) {
   const spec = useRef<HTMLCanvasElement>(null), meters = useRef<Record<string, HTMLDivElement | null>>({})
   const bins = useRef(new Float32Array(m.sched.analyser.frequencyBinCount)), wav = useRef(new Float32Array(1024))
   useFrame(() => {
-    drawSpectrum(spec.current, m.sched.analyser, bins.current, m.playing)
+    drawSpectrum(spec.current, m.sched.analyser, bins.current, m.playing && !m.paused)
     for (const st of STATES) {
       const el = meters.current[st]; if (!el) continue
       let s = 0
-      if (m.playing) { m.sched.bus[st].meter.getFloatTimeDomainData(wav.current); for (const v of wav.current) s += v * v }
+      if (m.playing && !m.paused) { m.sched.bus[st].meter.getFloatTimeDomainData(wav.current); for (const v of wav.current) s += v * v }
       el.style.width = `${Math.round(100 * Math.min(1, Math.max(0, (10 * Math.log10(s / 1024 + 1e-12) + 54) / 48)))}%`
     }
   })
@@ -61,8 +61,9 @@ function Bar({ m }: { m: Mixer }) {
           <div className="pb-top">
             <div className="pb-tr">
               <button className="iconbtn" disabled={!walk && !inQueue} title={inQueue ? 'Back: this song from its start; twice: the one before (←)' : 'Back: the transition into this block again; twice: the one before (←)'} onClick={() => m.back()}><Icon name="prev" /></button>
-              <button className="playbtn" title={snap.playing ? 'Stop (Space)' : queue ? 'Play the queue (Space)' : 'Play the walk (Space)'} onClick={() => (snap.playing ? m.stop() : m.playDefault())}><Icon name={snap.playing ? 'stop' : 'play'} /></button>
+              <button className="playbtn" title={snap.playing ? (snap.paused ? 'Go on from the playhead (Space)' : 'Pause (Space)') : queue ? 'Play the queue (Space)' : 'Play the walk (Space)'} onClick={() => (snap.playing ? m.togglePause() : m.playDefault())}><Icon name={snap.playing && !snap.paused ? 'pause' : 'play'} /></button>
               <button className="iconbtn" disabled={!walk && !inQueue} title={inQueue ? 'The next song (→)' : 'Skip to a new run (→)'} onClick={() => m.skip()}><Icon name="next" /></button>
+              <button className="iconbtn" disabled={!snap.playing} title="Stop (Esc): a new walk starts on Play" onClick={() => m.stop()}><Icon name="stop" /></button>
               <button className="iconbtn tr" disabled={!walk && !inQueue} title={inQueue ? 'To 2 bars before the next song (.)' : 'Move on at the next phrase end: to the next transition (.)'} onClick={() => m.nextTransition()}><Icon name="arrow" /></button>
             </div>
             <div className="pb-clock">
@@ -71,7 +72,7 @@ function Bar({ m }: { m: Mixer }) {
             </div>
           </div>
           <div className="pb-now">
-            <span className="lbl">{snap.mode ? MODE[snap.mode] : 'Stopped'}{inQueue && queue && snap.qi != null ? ` · ${snap.qi + 1} of ${queue.length}` : ''}
+            <span className="lbl">{snap.mode ? MODE[snap.mode] : 'Stopped'}{snap.paused ? ' · paused' : ''}{inQueue && queue && snap.qi != null ? ` · ${snap.qi + 1} of ${queue.length}` : ''}
               {queue && <button className="pb-clear" title="Clear the queue (Play then plays the walk)" onClick={() => m.setQueue(null)}>queue of {queue.length} <Icon name="x" /></button>}</span>
             <b>{snap.playing ? snap.now : queue ? `Space plays the queue: ${queue.length} songs` : 'Space plays the walk'}</b>
             {snap.playing && <small>next: {snap.next}</small>}

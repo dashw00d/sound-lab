@@ -1,7 +1,7 @@
 /* The player's bar at the foot of every page, and the blind rating (the bar's lane, the Mixer's session list). */
 .pbar { flex: none; display: flex; flex-direction: column; padding: 0 18px; border-top: 1px solid var(--line-2); background: linear-gradient(180deg, #0e1016, var(--bg-2)); position: relative; z-index: 4; }
-.pb-row { display: flex; align-items: center; gap: 22px; height: 118px; }
-.pb-left { flex: none; width: 300px; display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+.pb-row { display: flex; align-items: center; gap: 22px; height: 128px; }
+.pb-left { flex: none; width: 322px; display: flex; flex-direction: column; gap: 9px; min-width: 0; }
 .pb-top { display: flex; align-items: center; gap: 18px; }
 .pb-right { flex: none; width: 196px; display: flex; flex-direction: column; gap: 10px; }
 .pb-bottom { display: flex; align-items: center; gap: 8px; }

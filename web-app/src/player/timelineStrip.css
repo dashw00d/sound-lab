@@ -1,33 +1,48 @@
-/* The timeline in the player's bar: a card per block on a ruler, the transitions between, the playhead's handle on top. */
-.tls { position: relative; flex: 1; min-width: 320px; height: 108px; align-self: center; }
+/* The timeline in the player's bar: a rail on top (the progress, the transitions, the last 2 bars before each), a card
+   per block, a ruler below (a tick a beat, a bar, a phrase; each block's start timed), the playhead through them all. */
+.tls { position: relative; flex: 1; min-width: 320px; height: 118px; align-self: center; }
 .tls-track { position: absolute; inset: 0; overflow: hidden; cursor: default; }
-/* (two rules across the whole strip: the one the handle rides on, and the ruler's) */
-.tls-rule { position: absolute; left: 0; right: 0; height: 1px; pointer-events: none; }
-.tls-rule.tls-top { top: 9px; background: rgba(255, 255, 255, .08); }
-.tls-rule.tls-base { top: 92px; background: rgba(255, 255, 255, .1); }
-.tls-ticks { position: absolute; left: 0; top: 92px; width: 0; height: 0; pointer-events: none; }
-.tls-ticks i { position: absolute; top: 0; width: 1px; height: 3px; background: rgba(255, 255, 255, .1); }
 .tls-film { position: absolute; inset: 0 auto 0 0; width: 0; transition: transform .55s var(--ease); }
 .tls-track.panning .tls-film { transition-duration: .12s; }
-.tls-idle { position: absolute; inset: 0; display: grid; place-items: center; font: 500 11px var(--mono); color: var(--ghost); letter-spacing: .03em; }
+.tls-idle { position: absolute; inset: 22px 0 26px; display: grid; place-items: center; font: 500 11px var(--mono); color: var(--faint); letter-spacing: .03em; }
+
+/* ---- the grid behind the cards: a line a bar, stronger a phrase, strongest where a block starts */
+.tls-grid { position: absolute; top: 14px; height: 78px; overflow: visible; pointer-events: none; }
+.tls-grid path { fill: none; stroke-width: 1; vector-effect: non-scaling-stroke; shape-rendering: crispEdges; }
+.tls-grid .g1 { stroke: rgba(255, 255, 255, .03); } .tls-grid .g2 { stroke: rgba(255, 255, 255, .065); } .tls-grid .g3 { stroke: rgba(255, 255, 255, .11); }
+
+/* ---- the rail: the progress (lit to the playhead), a diamond per transition, its last 2 bars in gold */
+.tls-rail { position: absolute; left: 0; right: 0; top: 9px; height: 3px; background: rgba(255, 255, 255, .075); pointer-events: none; }
+.tls-rail-fill { position: absolute; top: 9px; height: 3px; width: 0; pointer-events: none; z-index: 1;
+  background: linear-gradient(90deg, #6f5fe6 0, #8f7dff calc(100% - 300px), #5bd6ff 100%); box-shadow: 0 0 10px rgba(91, 214, 255, .4); }
+.tls-lead { position: absolute; top: 1px; height: 19px; padding: 0; border: 0; background: none; cursor: pointer; z-index: 3; }
+.tls-lead i { position: absolute; left: 0; right: 0; top: 9px; height: 3px; background: linear-gradient(90deg, rgba(255, 200, 87, .22), rgba(255, 200, 87, .6)); transition: box-shadow .15s, top .15s, height .15s, background .15s; }
+.tls-lead::before { content: ""; position: absolute; left: 0; top: 6px; width: 2px; height: 9px; border-radius: 1px; background: rgba(255, 200, 87, .75); transition: background .15s; }
+.tls-lead:hover::before { background: var(--pick); }
+.tls-lead:hover i { top: 8px; height: 5px; background: var(--pick); box-shadow: 0 0 14px rgba(255, 200, 87, .75); }
+.tls-dot { position: absolute; top: 6.5px; width: 8px; height: 8px; margin-left: -4px; transform: rotate(45deg); border-radius: 2px; z-index: 4; pointer-events: none;
+  background: #262b38; box-shadow: 0 0 0 2px var(--bg-2), 0 0 0 3px rgba(255, 255, 255, .16); }
+.tls-dot.passed { background: #c9cde0; }
+.tls-dot.up { background: var(--good); box-shadow: 0 0 0 2px var(--bg-2), 0 0 10px rgba(79, 220, 155, .8); }
+.tls-dot.down { background: var(--bad); box-shadow: 0 0 0 2px var(--bg-2), 0 0 10px rgba(255, 107, 127, .8); }
+.tls-dot.later { background: transparent; }
 
 /* ---- a card: its shape, a line, its rating */
-.tlc { position: absolute; top: 22px; height: 66px; display: flex; flex-direction: column; border-radius: 11px; overflow: hidden;
-  background: linear-gradient(180deg, rgba(154, 140, 255, .11), rgba(154, 140, 255, .045)); box-shadow: inset 0 0 0 1px rgba(154, 140, 255, .26);
+.tlc { position: absolute; top: 22px; height: 64px; z-index: 2; display: flex; flex-direction: column; border-radius: 11px; overflow: hidden;
+  background: linear-gradient(180deg, rgba(154, 140, 255, .11), rgba(154, 140, 255, .045)), #0f1118; box-shadow: inset 0 0 0 1px rgba(154, 140, 255, .26);
   transition: box-shadow .2s, opacity .3s, background .3s; }
-.tlc.past { opacity: .78; }
-.tlc.past:hover { opacity: 1; }
-.tlc.cur { background: linear-gradient(180deg, rgba(154, 140, 255, .2), rgba(154, 140, 255, .08)); box-shadow: inset 0 0 0 1.5px rgba(190, 180, 255, .85), 0 0 26px -8px rgba(154, 140, 255, .85); }
-.tlc.next { background: rgba(255, 255, 255, .015); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); }
+.tlc.past .tlc-wave, .tlc.past .tlc-bars { opacity: .72; }
+.tlc.cur { background: linear-gradient(180deg, rgba(154, 140, 255, .2), rgba(154, 140, 255, .08)), #11121c; box-shadow: inset 0 0 0 1.5px rgba(190, 180, 255, .85), 0 0 26px -8px rgba(154, 140, 255, .85); }
+.tlc.next { background: #0d0f15; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); }
 .tlc.next .tlc-wave path { stroke: rgba(190, 180, 255, .22); }
-.tlc.k-ghost { background: none; box-shadow: none; outline: 1px dashed rgba(255, 255, 255, .16); outline-offset: -1px; }
+.tlc.k-ghost { background: #0b0d12; box-shadow: none; outline: 1px dashed rgba(255, 255, 255, .16); outline-offset: -1px; }
 .tlc.k-rest .tlc-wave path { stroke: rgba(255, 255, 255, .12); }
-.tlc.k-glue { background: linear-gradient(180deg, rgba(91, 214, 255, .1), rgba(91, 214, 255, .035)); box-shadow: inset 0 0 0 1px rgba(91, 214, 255, .28); }
+.tlc.k-glue { background: linear-gradient(180deg, rgba(91, 214, 255, .1), rgba(91, 214, 255, .035)), #0e1218; box-shadow: inset 0 0 0 1px rgba(91, 214, 255, .28); }
 .tlc.r1 { box-shadow: inset 0 0 0 1.5px rgba(255, 107, 127, .65); } .tlc.r2 { box-shadow: inset 0 0 0 1.5px rgba(255, 159, 107, .65); }
 .tlc.r4 { box-shadow: inset 0 0 0 1.5px rgba(79, 220, 155, .55); } .tlc.r5 { box-shadow: inset 0 0 0 1.5px rgba(255, 200, 87, .75), 0 0 18px -6px rgba(255, 200, 87, .6); }
 .tlc.cur.r1, .tlc.cur.r2, .tlc.cur.r4, .tlc.cur.r5 { box-shadow: inset 0 0 0 1.5px rgba(190, 180, 255, .85), 0 0 26px -8px rgba(154, 140, 255, .85); }
 
-.tlc-wave { position: relative; height: 36px; flex: none; padding: 0 8px; cursor: crosshair; }
+.tlc-wave { position: relative; height: 34px; flex: none; padding: 0 8px; cursor: crosshair; }
 .tls:not(.live) .tlc-wave { cursor: default; }
 .tlc-wave svg { display: block; }
 .tlc-wave path { fill: none; stroke: rgba(190, 180, 255, .5); stroke-width: 1.7; stroke-linecap: round; }
@@ -53,41 +68,65 @@ button.tlc-label:hover { background: var(--hover); color: var(--text); }
 .tlc-note { font: 500 10px var(--mono); color: var(--faint); padding-left: 5px; letter-spacing: .03em; }
 
 /* ---- the transitions: a marker on a line (2 bars before it, in one click) and its thumbs once it has played */
-.tls-seam { position: absolute; top: 22px; height: 66px; display: flex; flex-direction: column; align-items: center; }
-.tls-seam::before { content: ""; position: absolute; left: 50%; top: -13px; bottom: -11px; width: 1px; background: rgba(255, 255, 255, .08); pointer-events: none; }
-.tls-jump { position: relative; width: 100%; height: 36px; flex: none; padding: 0; border: 0; background: none; display: grid; place-items: center; cursor: pointer; }
-.tls-jump::before { content: ""; position: absolute; left: 50%; top: 2px; bottom: 2px; width: 1px; background: rgba(255, 255, 255, .12); transition: background .15s; }
-.tls-jump i { position: relative; width: 9px; height: 9px; transform: rotate(45deg); border-radius: 2px; background: var(--overlay); box-shadow: 0 0 0 1px var(--line-3); transition: background .15s, box-shadow .15s, transform .15s var(--ease); }
+.tls-seam { position: absolute; top: 22px; height: 64px; z-index: 2; display: flex; flex-direction: column; align-items: center; }
+.tls-seam::before { content: ""; position: absolute; left: 50%; top: -10px; bottom: -6px; width: 1px; background: rgba(255, 255, 255, .1); pointer-events: none; }
+.tls-jump { position: relative; width: 100%; height: 34px; flex: none; padding: 0; border: 0; background: none; display: grid; place-items: center; cursor: pointer; }
+.tls-jump::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: transparent; transition: background .15s; }
+.tls-jump i { width: 18px; height: 18px; border-radius: 6px; display: grid; place-items: center; opacity: 0; transform: scale(.8); background: rgba(255, 200, 87, .14); box-shadow: 0 0 0 1px rgba(255, 200, 87, .5); color: var(--pick); transition: opacity .15s, transform .15s var(--ease); }
+.tls-jump i .i { width: 10px; height: 10px; }
 .tls-jump:hover:not(:disabled)::before { background: rgba(255, 200, 87, .6); }
-.tls-jump:hover:not(:disabled) i { background: var(--pick); box-shadow: 0 0 12px rgba(255, 200, 87, .8); transform: rotate(45deg) scale(1.2); }
+.tls-jump:hover:not(:disabled) i { opacity: 1; transform: none; }
 .tls-jump:disabled { cursor: default; }
-.tls-seam.passed .tls-jump i { background: #2a2f3d; }
-.tls-seam.up .tls-jump i { background: var(--good); box-shadow: 0 0 10px rgba(79, 220, 155, .6); }
-.tls-seam.down .tls-jump i { background: var(--bad); box-shadow: 0 0 10px rgba(255, 107, 127, .6); }
 .tls-seam .thumbs { margin-top: 3px; padding: 1px; border-radius: 99px; background: var(--overlay); box-shadow: 0 0 0 1px var(--line-2); }
 .tls-seam .thumbs button { width: 21px; height: 21px; border-radius: 99px; }
 .tls-seam .thumbs .i { width: 11px; height: 11px; }
 
-/* ---- the ruler: a tick a bar, each block's start timed */
-.tls-ruler { position: absolute; top: 92px; height: 15px; pointer-events: none; }
-.tls-ruler i { position: absolute; top: 0; width: 1px; height: 3px; background: rgba(255, 255, 255, .14); }
-.tls-ruler i.major { height: 6px; background: rgba(255, 255, 255, .34); }
-.tls-ruler span { position: absolute; left: 4px; top: 3px; font: 500 9.5px var(--mono); color: var(--faint); letter-spacing: .02em; }
+/* ---- the ruler: a band across the strip; a tick a beat, a bar, a phrase, a block's start; the song's bars numbered,
+   each block's start timed; what has played lit, its top edge the progress */
+.tls-band { position: absolute; left: 0; right: 0; top: 92px; height: 26px; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .038), rgba(255, 255, 255, .012)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .11); }
+.tls-ruler { position: absolute; top: 92px; height: 26px; pointer-events: none; }
+.tls-ruler svg { position: absolute; left: 0; top: 0; display: block; }
+.tls-ruler path { fill: none; stroke-width: 1; shape-rendering: crispEdges; }
+.tls-ruler .t0 { stroke: rgba(255, 255, 255, .13); } .tls-ruler .t1 { stroke: rgba(255, 255, 255, .26); }
+.tls-ruler .t2 { stroke: rgba(255, 255, 255, .44); } .tls-ruler .t3 { stroke: rgba(255, 255, 255, .72); }
+.tls-played { position: absolute; left: 0; top: 0; height: 26px; width: 0; overflow: hidden;
+  background: linear-gradient(90deg, #6f5fe6 0, #8f7dff calc(100% - 300px), #5bd6ff 100%) top left / 100% 2px no-repeat, linear-gradient(180deg, rgba(91, 214, 255, .09), rgba(154, 140, 255, .02)); }
+.tls-played .t0 { stroke: rgba(143, 230, 255, .4); } .tls-played .t1 { stroke: rgba(143, 230, 255, .62); }
+.tls-played .t2 { stroke: rgba(170, 236, 255, .85); } .tls-played .t3 { stroke: #e6f9ff; }
+.tls-ruler span { position: absolute; top: 12px; transform: translateX(4px); font: 500 9.5px/1 var(--mono); letter-spacing: .02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tls-ruler span.time { color: rgba(238, 240, 246, .82); font-weight: 600; font-size: 10px; top: 11px; }
+.tls-ruler span.num { color: rgba(255, 255, 255, .32); }
 
-/* ---- the playhead, its handle, the scrub */
-.tls-head { position: absolute; left: 0; top: 0; width: 0; height: 58px; z-index: 5; pointer-events: none; }
-.tls-head::before { content: ""; position: absolute; left: -1px; top: 17px; bottom: 0; width: 2px; border-radius: 2px; background: linear-gradient(180deg, #fff, var(--accent-2)); box-shadow: 0 0 12px rgba(91, 214, 255, .9), 0 0 2px #fff; }
-.tls-knob { position: absolute; left: -15px; top: 1px; width: 30px; height: 17px; border-radius: 9px; background: var(--grad); box-shadow: 0 3px 14px -2px rgba(91, 214, 255, .7), 0 0 0 2px var(--bg-2);
-  display: flex; align-items: center; justify-content: center; gap: 2px; cursor: grab; pointer-events: auto; transition: transform .15s var(--ease); }
-.tls-knob:hover { transform: scale(1.1); } .tls-knob:active { cursor: grabbing; }
-.tls-knob i { width: 2px; height: 7px; border-radius: 1px; background: rgba(10, 11, 15, .55); }
-.tls-scrub { position: absolute; left: 0; top: 0; width: 0; height: 88px; z-index: 6; pointer-events: none; }
-.tls-scrub::before { content: ""; position: absolute; left: -1px; top: 18px; bottom: 0; border-left: 2px dashed rgba(255, 255, 255, .85); }
-.tls-scrub.snap::before { border-left: 2px solid var(--pick); box-shadow: 0 0 10px rgba(255, 200, 87, .7); }
-.tls-scrub.none::before { border-left-color: rgba(255, 255, 255, .3); }
-.tls-tip { position: absolute; top: 0; left: 8px; white-space: nowrap; padding: 2px 8px; border-radius: 6px; background: var(--overlay); box-shadow: 0 0 0 1px var(--line-3); font: 500 11px var(--font); color: var(--text); }
-.tls-scrub.flip .tls-tip { left: auto; right: 8px; }
-.tls-scrub.none .tls-tip { color: var(--faint); }
-.tls-now { position: absolute; right: 10px; top: 0; z-index: 7; display: inline-flex; align-items: center; gap: 4px; height: 18px; padding: 0 6px 0 9px; border-radius: 99px; border: 0;
-  background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent-line); color: var(--text); font: 500 10.5px var(--font); }
+/* ---- the playhead: its head reads the time, a beam down through the cards, a dot on the ruler */
+.tls-head { position: absolute; left: 0; top: 0; width: 0; height: 92px; z-index: 5; pointer-events: none; }
+.tls-head::before { content: ""; position: absolute; left: -1px; top: 19px; height: 37px; width: 2px; border-radius: 1px; background: linear-gradient(180deg, #fff, var(--accent-2)); box-shadow: 0 0 12px rgba(91, 214, 255, .9), 0 0 2px #fff; }
+.tls-head::after { content: ""; position: absolute; left: -1px; top: 86px; bottom: 0; width: 2px; background: var(--accent-2); box-shadow: 0 0 8px rgba(91, 214, 255, .9); }
+.tls-beam { position: absolute; left: -30px; width: 60px; top: 19px; height: 37px; background: radial-gradient(closest-side, rgba(91, 214, 255, .14), rgba(91, 214, 255, 0)); }
+.tls-knob { position: absolute; top: 1px; left: 0; transform: translateX(-50%); height: 18px; padding: 0 8px; border-radius: 9px; background: var(--grad); pointer-events: auto; cursor: grab;
+  box-shadow: 0 4px 16px -2px rgba(91, 214, 255, .75), 0 0 0 2px var(--bg-2); display: flex; align-items: center; transition: transform .15s var(--ease); }
+.tls-knob:hover { transform: translateX(-50%) scale(1.08); } .tls-knob:active { cursor: grabbing; }
+.tls-knob b { font: 650 10px/1 var(--mono); color: #0a0b12; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+.tls-knob .i { width: 9px; height: 9px; color: #0a0b12; margin-right: 3px; }
+/* (paused: the head breathes, the beam dims; everything on the timeline still works) */
+.tls.paused .tls-knob { animation: tls-hold 1.8s ease-in-out infinite; }
+@keyframes tls-hold { 50% { box-shadow: 0 4px 16px -4px rgba(91, 214, 255, .25), 0 0 0 2px var(--bg-2); filter: saturate(.75) brightness(.92); } }
+.tls.paused .tls-beam { opacity: .45; }
+.tls.paused .tls-head::before { box-shadow: 0 0 6px rgba(91, 214, 255, .5); }
+.tls-foot { position: absolute; left: -4px; bottom: -4px; width: 8px; height: 8px; border-radius: 50%; background: #aef0ff; box-shadow: 0 0 0 2px var(--bg-2), 0 0 12px rgba(91, 214, 255, .95); }
+
+/* ---- the pointer: a guide where a press would land, its place on the ruler */
+.tls-cursor { position: absolute; left: 0; top: 2px; height: 116px; width: 0; z-index: 6; pointer-events: none; }
+.tls-cursor::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1px solid rgba(255, 255, 255, .38); }
+.tls-cursor.down::before { left: -1px; border-left: 2px solid rgba(255, 255, 255, .92); }
+.tls-cursor.snap::before { border-left-color: var(--pick); box-shadow: 0 0 10px rgba(255, 200, 87, .6); }
+.tls-cursor.none::before { border-left-style: dashed; border-left-color: rgba(255, 255, 255, .25); }
+.tls-bubble { position: absolute; top: 94px; left: 6px; height: 18px; display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border-radius: 5px; white-space: nowrap;
+  background: #1b1f29; box-shadow: 0 0 0 1px var(--line-3), 0 6px 18px -6px rgba(0, 0, 0, .9); font: 500 10px/1 var(--mono); color: var(--text); }
+.tls-bubble .i { width: 10px; height: 10px; }
+.tls-cursor.flip .tls-bubble { left: auto; right: 6px; }
+.tls-cursor.snap .tls-bubble { color: var(--pick); box-shadow: 0 0 0 1px rgba(255, 200, 87, .55), 0 6px 18px -6px rgba(0, 0, 0, .9); }
+.tls-cursor.none .tls-bubble { color: var(--faint); }
+.tls-now { position: absolute; right: 8px; top: 24px; z-index: 7; display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px 0 10px; border-radius: 99px; border: 0;
+  background: #1b1f29; box-shadow: 0 0 0 1px var(--accent-line), 0 6px 18px -6px rgba(0, 0, 0, .9); color: var(--text); font: 500 10.5px var(--font); }
 .tls-now .i { width: 10px; height: 10px; }

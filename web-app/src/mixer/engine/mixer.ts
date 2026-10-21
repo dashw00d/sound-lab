@@ -41,6 +41,9 @@ export class Mixer {
   private gen = 0
   private timer = 0
   private starting = false
+  /** Paused (2026-10-21): the audio clock held where it was, so what's planned waits exactly as it is; the timeline still
+   * takes a seek, a jump, a rating, and Play goes on from wherever the playhead is then. */
+  paused = false
   private pinned = false
   playing = false
   /** What a page asked to play (a song's id), so it can light it; null for the walk. */
@@ -157,7 +160,7 @@ export class Mixer {
   // ---- the transport
   /** The walk (a fresh session), or a script (auditions, training, review: no session). `from`: a part to enter first,
    * keeping the history (skip); with `pin`, the walk stays in its song (no session). `tag`: what the page asked for. */
-  async play(script: Chunk[] | null = null, from: Part | null = null, opts: { pin?: boolean; tag?: string; queue?: QueueItem[]; at?: number; ffw?: number } = {}) {
+  async play(script: Chunk[] | null = null, from: Part | null = null, opts: { pin?: boolean; tag?: string; queue?: QueueItem[]; at?: number; ffw?: number; hold?: boolean } = {}) {
     ++this.gen
     const queue = !script && opts.queue?.length ? opts.queue : null, pin = !script && !queue && !!from && !!opts.pin
     // (the timeline keeps what played when the walk goes on, or the same queue plays on: '.', Back, a song chosen in it)
@@ -168,7 +171,8 @@ export class Mixer {
     if (script || pin || queue) this.sess = null
     else if (!from || !this.sess) this.sess = new Session(() => this.prefs)
     if (!script?.some(c => c.rev != null)) this.review.cur = null
-    if (audio().state === 'suspended') await audio().resume()
+    if (!opts.hold) this.paused = false  // (a move within what plays keeps a pause: Back, skip, a seek, a jump)
+    if (audio().state === 'suspended' && !this.paused) await audio().resume()
     this.halt()
     if (!keep) { this.past = []; this.t0 = null }
     else if (queue) for (const c of this.past) c.tapeIdx = undefined  // (the tape starts again: what played is reached through the queue)
@@ -187,7 +191,10 @@ export class Mixer {
       .filter(c => c.end! > now - 150)
     this.sched.halt(this.plan); this.plan = []; this.playing = false; clearInterval(this.timer)
   }
-  stop() { this.gen++; this.halt(); this.script = null; this.tag = null; this.changed() }
+  stop() { this.gen++; this.halt(); this.script = null; this.tag = null; if (this.paused) { this.paused = false; void audio().resume() } this.changed() }
+  pause() { if (!this.playing || this.paused) return; this.paused = true; void audio().suspend(); this.changed() }
+  resume() { if (!this.paused) return; this.paused = false; void audio().resume(); this.changed() }
+  togglePause() { if (this.paused) this.resume(); else this.pause() }
   /** The listening volume (0..1, as the slider; heard as its square, so the low end is fine-grained), or muted. */
   setVolume(v: number, muted: boolean) {
     const g = muted ? 0 : Math.max(0, Math.min(1, v)) ** 2
@@ -201,7 +208,7 @@ export class Mixer {
   back() {
     if (this.mode === 'queue') {  // (a queue: this song from its start; within 3 s of it, the one before)
       const cur = this.nowChunk(), began = this.plan.find(c => c.run === cur?.run && c.scheduled && !c.skipped)?.T ?? 0, qi = this.heard().qi ?? 0
-      this.playQueue(this.queue!, this.now() - began < 3 ? qi - 1 : qi)
+      void this.play(null, null, { queue: this.queue!, at: this.now() - began < 3 ? qi - 1 : qi, hold: true })
       return
     }
     if (!this.walking || !this.tape.length) return
@@ -238,7 +245,7 @@ export class Mixer {
       const all = [...this.past, ...this.plan], c = all.find(x => !x.skipped && x.T! <= t && t < x.end! && x.run?.qi != null)
       if (!c) return false
       const began = all.find(x => x.run === c.run && !x.skipped)!.T!
-      void this.play(null, null, { queue: this.queue, at: c.run!.qi!, ffw: Math.max(0, Math.floor((t - began) / this.jd.barS())) })
+      void this.play(null, null, { queue: this.queue, at: c.run!.qi!, ffw: Math.max(0, Math.floor((t - began) / this.jd.barS())), hold: true })
       return true
     }
     const c = [...this.past, ...this.plan].find(x => !x.skipped && x.T! <= t && t < x.end! && x.tapeIdx != null)
@@ -265,7 +272,9 @@ export class Mixer {
       // (scaled to its own quietest and loudest beats, within a floor of 9 dB: the music's swell, not a flat bar)
       const db = shape.filter(v => v < 0), lo = db.length ? Math.min(...db) : 0, hi = db.length ? Math.max(...db) : 0, span = Math.max(9, hi - lo)
       for (let k = 0; k < shape.length; k++) if (shape[k] < 0) shape[k] = 0.18 + 0.82 * Math.max(0, (shape[k] - (hi - span)) / span)
-      return { key, id: `${key}@${b.T.toFixed(2)}`, kind: b.kind, T: b.T, end: b.end, bars: b.bars, track: b.track ?? null, qi: b.run?.qi ?? null,
+      // (the song's own bar at each bar of the block: it loops, and a fill has none)
+      const nums = b.chunks.flatMap(c => Array.from({ length: c.bars }, (_, k) => (c.kind === 'part' ? c.bar + k : null)))
+      return { key, id: `${key}@${b.T.toFixed(2)}`, nums, kind: b.kind, T: b.T, end: b.end, bars: b.bars, track: b.track ?? null, qi: b.run?.qi ?? null,
         label: blind ? null : b.kind === 'part' ? (t ? name(t) : b.track ?? '') : b.kind, shape,
         bar: b.bar, rating: sess?.stars.get(key) ?? 0, like: sess?.likes.get(key) ?? 0, rated: !!sess && sess.rec.has(key), next: i < bl.length - 1 }
     })
@@ -287,15 +296,15 @@ export class Mixer {
   nextTransition() {
     if (this.mode === 'queue' && this.queue) {
       const qi = this.heard().qi ?? 0
-      void this.play(null, null, { queue: this.queue, at: qi, ffw: Math.max(0, this.prefs.stay - 2) })
+      void this.play(null, null, { queue: this.queue, at: qi, ffw: Math.max(0, this.prefs.stay - 2), hold: true })
       toast('Two bars before the next song', 'next')
     } else if (this.walking) { this.walk.hurry(); toast('Moving on at the next phrase end', 'next') }
   }
   skip() {
-    if (this.mode === 'queue') { this.playQueue(this.queue!, (this.heard().qi ?? 0) + 1); return }
+    if (this.mode === 'queue') { this.jumpQueue((this.heard().qi ?? 0) + 1); return }
     if (!this.walking) return
     const p = this.walk.pickEntry(this.nowChunk()?.track ?? null)
-    if (p) void this.play(null, p)
+    if (p) void this.play(null, p, { hold: true })
   }
   setState(st: Level) { this.sched.setState(st); this.changed() }
 
@@ -354,6 +363,8 @@ export class Mixer {
    * round and round. The
    * songs a page has that the library doesn't, it gives with ensure() first. */
   playQueue(items: QueueItem[], at = 0) { if (items.length) void this.play(null, null, { queue: items, at }) }
+  /** The queue playing, from its song `at` (a pause stays a pause). */
+  jumpQueue(at: number) { if (this.queue?.length) void this.play(null, null, { queue: this.queue, at, hold: true }) }
   private queueParts(items: QueueItem[]): Part[] { return items.map(q => ({ track: q.id, start: this.jd.entryOf(q.id) })) }
   /** The queue to play next (a page's choice), or none. A queue playing goes on in the new list. */
   setQueue(items: QueueItem[] | null) {
@@ -411,10 +422,12 @@ export class Mixer {
 
   /** What the page draws each frame. */
   snapshot() {
-    const now = this.now(), cur = this.playing ? this.nowChunk(now) : null, N = this.jd.N, barS = this.jd.barS(), beatS = this.jd.beatS()
+    const now = this.now(), N = this.jd.N, barS = this.jd.barS(), beatS = this.jd.beatS()
+    // (between chunks, as after a jump while paused: the one about to play)
+    const cur = this.playing ? this.nowChunk(now) ?? this.plan.find(c => !c.skipped && c.T != null && c.T >= now - 0.01) ?? null : null
     let clock = { big: '1.1', small: `/ ${N}` }, beat = -1, nowL = '–', nextL = '–'
     if (cur) {
-      const t = now - cur.T!, k = Math.floor(t / barS)
+      const t = Math.max(0, now - cur.T!), k = Math.floor(t / barS)
       beat = Math.floor(t / beatS) % this.lib.bar_beats
       clock = cur.kind === 'glue' || cur.kind === 'rest' ? { big: cur.kind, small: ` ${k + 1}/${cur.bars}` } : cur.kind === 'fill' ? { big: 'fill', small: ` ${beat + 1}` } : { big: `${cur.bar + k}.${beat + 1}`, small: `/ ${N}` }
       nowL = this.chunkLabel(cur)
@@ -424,7 +437,7 @@ export class Mixer {
     const bl = this.blocks(), i = cur ? bl.findIndex(b => b.chunks.includes(cur)) : -1
     const lane = i < 0 ? [] : bl.slice(Math.max(0, i - 5), i + 1).map((b, j, a) => ({ id: blockKey(b), kind: b.kind, on: b.T <= now && now < b.end, past: b.end <= now, hasNext: j < a.length - 1 }))
     return {
-      playing: this.playing, mode: this.mode, tag: this.tag, qi: cur?.run?.qi ?? null, clock, beat, now: nowL, next: nextL, lane, session: this.sess?.list(cur) ?? [],
+      playing: this.playing, paused: this.paused, mode: this.mode, tag: this.tag, qi: cur?.run?.qi ?? null, clock, beat, now: nowL, next: nextL, lane, session: this.sess?.list(cur) ?? [],
       entry: cur?.run?.entry ?? null, played: cur?.run?.played ?? 0, rev: this.review.cur && cur?.rev != null ? cur.rev : null,
     }
   }
