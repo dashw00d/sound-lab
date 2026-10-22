@@ -10,6 +10,7 @@ the lab's own, holding everything a game needs to play its music as the Mixer pl
   README.md              how to plug it in, for any engine
   music/<song>.<state>.ogg   each shipped song's mellow and intense levels
   stingers/<take>.ogg    the stingers the designer liked (music stingers), for a scene change
+  glues/<glue>.ogg       the pads between scenes (music glues), when the Mixer goes from scene to scene through a pad
 
 Audio goes in on demand, a batch at a time (the designer: "when you are happy with a big ol' batch, you can move it over
 to the source, optionally keep a local copy, and have your next batch separate and local. Those tracks would be
@@ -41,7 +42,7 @@ LEN = 4  # bars in a phrase (scenewalk.ts LEN)
 SWAP_HZ = 180  # the bass swap's split (web-app/src/mixer/curves.ts SWAP_HZ)
 XF = 0.04  # seconds either side of a bar line where a song steps within itself (web-app/src/mixer/judge.ts XF)
 # The Mixer's settings this reads, with the web app's defaults (web-app/src/mixer/prefs.ts DEFAULTS)
-DEFAULTS = dict(intense="battle", glueBars=1, tail="taper", stay=12, joins="two", match=True, even=True, bassSwap=False,
+DEFAULTS = dict(intense="battle", glue="breaths", glueKind="rest", glueBars=1, tail="taper", stay=12, joins="two", match=True, even=True, bassSwap=False,
                 sceneBars=48, wave=8, stingers=dict(riser=False, boom=False, crash=False))
 STINGER_DB = -6  # (a stinger under the music: web-app/src/mixer/engine/scheduler.ts playStingers)
 
@@ -193,6 +194,8 @@ def manifest(proj: P.Project, lab: _Lab | None = None) -> dict:
     out, ship = folder(proj), shipped(proj)
     have = {sid: s["files"] for sid, s in ship.items() if all((out / f).is_file() for f in s["files"].values())}
     songs, scenes, cuts, walk_songs = {}, {}, {}, {}
+    between = "straight" if L.prefs["glue"] == "off" else "pad" if L.prefs["glueKind"] == "pad" else "rest"  # (the Mixer's Between scenes)
+    pads = between == "pad"
     for fid, fam in L.F.get("families", {}).items():
         ms = [m for m in fam.get("members", []) if m in have and L.walkable(m)]
         if not ms:
@@ -201,7 +204,9 @@ def manifest(proj: P.Project, lab: _Lab | None = None) -> dict:
         for m in ms:
             it = L.F["items"][m]
             walk_songs[m] = dict(loop=L.cue(m), entry=L.entry(m), phrase=L.phrase(m), energy=it["energy"])
-            songs[m] = dict(files=have[m], gainDb={s: L.trim(m, s) for s in L.states},
+            gid = (L.tracks.get(m) or {}).get("glue")
+            pad = pads and gid in L.lib.get("glues", {}) and L.clips.get(f"glue_{gid}", 0) >= 0
+            songs[m] = dict(files=have[m], glue=f"glues/{gid}.ogg" if pad else None, gainDb={s: L.trim(m, s) for s in L.states},
                             loudness={"mellow": L.beats(m, "calm"), "intense": L.beats(m, "battle")},
                             scene=fid, lead=it.get("lead"), context=it.get("context"))
     for a in walk_songs:
@@ -222,6 +227,7 @@ def manifest(proj: P.Project, lab: _Lab | None = None) -> dict:
             stateChange=dict(beats=2, curve="equal-power"),
             matchLevels=dict(on=p["match"], withinDb=6, easeBars=2),
             bassSwap=dict(on=p["bassSwap"], hz=SWAP_HZ),
+            betweenScenes=between,
             rest=dict(tail=p["tail"]),
             stingers=dict(**{k: bool(p["stingers"].get(k)) for k in ("riser", "boom", "crash")}, db=STINGER_DB),
         ),
@@ -240,6 +246,8 @@ def readme(proj: P.Project, man: dict) -> str:
                 bar=round(g["barSeconds"], 3), bars=g["bars"], stay=p["stay"], scene_bars=p["sceneBars"],
                 wave_bars=round(p["waveBars"]), rest_bars=p["restBars"], join=p["join"]["seconds"],
                 swap="on" if p["bassSwap"]["on"] else "off", tail=p["rest"]["tail"], intense=man["states"]["intense"], format=FORMAT,
+                between=p["betweenScenes"], between_words={"straight": "straight on, no break", "pad": f"a pad of {p['restBars']} bar(s) between them",
+                                                           "rest": f"a rest of {p['restBars']} bar(s) between them"}[p["betweenScenes"]],
                 **{k: "on" if p["stingers"][k] else "off" for k in ("riser", "boom", "crash")})
     text = (HERE / "README.md").read_text()
     for k, v in fill.items():
@@ -270,7 +278,16 @@ def plan(proj: P.Project) -> dict:
             state = "new" if not (out / rel).exists() else "same" if _same(src, out / rel) else "changed"
             rows.append(dict(path=rel, state=state, bytes=src.stat().st_size, source=str(src)))
             owned.discard(rel)
-    for rel in sorted(owned):
+    owned_glues = {s.get("glue") for s in old.get("songs", {}).values() if s.get("glue")}  # (the pads the last sync wrote)
+    for s in man["songs"].values():
+        if s.get("glue"):
+            gid = s["glue"][len("glues/"):-len(".ogg")]
+            src = proj.work / "clips" / L.lib["glues"][gid]["file"]
+            if src.is_file() and not any(r["path"] == s["glue"] for r in rows):
+                state = "new" if not (out / s["glue"]).exists() else "same" if _same(src, out / s["glue"]) else "changed"
+                rows.append(dict(path=s["glue"], state=state, bytes=src.stat().st_size, source=str(src)))
+            owned_glues.discard(s["glue"])
+    for rel in sorted(owned | owned_glues):
         if (out / rel).exists():
             rows.append(dict(path=rel, state="remove", bytes=(out / rel).stat().st_size))
     ship = shipped(proj)

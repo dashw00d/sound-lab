@@ -18,7 +18,7 @@ This sync: **{{songs}} songs** in **{{scenes}} scenes**, with **{{cuts}} seamles
 
 Every song is a {{bars}}-bar loop on one grid: {{bpm}} BPM, {{beats}} beats a bar, {{bar}} s a bar. Each song comes in two levels, **mellow** (calm) and **intense** ({{intense}}), which play together; the game's state decides which one is heard.
 
-Songs that could pass as sections of one long piece form a **scene**. Inside a scene, songs **cut** into each other seamlessly: after song A's bar e, song B from its bar s. The walk plays a scene for about {{scene_bars}} bars, moving from song to song at those cuts. Each song plays at least {{stay}} bars and never goes round its loop twice. Then comes a rest of {{rest_bars}} bar(s), and the next scene. The scenes follow a slow wave of energy, from chill to less chill and back over {{wave_bars}} bars, and the walk prefers what it has heard least.
+Songs that could pass as sections of one long piece form a **scene**. Inside a scene, songs **cut** into each other seamlessly: after song A's bar e, song B from its bar s. The walk plays a scene for about {{scene_bars}} bars, moving from song to song at those cuts. Each song plays at least {{stay}} bars (or one pass of its loop, if that's shorter) and never goes round its loop twice. Then the next scene: {{between_words}}. The scenes follow a slow wave of energy, from chill to less chill and back over {{wave_bars}} bars, and the walk prefers what it has heard least.
 
 The game decides two things: when music plays (the walk never ends), and whether it's mellow or intense, which can change at any moment.
 
@@ -60,6 +60,12 @@ Steps meet on the bar line. How they join depends on what changes.
 
 - **Levels.** Play each song at its `songs[id].gainDb` for the state; the gains even the library out. With `play.matchLevels.on`, an incoming song starts at the level of the one going out: its first beat's `loudness` against the outgoing song's last beat's, each plus its gain, within ±6 dB. It then eases to its own gain over 2 bars. `loudness` holds one value per beat, in dB.
 - **Bass swap** (now {{swap}}). When it's on, only what's above `play.bassSwap.hz` crosses over. Below it, the outgoing song keeps the low end until the bar line, and the incoming one takes it there. Split each song with a low-pass at that frequency to do this.
+
+**Between scenes**, by `play.betweenScenes` (now {{between}}). The walk marks a scene change with a `rest` step; what it means depends on this:
+
+- `straight`: no break. Take the next step at once, at the same time, and join it as a new song.
+- `pad`: the outgoing song's pad (`songs[id].glue`, a sustained chord frozen from its own audio) fills the rest's bars. It rises equal-power over the bar before the rest while the song fades out over that bar, then falls over the next song's first bar while that song comes in. A song with no pad rests instead.
+- `rest`: silence for the rest's bars, as below.
 
 **Into a rest**, by `play.rest.tail` (now {{tail}}):
 
@@ -129,6 +135,7 @@ A song's two levels always play together, sample-aligned. To change state, cross
 | `states` | the level each state plays: `mellow` (calm) and `intense` |
 | `play` | how to play: `stay`, `sceneBars`, `waveBars`, `restBars` and `avoid` for the walk; `join`, `step` and `stateChange` crossfades; `matchLevels`; `bassSwap`; `rest.tail`; `stingers` (which kinds play at a scene change, and their level) |
 | `stingers` | the stinger files of each kind (`riser`, `boom`, `crash`), relative to this folder |
+| `songs[id].glue` | the song's pad for a scene change (`glues/<id>.ogg`), or null |
 | `songs[id]` | `files` (each state's audio, relative to this folder); `gainDb` (each state's level trim); `loudness` (each state's per-beat loudness, dB); `scene`; `lead` (its lead instrument); `context` |
 | `walk` | what `walk.js` walks: `bars`; `songs[id]` with `loop` [first bar, last bar], `entry`, `phrase` (the bar its 4-bar phrases start on, or null) and `energy`; `scenes[id].members`; `cuts[id]` as a list of `{ to, after, start }` |
 

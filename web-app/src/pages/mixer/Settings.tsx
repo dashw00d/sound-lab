@@ -35,12 +35,13 @@ export function Settings({ m, reviewOpen, onReview }: { m: Mixer; reviewOpen: bo
         </>}
         {n > 0 && (
           <Field label="New takes">
-            <Seg value={p.cands} onChange={cands => set(cands === 'off' ? { cands } : { cands, scope: 'all' })} options={[
+            <Seg value={p.cands} onChange={cands => set(p.scope === 'set' && cands !== 'off' ? { cands, scope: 'all' } : { cands })} options={[
               { value: 'off', label: 'off', tip: 'Only the shipped songs' },
-              { value: 'top', label: `best ${CAND_TOP}`, tip: `The ${CAND_TOP} best new takes (music candidates) join everything and training` },
-              { value: 'all', label: `all ${n}`, tip: 'Every scored new take joins everything and training' }]} />
+              { value: 'top', label: `best ${CAND_TOP}`, tip: `The ${CAND_TOP} best new takes (music candidates) join the walk (everything, or the graph's scenes) and training` },
+              { value: 'all', label: `all ${n}`, tip: 'Every scored new take joins the walk (everything, or the graph\'s scenes) and training' }]} />
           </Field>
         )}
+        {p.scope !== 'graph' && <>  {/* (how the walk picks its next part: the graph takes its scenes' cuts instead) */}
         <Field label="Order">
           <Seg value={p.mode} onChange={mode => set({ mode })} options={[
             { value: 'any', label: 'any order', tip: 'A random part each time, never the one just heard: as the game would' },
@@ -52,11 +53,26 @@ export function Settings({ m, reviewOpen, onReview }: { m: Mixer; reviewOpen: bo
             tip: v === 0.5 ? 'Anything the model puts at 50% or more (you liked about 60% of those)'
               : `Wait for a transition the model puts at ${Math.round(100 * v)}% or more; settle for 50% only when it must${v === 0.8 ? ' (you liked 89% of those at 80%)' : ''}` }))} />
         </Field>
+        </>}
         <Field label="Variation">
           {vary('siblings', 'Siblings', 'A phrase may go on in a sibling: the same piece made for another context, in step bar for bar', true)}
           {vary('stems', 'Stems', 'A phrase may drop the drums, thin to the melody and harmony, or bring the battle drums in quietly (music stems)', hasStems)}
           {vary('fills', 'Fills', "Round the loop, a fill SA3 wrote for that song's loop point (music fills)", hasFills)}
         </Field>
+        {p.scope === 'graph' ? (
+          <Field label="Between scenes">
+            <Seg value={p.glue === 'off' ? 'off' : p.glueKind} onChange={v => set(v === 'off' ? { glue: 'off' } : { glue: p.glue === 'off' ? 'breaths' : p.glue, glueKind: v })} options={[
+              { value: 'off', label: 'straight on', tip: "The next scene's first song comes straight in, crossing over as any song change" },
+              { value: 'pad', label: 'pad', tip: "The song going out's glue: a pad frozen from its own steadiest bar, then the next scene" },
+              { value: 'rest', label: 'rest', tip: 'The song tapers or rings into silence, then the next scene comes in' }]} />
+            {p.glue !== 'off' && <Seg value={p.glueBars} onChange={glueBars => set({ glueBars })} options={[1, 2, 4].map(k => ({
+              value: k, label: bars(k), tip: `${bars(k)} of ${p.glueKind === 'rest' ? 'silence' : 'pad'} between scenes` }))} />}
+            {p.glue !== 'off' && p.glueKind === 'rest' && <Seg value={p.tail} onChange={tail => set({ tail })} options={[
+              { value: 'taper', label: 'taper', tip: 'Into the rest, the song tapers over its last bar' },
+              { value: 'ring', label: 'ring out', tip: 'The song plays to the bar line at its own level, then its next downbeat rings out and dies away (its own audio, as it would go on)' },
+              { value: 'echo', label: 'echo out', tip: 'The song stops on the bar line and its last beat echoes on in time, darker each repeat, into the silence' }]} />}
+          </Field>
+        ) : (
         <Field label="Glue">
           <Seg value={p.glue} onChange={glue => set({ glue })} options={[
             { value: 'off', label: 'off', tip: 'Runs go straight into each other, even where nothing joins well' },
@@ -72,7 +88,8 @@ export function Settings({ m, reviewOpen, onReview }: { m: Mixer; reviewOpen: bo
             { value: 'ring', label: 'ring out', tip: "The song plays to the bar line at its own level, then its next downbeat rings out and dies away (its own audio, as it would go on)" },
             { value: 'echo', label: 'echo out', tip: 'The song stops on the bar line and its last beat echoes on in time, darker each repeat, into the silence' }]} />}
         </Field>
-        <Stingers m={m} />
+        )}
+        {!(p.scope === 'graph' && p.glue === 'off') && <Stingers m={m} />}
       </div>
 
       <div className="mx-group">

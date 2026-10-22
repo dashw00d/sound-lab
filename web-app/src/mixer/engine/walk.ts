@@ -17,7 +17,7 @@ import { LEN, pkey, type Judge, type Judged } from '../judge'
 import type { Prefs } from '../prefs'
 import type { Chunk, Part, Run } from '../types'
 import type { Graph } from './graph'
-import { SceneWalk, type Visit } from './scenewalk'
+import { SceneWalk, type Step, type Visit } from './scenewalk'
 
 export class Walk {
   run: Run | null = null
@@ -139,18 +139,49 @@ export class Walk {
     }
   }
 
-  /** The graph's next chunk: the scene walk's next step, a song's visit as a run (one block, rated once), or a rest. */
+  /** The graph's next chunk: the scene walk's next step, a song's visit as a run (one block, rated once); between scenes,
+   * what the Glue settings say (2026-10-22, the designer: "Im getting rests when I have them off or set to pad"): off,
+   * straight into the next scene; a pad, the song's own glue; else a rest. And the variation settings, as the rest of the
+   * walk has them: a phrase may go on in a sibling or as stems, and a song going round its loop may take a fill. */
+  private held: Step | null = null  // (a step held back while a fill plays before it)
   private nextGraph(): Chunk | null {
-    const s = this.scenes()?.next()
+    const pr = this.prefs(), jd = this.jd, clips = getVotes().clips
+    let s = this.held ?? this.scenes()?.next() ?? null
+    this.held = null
     if (!s) return null
-    if (s.kind === 'rest') { this.run = null; this.visit = null; return { kind: 'rest', bar: 1, bars: s.bars, track: s.after } }
+    if (s.kind === 'rest') {
+      this.run = null; this.visit = null
+      const gid = jd.glueOf(s.after)
+      if (pr.glue === 'off') s = this.scenes()?.next() ?? null  // (straight on: the next scene's first song crosses over as any song change)
+      else if (pr.glueKind === 'pad' && gid && (clips['glue_' + gid] || 0) >= 0) return { kind: 'glue', bar: 1, glue: gid, bars: s.bars, track: s.after }
+      else return { kind: 'rest', bar: 1, bars: s.bars, track: s.after }
+      if (!s) return null
+      if (s.kind === 'rest') return { kind: 'rest', bar: 1, bars: s.bars, track: s.after }
+    }
     if (this.visit?.id !== s.visit.id || !this.run) {  // (a new visit: a run of its own)
       this.visit = s.visit
       this.startRun({ track: s.song, start: s.visit.entry })
       Object.assign(this.run!, { lo: s.visit.lo, hi: s.visit.hi })
+    } else if (s.bar === s.visit.lo && this.run.lastBar === s.visit.hi && s.at > 0) {  // (round its loop: a fill first, when there is one)
+      const r = this.run, [ms, me] = jd.cueOf(r.entry.track)
+      const swing = (f: { beats?: number[] | null }) => (f.beats?.length ? Math.max(...f.beats) - Math.min(...f.beats) : 0)
+      const fl = pr.vary.fills && r.lo === ms && r.hi === me ? (jd.track(r.track)?.fills?.[`${ms}-${me}`] ?? [])
+        .filter(f => (clips['fill_' + f.file] || 0) >= 0 && swing(f) <= 10 && (f.click || 0) <= 3) : []
+      if (fl.length) {
+        const fresh = fl.filter(f => f.file !== r.lastFill), f = (fresh.length ? fresh : fl)[Math.floor(Math.random() * (fresh.length || fl.length))]
+        r.lastFill = f.file; r.lastBar = r.lo! - 1; this.held = s
+        return { kind: 'fill', track: r.track, bar: r.lo!, bars: f.bars, fill: f.file, fillBeats: f.beats, hi: r.hi, run: r, entry: r.entry }
+      }
     }
     const r = this.run!
-    const c: Chunk = { kind: 'part', at: s.at, track: s.song, bar: s.bar, bars: s.bars, variant: 'full', run: r, entry: r.entry, first: s.first }
+    if (s.at >= LEN && s.at % LEN === 0) {  // (a new phrase: perhaps a variation, as the walk's)
+      const sib = jd.family(r.track)
+      if (pr.vary.siblings && sib.length && Math.random() < 0.3) { r.track = sib[Math.floor(Math.random() * sib.length)]; r.swapped = true }
+      const st = jd.track(r.track)?.stems ?? {}
+      const ok = ['nodrums', 'sparse', 'pulse'].filter(v => v !== r.variant && (v === 'pulse' ? st['battle.drums'] : st['calm.other'] && st['calm.bass']))
+      r.variant = pr.vary.stems && ok.length && Math.random() < 0.45 ? ok[Math.floor(Math.random() * ok.length)] : 'full'
+    }
+    const c: Chunk = { kind: 'part', at: s.at, track: r.track, bar: s.bar, bars: s.bars, variant: r.variant ?? 'full', run: r, entry: r.entry, first: s.first }
     r.first = false; r.bar = s.bar + s.bars; r.played = s.at + s.bars; r.lastBar = s.bar + s.bars - 1
     return c
   }

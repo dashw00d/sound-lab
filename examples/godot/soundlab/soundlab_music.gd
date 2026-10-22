@@ -1,7 +1,8 @@
 ## Plays a Sound Lab sync folder in Godot 4 as the lab's Mixer plays it: the scene walk (soundlab_walk.gd, a port of the
 ## folder's walk.js) picks each step, and this puts it on the bar grid: each song's mellow and intense layers together,
 ## sample-aligned, the state crossfading between them; a new song crossfading over the join, a song going round its
-## loop over 80 ms; a rest tapering or ringing out; stingers at a scene change; levels evened and matched. It's a
+## loop over 80 ms; between scenes, straight on, a pad, or a rest tapering or ringing out; stingers at a scene change;
+## levels evened and matched. It's a
 ## reference: read it, copy it, change it. See the sync folder's README.md for the rules it follows.
 ##
 ## Timing: Godot can't start a sound at a future time, so each voice starts in the frame its time falls inside the next
@@ -100,6 +101,8 @@ func _process(_delta: float) -> void:
 		if step == null:
 			playing = false
 			break
+		if step.kind == "rest" and manifest.play.get("betweenScenes", "rest") == "straight":
+			continue  # (straight on: the next scene's first song comes in at once, as any new song)
 		_schedule(step, _next_t)
 		_next_t += step.bars * _bar
 	var mix_at := now + AudioServer.get_time_to_next_mix()
@@ -140,7 +143,15 @@ func _schedule(step: Dictionary, t: float) -> void:
 	_pending_steps.append({step = step, t = t})
 	var P: Dictionary = manifest.play
 	if step.kind == "rest":
-		if _cur != null:
+		var pad = manifest.songs[_cur.song].get("glue") if _cur != null else null
+		if pad != null and P.get("betweenScenes", "rest") == "pad":  # (the song's pad: rising over the bar before, falling over the next song's first)
+			var g := AudioStreamPlayer.new()
+			g.stream = _stream(pad); g.bus = bus; add_child(g)
+			_voices.append({players = [g], layer_w = [-1], t0 = t - _bar, pos0 = 0.0, end_t = t + (step.bars + 1) * _bar,
+				fades = [[t - _bar, t, "power_in"], [t + step.bars * _bar, t + (step.bars + 1) * _bar, "power_out"]],
+				gain = {mellow = 1.0}, match = null, started = false, visit = -1, next_bar = -1, song = ""})
+			_cur.fades.append([t - _bar, t, "power_out"]); _cur.end_t = t
+		elif _cur != null:
 			if P.rest.tail == "taper":
 				_cur.fades.append([t - _bar, t, "taper"]); _cur.end_t = t
 			else:  # (ring; echo plays as ring here)

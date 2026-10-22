@@ -80,7 +80,8 @@
         "matchLevels",
         "bassSwap",
         "rest",
-        "stingers"
+        "stingers",
+        "betweenScenes"
       ],
       "properties": {
         "stay": {
@@ -198,6 +199,14 @@
               "type": "number"
             }
           }
+        },
+        "betweenScenes": {
+          "enum": [
+            "straight",
+            "pad",
+            "rest"
+          ],
+          "description": "What a rest step (a scene change) means: no break, the outgoing song's pad, or silence"
         }
       }
     },
@@ -238,6 +247,13 @@
               "string",
               "null"
             ]
+          },
+          "glue": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The song's pad for a scene change, relative to this folder"
           }
         }
       }

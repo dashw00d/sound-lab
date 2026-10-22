@@ -30,7 +30,7 @@ function Controls({ m }: { m: Mixer }) {
     <div className="hset" ref={box}>
       <span className="hl">Stay</span>
       <Seg value={P.stay} icon="history" onChange={stay => set({ stay })} options={[4, 8, 12, 16].map(k => ({
-        value: k, label: String(k), tip: `${k} bars: each song of a queue plays ${k} bars; the walk stays in a song at least ${k}` }))} />
+        value: k, label: String(k), tip: `${k} bars: each song of a queue plays ${k} bars; the walk stays in a song at least ${k} (in the graph, at most one pass of its loop, so a song with an 8-bar loop plays 8)` }))} />
       <span className="hl">Joins</span>
       <Seg value={P.joins} icon="link" onChange={joins => set({ joins })} options={[
         { value: 'tight', label: 'tight', tip: 'A song change is an 80 ms crossfade at the bar line' },
