@@ -78,6 +78,12 @@ function Graph() {
     if (seed?.src.calm) { m.ensure(it.seed!, seed.src); m.playFramed(it.seed!, id) }
     else m.playSong(id)
   }, [F, m])
+  // (where a member or a guess meets the scene's root: into it and back, about 25 seconds; again: stop)
+  const meet = useCallback((id: string, root: string) => {
+    const a = F?.items[id], b = F?.items[root]; if (!m || !a?.src.calm || !b?.src.calm) return
+    if (m.playing && m.tag === `${id}~${root}`) { m.stop(); return }
+    m.ensure(id, a.src); m.ensure(root, b.src); m.playMeeting(id, root)
+  }, [F, m])
   const toggle = useCallback((id: string) => { if (playing === id && m?.mode !== 'queue') m?.stop(); else play(id) }, [m, playing, play])
   /** Songs as the player's queue (the ones it can play), played at once with `play`. */
   const queue = useCallback((ids: string[], play = false) => {
@@ -249,7 +255,8 @@ function Graph() {
               <button className={`btn bad ${votes.clips[`ok_${sel}`] < 0 ? 'on' : ''}`} title="Bad take: out of the walk and the scenes; never shipped, never deleted (D)" onClick={() => answer('bad')}>Bad take <kbd>D</kbd></button>
               <button className={`btn ${votes.clips[novelKey(sel, it)] > 0 ? 'on' : ''}`} title="New family: good, and unlike any scene: it starts one of its own, and grow extends it (Y)" onClick={() => answer('novel')}>New family <kbd>Y</kbd></button>
             </div>
-            <FamilyCard F={F} fv={fv} sel={sel} playing={playing} onPlay={o => { setSel(o); play(o) }} onSet={setLink} onOut={out} onConfirmAll={confirmAll} onQueue={playQueue} />
+            <FamilyCard F={F} fv={fv} sel={sel} playing={playing} meeting={m?.playing && m.mode === 'script' ? m.tag : null} onPlay={o => { setSel(o); play(o) }} onMeet={meet}
+              onSet={setLink} onOut={out} onConfirmAll={confirmAll} onQueue={playQueue} />
           </section>
         ) : <p className="dim">Click a song to hear it and see its links.</p>}
         <div className="lbl famh">scenes</div>

@@ -65,3 +65,6 @@
 .fa .song.inscene .dot { box-shadow: 0 0 0 3px rgba(91, 214, 255, .35), 0 0 16px rgba(91, 214, 255, .6); }
 .fa .fa-help summary { cursor: pointer; font-size: 12px; color: var(--dim); list-style: none; } .fa .fa-help summary::before { content: "▸ "; color: var(--faint); }
 .fa .fa-help[open] summary::before { content: "▾ "; } .fa .fa-help p { margin: 8px 0 0; }
+.fa .meetb { width: 24px; height: 20px; padding: 0; border-radius: 6px; border: 1px solid var(--line-2); background: var(--raised); color: var(--faint); font-size: 12px; line-height: 1; cursor: pointer; }
+.fa .meetb:hover { color: var(--text); border-color: var(--line-3); }
+.fa .meetb.on { color: var(--accent-2); border-color: rgba(91, 214, 255, .5); background: rgba(91, 214, 255, .1); }

@@ -7,9 +7,11 @@ import { Icon } from '../../shell/Icon'
 import { colour, hue, label, type FamilyView, type Link } from './model'
 
 
-export function FamilyCard({ F, fv, sel, playing, onPlay, onSet, onOut, onConfirmAll, onQueue }: {
+export function FamilyCard({ F, fv, sel, playing, meeting, onPlay, onMeet, onSet, onOut, onConfirmAll, onQueue }: {
   F: Families; fv: FamilyView; sel: string; playing: string | null
-  onPlay: (id: string) => void; onSet: (x: string, y: string, k: Link | null) => void; onOut: (id: string) => void
+  /** The meeting playing ("a~b"), lit. */
+  meeting: string | null
+  onPlay: (id: string) => void; onMeet: (id: string, root: string) => void; onSet: (x: string, y: string, k: Link | null) => void; onOut: (id: string) => void
   onConfirmAll: (id: string) => void; onQueue: (ids: string[]) => void
 }) {
   const f = fv.family(sel), it = F.items[sel], dot = (id: string) => colour(hue(fv.family(id).id)), name = (id: string) => label(id, F.items[id])
@@ -31,6 +33,7 @@ export function FamilyCard({ F, fv, sel, playing, onPlay, onSet, onOut, onConfir
                     : <span className="dot" style={{ background: dot(x) }} />}
                   <button className="lnk" title="Hear it" onClick={() => onPlay(x)}>{name(x)}</button>
                   {x !== f.root && <>
+                    <button className={`meetb ${meeting === `${x}~${f.root}` ? 'on' : ''}`} title="Hear it meet the root, both ways: 2 bars of it into the root, 4 of the root, back into it (about 25 seconds)" data-tip-title="Hear them meet" onClick={() => onMeet(x, f.root)}>⇄</button>
                     <button className={`okb ${rel ? 'on' : ''}`} title={rel ? 'Confirmed: click to undo (back to the sort’s suggestion)' : 'The sort’s suggestion: click to confirm it belongs'}
                       onClick={() => onSet(x, f.root, rel ? null : 'match')}>✓</button>
                     <button className={`dupb ${rel === 'dup' ? 'on' : ''}`} title={rel === 'dup' ? 'A near duplicate of the root: click for just a match' : 'A near duplicate of the root'}
@@ -54,6 +57,7 @@ export function FamilyCard({ F, fv, sel, playing, onPlay, onSet, onOut, onConfir
             <span className="dot" style={{ background: dot(g.id) }} />
             <button className="lnk" title="Hear it" onClick={() => onPlay(g.id)}>{name(g.id)}{fv.family(g.id).members.length > 1 ? <small> · in a family of {fv.family(g.id).members.length}</small> : null}</button>
             <span className="sc" title="How well it fits the scene (its average likeness with the scene's songs; a scene is 0.5 or more)">{g.worst.toFixed(2)}</span>
+            <button className={`meetb ${meeting === `${g.id}~${f.root}` ? 'on' : ''}`} title="Hear it meet the root, both ways: 2 bars of it into the root, 4 of the root, back into it (about 25 seconds)" data-tip-title="Hear them meet" onClick={() => onMeet(g.id, f.root)}>⇄</button>
             <button className="addb" title={f.members.length > 1 ? 'Bring it into this scene' : 'Make these two a scene'} onClick={() => onSet(g.id, f.root, 'match')}>+</button>
             <button className="x" title="A bad match: never guessed for this family again" onClick={() => onSet(g.id, f.root, 'bad')}>✗</button>
           </div>
