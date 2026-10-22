@@ -211,6 +211,9 @@ def main() -> int:
                    help="with --add: these takes become the whole rotation of their contexts (the rest is removed)")
     p = sub.add_parser("sync", help="the manifest, the walk and the docs for the songs shipped, into the game's folder (dry run without --apply)")
     p.add_argument("--apply", action="store_true", help="write them")
+    p = sub.add_parser("data", help="the lab's data (votes, cues, settings, sessions) against the game's folder for it: share it, or pull the game's")
+    p.add_argument("action", nargs="?", choices=["status", "share", "pull"], default="status")
+    p.add_argument("--apply", action="store_true")
     p = sub.add_parser("ship", help="a batch of songs into the game's folder: their audio, then the manifest (dry run without --apply)")
     p.add_argument("ids", nargs="*", help="song ids (see `soundlab sync` for the ready ones)")
     p.add_argument("--all", action="store_true", help="every song ready to ship")
@@ -303,6 +306,9 @@ def main() -> int:
     if a.cmd == "sync":
         from . import sync
         return sync.run(proj, a.apply)
+    if a.cmd == "data":
+        from . import share
+        return share.run(proj, a.action, a.apply)
     if a.cmd == "ship":
         from . import sync
         return sync.run_ship(proj, a.ids, a.all, a.drop_local, a.apply)

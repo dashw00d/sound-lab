@@ -52,6 +52,9 @@ class Project:
     balance: dict | None = None  # the mix and how the code plays sounds (soundlab/balance.py)
     asset_uri: Callable[[Path], str] = lambda p: str(p)  # how the game names a file (e.g. res://...)
     sync: Path | None = None  # the folder in the game the lab syncs its music to (soundlab/sync); default <root>/soundlab
+    # The game's own folder for the lab's data, when the project file puts `data` in the game: the lab keeps its data at
+    # work/<project>/data instead and writes here only when the designer shares (soundlab data share). Set by load().
+    share: Path | None = None
 
     def path(self) -> str:
         return getattr(self, "_path", "")
@@ -74,8 +77,30 @@ def load(path: str | os.PathLike | None = None) -> Project:
     proj = mod.project()
     proj._path = str(p.resolve())
     proj.work.mkdir(parents=True, exist_ok=True)
+    _localise(proj)
     proj.data.mkdir(parents=True, exist_ok=True)
     return proj
+
+
+def _localise(proj: Project) -> None:
+    """The lab's data (votes, picks, cues, notes, settings, sessions, provenance) lives in the lab, not in the game's repo
+    (2026-10-22, the designer: "every time I vote it goes into my emberhold project and muddys up whatever branch im on
+    ... I wanted it all local other than data sharing"). A project whose `data` is inside the game's root gets
+    work/<project>/data instead, filled once from the game's folder (copied, never moved: the game's files stay as they
+    are); the game's folder becomes `share`, written only by `soundlab data share`. A project that keeps its data
+    outside the game already (a test copy) is left as it is."""
+    data, root = Path(proj.data).resolve(), Path(proj.root).resolve()
+    if not data.is_relative_to(root):
+        return
+    local = Path(proj.work) / "data"
+    if not local.exists() and data.is_dir():  # (the first time: what the game's folder has; one process does it)
+        tmp = local.with_name(f"data.{os.getpid()}.tmp")
+        shutil.copytree(data, tmp)
+        try:
+            os.rename(tmp, local)
+        except OSError:
+            shutil.rmtree(tmp, ignore_errors=True)
+    proj.share, proj.data = data, local
 
 
 def master(proj: Project, s: Sound, x: np.ndarray) -> tuple[np.ndarray, dict]:

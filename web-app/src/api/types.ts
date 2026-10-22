@@ -95,3 +95,6 @@ export interface SyncPlan {
   bytes: number
   readme: string
 }
+
+/** GET /api/data: the lab's data (work/<project>/data) against the game's folder for it, written only when shared. */
+export interface DataPlan { local: string; game: string | null; rows: { name: string; state: 'same' | 'differs' | 'only in the lab' | 'only in the game' }[]; differ: number }

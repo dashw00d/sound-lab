@@ -12,6 +12,8 @@
                             batch ready to ship, and the README
   POST /api/sync            write the texts (manifest, walk, docs, schema) into the game's folder (the designer's button)
   POST /api/sync/ship       {ids, keep}: ship a batch into the game's folder (the designer's button)
+  GET  /api/data            the lab's data files against the game's folder for them (soundlab/share)
+  POST /api/data/share      copy the lab's data into the game's folder (the designer's button)
   POST /api/mixer           {settings}: save them
   GET  /api/votes           votes.json alone
   GET  /api/families        every song sorted into families, and the queue of what to judge next (work/families.json)
@@ -309,6 +311,9 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                 self.send_json(dict(streams=Store.read(st.streams_path, {}), reviews=Store.read(st.reviews_path, [])))
             elif url == "/api/mixer":
                 self.send_json(Store.read(st.mixer_settings_path, {}))
+            elif url == "/api/data":
+                from . import share
+                self.send_json(share.plan(proj))
             elif url == "/api/sync":
                 from . import sync
                 with LOCK:
@@ -423,6 +428,11 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                                                    at=date.today().isoformat())
                     st.write(st.mixes_path, mixes, sort=True)
                     self.send_json(mixes)
+                return
+            if url == "/api/data/share":
+                from . import share
+                with LOCK:
+                    self.send_json(share.share(proj))
                 return
             if url in ("/api/sync", "/api/sync/ship"):  # (into the game's folder: the designer's buttons, and nothing else)
                 from . import sync

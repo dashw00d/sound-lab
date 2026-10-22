@@ -37,6 +37,7 @@ You make game audio with local models: Stable Audio 3 Medium (SA3) by default, a
 | `music promote [--apply]` | ship the liked music takes as tracks and write the game's music manifest | seconds |
 | `balance measure` | measure every shipped sound for the Balance page | ~1 min |
 | `ship [ID.. \| --all] [--drop-local] [--apply]` | a batch of songs into the game's folder (the project's `sync`, default `<game root>/soundlab`): each song's mellow and intense audio as the Mixer plays it (retuned where it is) into `music/`, recorded in the project's `data/shipped.json`, then the texts synced. Ready to ship: songs the game's folder doesn't have yet that were shipped with `music promote`, or new takes the designer kept (Keep, a new family, belongs with, liked); the rest stay local, the next batch. `--drop-local` removes the lab's own copy of what it shipped (work files only, never the game's assets; the server then plays them from the game's folder). A dry run without `--apply`; the Game page does the same with a button | seconds; ~1.6 MB a song |
+| `data [status \| share \| pull] [--apply]` | the lab's data (`work/<project>/data`) against the game's folder for it: `share` copies the lab's into the game (to commit, or to hand on), `pull` the game's into the lab (the lab's backed up first). Only when the designer asks | seconds |
 | `sync [--apply]` | the texts in the game's folder for what's shipped there, engine-agnostic: `soundlab.json` (the grid, the playback rules from the Mixer's settings, each song's files, gains and per-beat loudness, and the graph the walk walks: songs, scenes, cuts), `walk.js`/`walk.d.ts` (the scene walk, built from the Mixer's own `scenewalk.ts`), `README.md` (how to plug it in, any engine) and the schema. Writes only what differs, nothing else in the folder; `sync` without `--apply` also lists what's ready to ship | seconds |
 
 Run long jobs in the background, with output to a log. Only one generator at a time: the model needs about 12 GB of VRAM and two copies don't fit.
@@ -45,7 +46,7 @@ Run long jobs in the background, with output to a log. Only one generator at a t
 
 ## The user's decisions (data/votes.json)
 
-The project's `data` folder (tracked in the game's repo) holds:
+The lab keeps the project's data in its own `work/<project>/data` (from 2026-10-22, the designer: voting "muddys up whatever branch im on ... I wanted it all local other than data sharing"). When the project file puts `data` inside the game (Emberhold's `tools/audio/soundlab`), the lab copied it from there once and never writes there again, except with `soundlab data share` (or the Game page's Share button), the designer's choice; `soundlab data pull` takes the game's copy back (someone else's). Each file is backed up once a day in `data/.backups/<date>/` before it changes, since the lab's copy has no git history. It holds:
 
 - **votes.json**:
   - `clips`: `{take id: 1 | -1}`, thumbs up or down.
@@ -103,7 +104,7 @@ Rules:
 | `name` | the project's name |
 | `root` | the game's folder |
 | `work` | generated output: takes, the index, measurements (gitignored; e.g. the lab's `work/<project>`). Not a scratch folder that gets cleaned: unshipped takes and the index live only here |
-| `data` | authored data (tracked) |
+| `data` | authored data: votes, cues, notes, settings, sessions, provenance. Inside the game, it's only where the lab shares to; the lab keeps its own in `work/<project>/data` |
 | `assets` | the game's audio root (served at `/shipped/`) |
 | `sync` | optional: the folder in the game `soundlab sync` writes (default `<root>/soundlab`) |
 | `sounds()` | returns `[Sound(name, kind "oneshot"/"loop", seconds, channels, prompt, out, core, palette, shipped)]` |

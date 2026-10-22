@@ -6,7 +6,7 @@
 // and the docs, written for what's shipped. Beside it, the README the game gets. Nothing is written but by a button.
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api } from '../../api/client'
-import type { SyncPlan, SyncSong } from '../../api/types'
+import type { DataPlan, SyncPlan, SyncSong } from '../../api/types'
 import { useFamilies, useProject } from '../../data/resources'
 import { useEngine } from '../../player/hooks'
 import { usePlayer } from '../../player/store'
@@ -35,7 +35,11 @@ export default function GamePage() {
   const [busy, setBusy] = useState<'ship' | 'sync' | null>(null), [left, setLeft] = useState<Set<string>>(new Set())
   const [keep, setKeep] = useState(() => localStorage.getItem('ship.keep') !== '0'), [showIn, setShowIn] = useState(false)
   const load = () => api.syncPlan().then(setPlan).catch(e => setErr(String(e)))
-  useEffect(() => { void load() }, [])
+  const [data, setData] = useState<DataPlan | null>(null)
+  useEffect(() => { void load(); api.dataPlan().then(setData).catch(() => {}) }, [])
+  const shareData = async () => {
+    try { setData(await api.shareData()); toast('Your decisions are in the game’s folder, to commit when you like', 'check') } catch (e) { toast(`Couldn't share: ${e}`, 'x') }
+  }
   const ready = plan?.ready ?? [], chosen = useMemo(() => ready.filter(r => !left.has(r.id)), [ready, left])
   const play = (id: string) => {
     if (!m) return
@@ -156,6 +160,19 @@ export default function GamePage() {
             </div>
           )}
         </section>
+
+        {data?.game && (
+          <section className="gm-sec">
+            <span className="lbl">Your decisions</span>
+            <p className="gm-hint">Votes, cues, notes, settings and sessions stay in the lab ({data.local.split('/').slice(-3).join('/')}), so voting never touches the game's repo. Share them into the game's folder ({data.game.split('/').slice(-3).join('/')}) only when you want them there: to commit, or to hand to someone.</p>
+            <div className="gm-go row">
+              <button className="btn" disabled={!data.differ} title="Copy the lab's data files that differ into the game's folder (soundlab data share)" data-tip-title="Share your decisions" data-tip-icon="link" onClick={() => void shareData()}>
+                <Icon name="link" />{data.differ ? `Share ${data.differ} file${data.differ > 1 ? 's' : ''} into the game` : 'The game has the same'}
+              </button>
+              {data.rows.some(r => r.state === 'only in the game') && <span className="gm-hint">The game's folder has files the lab doesn't: soundlab data pull takes them</span>}
+            </div>
+          </section>
+        )}
 
         <section className="gm-sec">
           <span className="lbl">The manifest, the walk and the docs</span>

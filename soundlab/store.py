@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import tempfile
+from datetime import date
 from pathlib import Path
 
 from .project import Project
@@ -37,8 +39,15 @@ class Store:
 
     @staticmethod
     def write(path: Path, obj, sort: bool = False) -> None:
-        """Atomic: a temp file of its own (writers don't share a name), then a rename over the file."""
+        """Atomic: a temp file of its own (writers don't share a name), then a rename over the file. A file in the lab's
+        own data folder (work/<project>/data, no longer in the game's git) is first kept as it was that day, once a day,
+        in data/.backups/<date>/: the designer's decisions are never one write from lost."""
         path.parent.mkdir(parents=True, exist_ok=True)
+        if path.parent.name == "data" and path.parent.parent.name != "data" and path.exists():
+            keep = path.parent / ".backups" / date.today().isoformat() / path.name
+            if not keep.exists():
+                keep.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(path, keep)
         text = json.dumps(obj, indent=1, sort_keys=sort, ensure_ascii=False) + "\n"
         fd, name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
         try:
