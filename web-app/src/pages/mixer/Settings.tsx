@@ -54,8 +54,8 @@ export function Settings({ m, reviewOpen, onReview }: { m: Mixer; reviewOpen: bo
         </Field>
         </>}
         <Field label="Variation">
-          {vary('siblings', 'Siblings', 'A phrase may go on in a sibling: the same piece made for another context, in step bar for bar', true)}
-          {vary('stems', 'Stems', 'A phrase may drop the drums, thin to the melody and harmony, or bring the battle drums in quietly (music stems)', hasStems)}
+          {vary('siblings', 'Siblings', 'A phrase may go on in a sibling: the same take made for another context, in step bar for bar but its own recording, in that context\'s mode and mood', true)}
+          {vary('stems', 'Stems', 'A phrase may drop the drums or thin to the melody and harmony: the song\'s own stems (music stems)', hasStems)}
           {vary('fills', 'Fills', "Round the loop, a fill SA3 wrote for that song's loop point (music fills)", hasFills)}
         </Field>
         {p.scope === 'graph' ? (

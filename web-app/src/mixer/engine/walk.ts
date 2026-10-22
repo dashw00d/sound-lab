@@ -3,7 +3,7 @@
 // A run enters a song at a part and plays on in it as SA3 wrote it (looping between the song's mellow cues) for at least
 // Stay bars; then, at a phrase end, it takes a transition the taste model puts over the taste bar (or settles for 50%
 // once forced), or goes through the glue (a rest: a taper into silence; or a pad). Each 4-bar phrase may vary: a
-// sibling at the same bars, stems (drums out, sparse, the battle drums in), a fill at the loop point.
+// sibling at the same bars, stems (drums out, sparse), a fill at the loop point.
 //
 // Drawing from the graph, it plays scenes instead, as the scene walk (scenewalk.ts, the same file a game gets as walk.js)
 // says: a scene for Scene bars, cutting from song to song inside it at their seamless cuts, then a rest and the next
@@ -18,6 +18,11 @@ import type { Prefs } from '../prefs'
 import type { Chunk, Part, Run } from '../types'
 import type { Graph } from './graph'
 import { SceneWalk, type Step, type Visit } from './scenewalk'
+
+/** The stems a phrase may vary to: only the song's own (2026-10-22, the designer: "stems should originate from the same
+ * source"). "pulse" laid the battle level's drums under calm, and those drums are the text-made percussion layer (taiko,
+ * snare rolls, cymbal crashes), not the song's: 3 of the 4 blocks it played in were rated 2, against 2 of 58 plain blocks. */
+const STEMS = ['nodrums', 'sparse'] as const
 
 export class Walk {
   run: Run | null = null
@@ -178,7 +183,7 @@ export class Walk {
       const sib = jd.family(r.track)
       if (pr.vary.siblings && sib.length && Math.random() < 0.3) { r.track = sib[Math.floor(Math.random() * sib.length)]; r.swapped = true }
       const st = jd.track(r.track)?.stems ?? {}
-      const ok = ['nodrums', 'sparse', 'pulse'].filter(v => v !== r.variant && (v === 'pulse' ? st['battle.drums'] : st['calm.other'] && st['calm.bass']))
+      const ok = st['calm.other'] && st['calm.bass'] ? STEMS.filter(v => v !== r.variant) : []
       r.variant = pr.vary.stems && ok.length && Math.random() < 0.45 ? ok[Math.floor(Math.random() * ok.length)] : 'full'
     }
     const c: Chunk = { kind: 'part', at: s.at, track: r.track, bar: s.bar, bars: s.bars, variant: r.variant ?? 'full', run: r, entry: r.entry, first: s.first }
@@ -237,7 +242,7 @@ export class Walk {
       const sib = jd.family(r.track)
       if (pr.vary.siblings && sib.length && Math.random() < 0.3) { r.track = sib[Math.floor(Math.random() * sib.length)]; r.swapped = true }
       const st = jd.track(r.track)?.stems ?? {}
-      const ok = ['nodrums', 'sparse', 'pulse'].filter(v => v !== r.variant && (v === 'pulse' ? st['battle.drums'] : st['calm.other'] && st['calm.bass']))
+      const ok = st['calm.other'] && st['calm.bass'] ? STEMS.filter(v => v !== r.variant) : []
       r.variant = pr.vary.stems && ok.length && Math.random() < 0.45 ? ok[Math.floor(Math.random() * ok.length)] : 'full'
     }
     const len = this.pin ? Math.min(LEN, r.hi! - r.bar! + 1) : r.played! < pr.stay ? Math.min(LEN - (r.played! % LEN), pr.stay - r.played!, r.hi! - r.bar! + 1) : 1

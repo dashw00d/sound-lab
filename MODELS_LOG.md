@@ -205,6 +205,16 @@ The designer: "how do we get the individual pieces to go longer?", then "fancy l
 - **Stems** (`music stems`, Demucs, 98 tracks): a phrase varies 45% of the time between drums out (bass and the rest), sparse (the rest, bass -6 dB) and pulse (the battle level's drums in at -10 dB, in step since the levels share the spine).
 - **Solid. SA3 writes loop-point fills well; loudness is what fails.** `music fills`: 1 bar inpainted between each track's end cue and start cue (4 bars kept either side), checked for the grid (90 BPM), rating (at least the calm gate) and loudness (within 3 dB of the bars around it). 367 kept of 513 tried; 89 of 98 tracks got all 4, one none. Kept fills rate 7.57 (median, min 6.32). Of 146 rejected, 137 were partly or only for loudness, 10 off the beat, 18 rated low: a fill tends to rise or drop against the bars it sits between.
 
+### 2026-10-22: what the Mixer's variations add that isn't the song
+
+The designer: "Tons of tracks just have random stuff that doesnt mix in them. I have fills off, siblings and stems should originate from the same source... so is the graph just mixing things?" Their rated Mixer blocks (`streams.json`, 24 sessions, 78 blocks with stars) were split by what the player varied in each.
+
+- **Solid. Plain blocks are rarely broken; varied ones often are.** 2 of 58 plain blocks were rated 2 or lower (mean 4.07). 7 of 20 blocks with a variation were (35%).
+- **Leaning (4 blocks). Pulse played foreign drums.** "Pulse" laid the battle level's Demucs drum stem under calm at -10 dB. In the stack and close profiles, those drums are the text-made percussion layer (taiko, snare rolls, cymbal crashes), not the song's own. 3 of the 4 blocks it played in were rated 2. It is out of the walk; the stem variations left are the song's own stems, drums out and sparse.
+- **Solid. Siblings aren't one recording.** They are the same take number made with another context's prompt, so another mode as well as mood: day D dorian, night and winter D aeolian, Blood Moon D phrygian. 18 of 21 families mix modes. Siblings are 0.65 to 0.91 alike bar for bar (43 pairs, median 0.82), against 0.63 for any two songs. The swaps rated 2 were war.k3 day↔night (0.66) and trailer.k3 night→day (0.72), but pulse played in both too. A violinbed.k1 day→winter swap (0.73) was rated 5. That isn't enough to set a similarity floor, so siblings stay as the designer's toggle.
+- **Solid. The bed isn't it.** Plain blocks averaged 4.14 with the bed on low (37) and 3.95 with it off (21).
+- Fills, now off, were in 7 rated blocks; 4 were rated 2 (see the next entry).
+
 ### 2026-10-22: stingers rejected; fills that act like them
 
 - **Solid (the designer's verdict). No stingers.** 72 takes from `music stingers` (risers: reversed cymbal, snare roll, whoosh, low strings; booms: war drum, taiko, impact, timpani; crashes: crash cymbal, gong, suspended cymbal, a chain on stone; 6 seeds each, sfx rules, dark cinematic). None silent, every riser a directed build after its trim. The designer: "I HATE the stingers, all of them are aweful and not needed". The command, the Mixer's control, the game manifest's stingers and the takes are gone (tuning.json r23).
