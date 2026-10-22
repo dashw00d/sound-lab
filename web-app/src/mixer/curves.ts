@@ -15,6 +15,12 @@ export function taper(p: AudioParam, from: number, at: number, dur: number) {
   for (let i = 0; i < 48; i++) { const k = i / 47; c[i] = i === 47 ? 0 : from * Math.pow(10, -2.4 * k * k) }
   try { p.setValueCurveAtTime(c, at, dur) } catch { p.setValueAtTime(0, at + dur) }
 }
+/** A ring-out: down at a steady rate in dB (-48 by the end), as a sound dies away, then nothing. */
+export function decay(p: AudioParam, from: number, at: number, dur: number) {
+  const c = new Float32Array(48)
+  for (let i = 0; i < 48; i++) { const k = i / 47; c[i] = i === 47 ? 0 : from * Math.pow(10, -2.4 * k) }
+  try { p.setValueCurveAtTime(c, at, dur) } catch { p.setValueAtTime(0, at + dur) }
+}
 /** Bass swap (from Musloop's player): at a song change only what's above SWAP_HZ crosses over; under it, the song going
  * out keeps its bass and kick to the bar line and the one coming in takes over there. Each chunk plays x through g (the
  * usual fades) and its low band through d: out = g.x + d.lp(x), so d = (the low band's gain) - g. */

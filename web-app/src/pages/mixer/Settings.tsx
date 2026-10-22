@@ -66,6 +66,10 @@ export function Settings({ m, reviewOpen, onReview }: { m: Mixer; reviewOpen: bo
             { value: 'pad', label: 'pad', tip: "The song's glue: a pad frozen from its own steadiest bar" }]} />
           <Seg value={p.glueBars} onChange={glueBars => set({ glueBars })} options={[1, 2, 4].map(k => ({
             value: k, label: bars(k), tip: `${bars(k)} of ${p.glueKind === 'rest' ? 'silence' : 'pad'}` }))} />
+          {p.glueKind === 'rest' && <Seg value={p.tail} onChange={tail => set({ tail })} options={[
+            { value: 'taper', label: 'taper', tip: 'Into the rest, the song tapers over its last bar' },
+            { value: 'ring', label: 'ring out', tip: "The song plays to the bar line at its own level, then its next downbeat rings out and dies away (its own audio, as it would go on)" },
+            { value: 'echo', label: 'echo out', tip: 'The song stops on the bar line and its last beat echoes on in time, darker each repeat, into the silence' }]} />}
         </Field>
       </div>
 

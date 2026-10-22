@@ -4,7 +4,7 @@
 // a fill's own leveling, glues and rests, and the bed. Mellow and intense are two buses, crossed over two beats.
 import { audio } from '../../audio/context'
 import { bedPad, file, FILLPAD, ROLL, sliced } from '../buffers'
-import { curve, db, hold, line, SWAP_HZ, swapCurve, taper } from '../curves'
+import { curve, db, decay, hold, line, SWAP_HZ, swapCurve, taper } from '../curves'
 import { XF, type Judge } from '../judge'
 import type { Prefs } from '../prefs'
 import { STATES, type Chunk, type Level, type Source } from '../types'
@@ -86,9 +86,13 @@ export class Scheduler {
       c.nodes.push(s, g)
       return
     }
-    if (c.kind === 'rest') {  // the song before tapers over its last bar into silence (the bed too), for the rest's bars
+    if (c.kind === 'rest') {  // into silence for the rest's bars, as Tail says (the bed tapers either way)
       const t0 = Math.max(now + 0.01, T - this.barS(), prev?.T != null && !prev.skipped ? prev.T + XF + 0.01 : 0)
-      for (const g of chunkGains(prev)) { hold(g.gain, t0); taper(g.gain, g._level!, t0, T - t0) }
+      const tail = prev && !prev.skipped && (prev.post ?? 0) >= ROLL && T - XF > now + 0.01 ? P.tail : 'taper'
+      if (tail === 'ring') {  // (at its own level to the bar line, then what it plays next, its downbeat, dies away: ROLL is there)
+        for (const g of chunkGains(prev)) { hold(g.gain, T - XF); decay(g.gain, g._level!, T, ROLL - 0.04) }
+      } else if (tail === 'echo') this.echoOut(prev!, T)
+      else for (const g of chunkGains(prev)) { hold(g.gain, t0); taper(g.gain, g._level!, t0, T - t0) }
       if (this.bedVoice) { this.fadeOut(this.bedVoice, t0, T - t0); this.bedVoice = null }  // (the next song's bed comes back with it)
       return
     }
@@ -140,6 +144,27 @@ export class Scheduler {
     }
     c.post = c.kind === 'fill' ? FILLPAD : ROLL
     if (c.first) this.bedTo(jd.glueOf(c.track), T)
+  }
+
+  /** Echo out (as a DJ's): the song's last beat before T, from its run's gain (the state it's in), into a delay of a beat
+   * feeding back darker each time; the song itself stops on the bar line as usual. Taken apart once it has died away. */
+  private echoOut(prev: Chunk, T: number) {
+    const ctx = audio(), beat = this.beatS(), gn = prev.run?.gn
+    if (!gn) return
+    const nodes: AudioNode[] = []
+    for (const st of STATES) {
+      const src = gn[st]
+      if (!src) continue
+      const send = ctx.createGain(), dl = ctx.createDelay(4), lp = ctx.createBiquadFilter(), fb = ctx.createGain(), wet = ctx.createGain()
+      send.gain.value = 0; dl.delayTime.value = beat; lp.type = 'lowpass'; lp.frequency.value = 3200; fb.gain.value = 0.42; wet.gain.value = 0.75
+      src.connect(send); send.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(wet); wet.connect(this.bus[st].g)
+      const a = Math.max(this.now() + 0.01, T - beat)
+      send.gain.setValueAtTime(0, a); send.gain.linearRampToValueAtTime(1, a + 0.02); send.gain.setValueAtTime(1, T - 0.02); send.gain.linearRampToValueAtTime(0, T)
+      nodes.push(send, dl, lp, fb, wet)
+      prev.nodes?.push(wet)  // (a halt silences it with the chunk)
+    }
+    const end = T + 8 * beat, done = () => { if (this.now() < end) { setTimeout(done, 1000); return } for (const n of nodes) try { n.disconnect() } catch { /* ignore */ } }
+    setTimeout(done, (end - this.now()) * 1000 + 200)
   }
 
   /** The bed: the playing song's glue, quietly under everything, crossing over two bars when the family changes. */

@@ -12,6 +12,8 @@ export interface Prefs {
   glue: 'off' | 'weak' | 'breaths'
   glueKind: 'rest' | 'pad'
   glueBars: number
+  /** How a song goes into a rest: tapering over its last bar (the designer's), ringing out past the bar line, or echoing out. */
+  tail: 'taper' | 'ring' | 'echo'
   stay: number
   vary: { siblings: boolean; stems: boolean; fills: boolean }
   bed: 'off' | 'low' | 'mid'
@@ -27,7 +29,7 @@ export interface Prefs {
   cands: 'off' | 'top' | 'all'
 }
 export const DEFAULTS: Prefs = {
-  set: [], name: '', mode: 'any', intense: 'battle', pick: '', glue: 'breaths', glueKind: 'rest', glueBars: 1, stay: 12,
+  set: [], name: '', mode: 'any', intense: 'battle', pick: '', glue: 'breaths', glueKind: 'rest', glueBars: 1, tail: 'taper', stay: 12,
   vary: { siblings: true, stems: true, fills: true }, bed: 'low', joins: 'two', match: true, even: true, bassSwap: false,
   scope: 'all', strict: 0.8, cands: 'off', sceneBars: 48, wave: 8,
 }
