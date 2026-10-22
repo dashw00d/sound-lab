@@ -9,6 +9,7 @@ the lab's own, holding everything a game needs to play its music as the Mixer pl
                          Mixer walks the graph with the same code
   README.md              how to plug it in, for any engine
   music/<song>.<state>.ogg   each shipped song's mellow and intense levels
+  stingers/<take>.ogg    the stingers the designer liked (music stingers), for a scene change
 
 Audio goes in on demand, a batch at a time (the designer: "when you are happy with a big ol' batch, you can move it over
 to the source, optionally keep a local copy, and have your next batch separate and local. Those tracks would be
@@ -41,7 +42,8 @@ SWAP_HZ = 180  # the bass swap's split (web-app/src/mixer/curves.ts SWAP_HZ)
 XF = 0.04  # seconds either side of a bar line where a song steps within itself (web-app/src/mixer/judge.ts XF)
 # The Mixer's settings this reads, with the web app's defaults (web-app/src/mixer/prefs.ts DEFAULTS)
 DEFAULTS = dict(intense="battle", glueBars=1, tail="taper", stay=12, joins="two", match=True, even=True, bassSwap=False,
-                sceneBars=48, wave=8)
+                sceneBars=48, wave=8, stingers=dict(riser=False, boom=False, crash=False))
+STINGER_DB = -6  # (a stinger under the music: web-app/src/mixer/engine/scheduler.ts playStingers)
 
 
 def folder(proj: P.Project) -> Path:
@@ -152,6 +154,12 @@ class _Lab:
         return sid in self.scene_of and (self.F["items"].get(sid) or {}).get("energy") is not None and not self.bad(sid)
 
 
+def liked_stingers(proj: P.Project) -> dict[str, list[dict]]:
+    """The stinger takes the designer liked, by kind: what the game gets."""
+    from ..music import stingers
+    return {k: [t for t in v if t["vote"] > 0] for k, v in stingers.takes(proj).items()}
+
+
 def manifest(proj: P.Project, lab: _Lab | None = None) -> dict:
     """The manifest, for the songs whose audio is in the folder. The walk's music is made as the Mixer makes it
     (web-app/src/mixer/engine/graph.ts Graph.data): a scene's members that aren't bad takes, each one's loop (the
@@ -192,7 +200,9 @@ def manifest(proj: P.Project, lab: _Lab | None = None) -> dict:
             matchLevels=dict(on=p["match"], withinDb=6, easeBars=2),
             bassSwap=dict(on=p["bassSwap"], hz=SWAP_HZ),
             rest=dict(tail=p["tail"]),
+            stingers=dict(**{k: bool(p["stingers"].get(k)) for k in ("riser", "boom", "crash")}, db=STINGER_DB),
         ),
+        stingers={k: [f"stingers/{t['id']}.ogg" for t in v] for k, v in liked_stingers(proj).items()},
         songs=songs,
         walk=dict(bars=L.N, songs=walk_songs, scenes=scenes, cuts=cuts),
     )
@@ -206,7 +216,8 @@ def readme(proj: P.Project, man: dict) -> str:
                 bpm=int(g["bpm"]) if float(g["bpm"]).is_integer() else g["bpm"], beats=g["beatsPerBar"],
                 bar=round(g["barSeconds"], 3), bars=g["bars"], stay=p["stay"], scene_bars=p["sceneBars"],
                 wave_bars=round(p["waveBars"]), rest_bars=p["restBars"], join=p["join"]["seconds"],
-                swap="on" if p["bassSwap"]["on"] else "off", tail=p["rest"]["tail"], intense=man["states"]["intense"], format=FORMAT)
+                swap="on" if p["bassSwap"]["on"] else "off", tail=p["rest"]["tail"], intense=man["states"]["intense"], format=FORMAT,
+                **{k: "on" if p["stingers"][k] else "off" for k in ("riser", "boom", "crash")})
     text = (HERE / "README.md").read_text()
     for k, v in fill.items():
         text = text.replace("{{" + k + "}}", str(v))
@@ -229,6 +240,16 @@ def plan(proj: P.Project) -> dict:
         f = out / name
         state = "new" if not f.exists() else "same" if f.read_text() == text else "changed"
         rows.append(dict(path=name, state=state, bytes=len(text.encode())))
+    owned = {f for v in old.get("stingers", {}).values() for f in v}  # (the stingers the last sync wrote)
+    for kind, ts in liked_stingers(proj).items():
+        for t in ts:
+            rel, src = f"stingers/{t['id']}.ogg", proj.work / "clips" / t["file"]
+            state = "new" if not (out / rel).exists() else "same" if _same(src, out / rel) else "changed"
+            rows.append(dict(path=rel, state=state, bytes=src.stat().st_size, source=str(src)))
+            owned.discard(rel)
+    for rel in sorted(owned):
+        if (out / rel).exists():
+            rows.append(dict(path=rel, state="remove", bytes=(out / rel).stat().st_size))
     ship = shipped(proj)
     size = lambda files: sum((out / f).stat().st_size for f in files.values() if (out / f).is_file())
     in_game = [dict(id=sid, kind=s.get("kind"), scene=L.scene_of.get(sid), at=s.get("at"), kept=s.get("kept", True),
@@ -256,9 +277,14 @@ def write(proj: P.Project) -> dict:
     p = plan(proj)
     out = Path(p["folder"])
     for r in p["rows"]:
-        if r["state"] != "same":
-            f = out / r["path"]
+        f = out / r["path"]
+        if r["state"] == "remove":
+            f.unlink(missing_ok=True)
+        elif r["state"] != "same":
             f.parent.mkdir(parents=True, exist_ok=True)
+            if "source" in r:  # (a stinger's audio)
+                shutil.copyfile(r["source"], f)
+                continue
             tmp = f.with_name(f.name + ".tmp")
             tmp.write_text(p["texts"][r["path"]])
             os.replace(tmp, f)

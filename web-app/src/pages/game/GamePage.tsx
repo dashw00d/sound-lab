@@ -18,7 +18,7 @@ import { colour, hue } from '../families/model'
 import './game.css'
 
 const mb = (b: number) => (!b ? '0 MB' : b >= 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1e3))} KB`)
-const STATE = { new: 'new', changed: 'changed', same: 'in sync' } as const
+const STATE = { new: 'new', changed: 'changed', same: 'in sync', remove: 'to remove' } as const
 const KIND: Record<string, string> = { shipped: 'promoted', candidate: 'kept take', trial: 'trial take', extension: 'extension' }
 /** day.any.war.k3.close → war k3 · day */
 const nameOf = (id: string) => { const p = id.split('.'); return p.length >= 4 ? { title: `${p[2]} ${p[3]}`, sub: p[0] } : { title: id, sub: '' } }
@@ -162,7 +162,7 @@ export default function GamePage() {
           <div className="gm-files">
             {plan.rows.map(r => (
               <div key={r.path} className={`gm-file s-${r.state}`}>
-                <Icon name={r.path.endsWith('.md') ? 'layers' : 'save'} /><code>{r.path}</code><span className="gm-what">{ABOUT[r.path] ?? ''}</span><span className="gm-state">{STATE[r.state]}</span>
+                <Icon name={r.path.endsWith('.md') ? 'layers' : r.path.startsWith('stingers/') ? 'sparkle' : 'save'} /><code>{r.path}</code><span className="gm-what">{ABOUT[r.path] ?? ''}</span><span className="gm-state">{STATE[r.state]}</span>
               </div>
             ))}
           </div>

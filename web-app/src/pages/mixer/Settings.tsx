@@ -7,6 +7,7 @@ import type { Prefs } from '../../mixer/prefs'
 import { Icon } from '../../shell/Icon'
 import { Field, Toggle } from '../../ui/Field'
 import { Seg } from '../../ui/Seg'
+import { Stingers } from './Stingers'
 
 export function Settings({ m, reviewOpen, onReview }: { m: Mixer; reviewOpen: boolean; onReview: () => void }) {
   const p = m.prefs, set = (x: Partial<Prefs>) => m.setPrefs(x), lib = m.lib, n = lib.candidates?.length ?? 0
@@ -71,6 +72,7 @@ export function Settings({ m, reviewOpen, onReview }: { m: Mixer; reviewOpen: bo
             { value: 'ring', label: 'ring out', tip: "The song plays to the bar line at its own level, then its next downbeat rings out and dies away (its own audio, as it would go on)" },
             { value: 'echo', label: 'echo out', tip: 'The song stops on the bar line and its last beat echoes on in time, darker each repeat, into the silence' }]} />}
         </Field>
+        <Stingers m={m} />
       </div>
 
       <div className="mx-group">

@@ -296,7 +296,8 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                     raise HttpError(404, "this project has no music")
                 from . import candidates, music
                 with LOCK:  # (the new takes, scored, ride along: the Mixer adds them to the walk when asked)
-                    self.send_json(music.library(proj) | dict(candidates=candidates.mixer_tracks(proj)))
+                    from .music import stingers
+                    self.send_json(music.library(proj) | dict(candidates=candidates.mixer_tracks(proj), stingers=stingers.takes(proj)))
             elif url == "/api/votes":  # (the decisions alone, without the index: what the new app's pages poll)
                 self.send_json(st.votes())
             elif url == "/api/families":

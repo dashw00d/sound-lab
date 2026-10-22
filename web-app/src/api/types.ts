@@ -82,7 +82,7 @@ export interface SyncPlan {
   exists: boolean
   /** When the music in the folder last changed (its manifest's `made`), or null: never written. */
   synced: string | null
-  rows: { path: string; state: 'new' | 'changed' | 'same'; bytes: number }[]
+  rows: { path: string; state: 'new' | 'changed' | 'same' | 'remove'; bytes: number }[]
   /** The songs walked from the folder: those shipped, in scenes, not bad takes. */
   songs: number
   scenes: number

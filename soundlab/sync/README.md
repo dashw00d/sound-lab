@@ -12,6 +12,7 @@ This sync: **{{songs}} songs** in **{{scenes}} scenes**, with **{{cuts}} seamles
 | `soundlab.schema.json` | the manifest's JSON Schema ({{format}}) |
 | `walk.js`, `walk.d.ts` | the walk: which song plays next, and from which bar. Plain JavaScript with no dependencies, and the same code the lab's Mixer runs |
 | `music/<song>.mellow.ogg`, `music/<song>.intense.ogg` | each song's two levels: the same length, on the same grid, sample-aligned |
+| `stingers/<take>.ogg` | short accents for a scene change: risers, booms, crashes |
 
 ## How the music works
 
@@ -68,6 +69,11 @@ Steps meet on the bar line. How they join depends on what changes.
 
 **Out of a rest**, the next song starts on its bar line with an 80 ms fade-in.
 
+**Stingers** mark a scene change, the step after a rest (now: riser {{riser}}, boom {{boom}}, crash {{crash}}). For each kind that's on in `play.stingers`, play one of `stingers[kind]` at `play.stingers.db` dB, in either state. Pick a different file from last time.
+
+- `riser`: it builds over the rest and must **end** exactly on the next step's first downbeat, so start it at that time minus its length. If the rest is shorter than the riser, it starts over the end of the song before.
+- `boom`, `crash`: start exactly on that downbeat.
+
 ## Mellow and intense
 
 A song's two levels always play together, sample-aligned. To change state, crossfade them equal-power over `play.stateChange.beats` beats. It can happen at any moment, not just on a bar line.
@@ -121,7 +127,8 @@ A song's two levels always play together, sample-aligned. To change state, cross
 |---|---|
 | `grid` | `bpm`, `beatsPerBar`, `barSeconds`, `bars` (each file's length in bars) |
 | `states` | the level each state plays: `mellow` (calm) and `intense` |
-| `play` | how to play: `stay`, `sceneBars`, `waveBars`, `restBars` and `avoid` for the walk; `join`, `step` and `stateChange` crossfades; `matchLevels`; `bassSwap`; `rest.tail` |
+| `play` | how to play: `stay`, `sceneBars`, `waveBars`, `restBars` and `avoid` for the walk; `join`, `step` and `stateChange` crossfades; `matchLevels`; `bassSwap`; `rest.tail`; `stingers` (which kinds play at a scene change, and their level) |
+| `stingers` | the stinger files of each kind (`riser`, `boom`, `crash`), relative to this folder |
 | `songs[id]` | `files` (each state's audio, relative to this folder); `gainDb` (each state's level trim); `loudness` (each state's per-beat loudness, dB); `scene`; `lead` (its lead instrument); `context` |
 | `walk` | what `walk.js` walks: `bars`; `songs[id]` with `loop` [first bar, last bar], `entry`, `phrase` (the bar its 4-bar phrases start on, or null) and `energy`; `scenes[id].members`; `cuts[id]` as a list of `{ to, after, start }` |
 
@@ -131,7 +138,7 @@ Any engine works if it can start an audio file at a time on its audio clock, fro
 
 - **Web:** Web Audio's `AudioBufferSourceNode.start(when, offset)` with a `GainNode` per voice; `walk.js` runs as it is.
 - **Unity:** `AudioSource.PlayScheduled` on `AudioSettings.dspTime`, one source per level and voice; port the walk to C#.
-- **Godot:** start each voice from its offset (`AudioStreamPlayer.play(from_position)`), and time it with `AudioServer.get_time_to_next_mix()` and `get_output_latency()`. Two levels can go in one `AudioStreamSynchronized`. Port the walk to GDScript.
+- **Godot:** start each voice from its offset (`AudioStreamPlayer.play(from_position)`), and time it with `AudioServer.get_time_to_next_mix()`. Sound Lab's repo has a Godot 4 reference in `examples/godot`: the walk ported to GDScript (`soundlab_walk.gd`, which walks exactly the steps `walk.js` walks for the same seed) and a player node (`soundlab_music.gd`) that follows these rules.
 - **FMOD, Wwise:** programmer instruments or scheduled sounds, with the walk in the game's code.
 
 A song coming in overlaps the one going out, so allow two songs at once, each with both levels.

@@ -43,7 +43,11 @@ export interface Library {
   candidates?: Track[]
   glues: Record<string, Glue>
   join_model: JoinModel | null
+  /** Stingers (music stingers): takes of each kind, for a scene change. */
+  stingers?: Record<StingerKind, StingerTake[]>
 }
+export type StingerKind = 'riser' | 'boom' | 'crash'
+export interface StingerTake { id: string; file: string; variant: string; seed: number; seconds: number | null; rises?: boolean | null; slope?: number | null; vote: number }
 
 /** A part: bars start..start+3 of a song. */
 export interface Part { track: string; start: number }
@@ -89,7 +93,7 @@ export interface Chunk {
   // set as it's planned and played
   T?: number
   end?: number
-  bufs?: { mellow?: Source[]; intense?: Source[]; glue?: AudioBuffer }
+  bufs?: { mellow?: Source[]; intense?: Source[]; glue?: AudioBuffer; stingers?: { kind: StingerKind; id: string; buf: AudioBuffer }[] }
   nodes?: AudioNode[]
   scheduled?: boolean
   skipped?: boolean

@@ -200,6 +200,9 @@ def main() -> int:
     p.add_argument("--seeds", type=int, default=4, help="fills kept per track and loop")
     p.add_argument("--bars", type=int, default=1)
     p.add_argument("--only", nargs="*", help="track ids (default: all)")
+    p = mu.add_parser("stingers", help="accents for a scene change (a riser into its downbeat, a boom or a crash on it), for the Mixer")
+    p.add_argument("--seeds", type=int, default=6, help="takes per prompt")
+    p.add_argument("--kinds", nargs="*", choices=["riser", "boom", "crash"], help="default: all three")
     p = mu.add_parser("promote")
     p.add_argument("--apply", action="store_true")
     p.add_argument("--add", nargs="+", metavar="SET.TAKE.PROFILE",
@@ -288,6 +291,9 @@ def main() -> int:
             return music.stems(proj, a.force)
         if a.action == "fills":
             return music.fills(proj, a.seeds, a.bars, a.only)
+        if a.action == "stingers":
+            from .music import stingers
+            return stingers.generate(proj, a.seeds, a.kinds)
         if a.action == "derive":
             bad = [p for p in a.profiles if p not in proj.music["profiles"]]
             if bad:
