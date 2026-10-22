@@ -3,7 +3,7 @@
 // with the bass swap if asked), its run's gain (matched to the song before, easing to its own even level over 2 bars),
 // a fill's own leveling, glues and rests, and the bed. Mellow and intense are two buses, crossed over two beats.
 import { audio } from '../../audio/context'
-import { bedPad, file, FILLPAD, ROLL, sliced } from '../buffers'
+import { bedPad, file, FILLPAD, measureBeats, ROLL, sliced } from '../buffers'
 import { curve, db, decay, hold, line, SWAP_HZ, swapCurve, taper } from '../curves'
 import { XF, type Judge } from '../judge'
 import type { Prefs } from '../prefs'
@@ -54,6 +54,7 @@ export class Scheduler {
     if (c.kind === 'rest') return { stingers: await this.stingers() }  // (silence, and the stingers into what comes after it)
     const t = jd.track(c.track)!, clip = (u: string) => '/clips/' + u, st = t.stems ?? {}, level = (l: string) => jd.url(c.track, l)!
     const gid = jd.glueOf(c.track), bed = P.bed !== 'off' && gid ? bedPad(gid, this.glueUrl(gid), this.barS()) : null
+    if (!t.measure?.beats) await Promise.all(['calm', 'battle'].map(l => measureBeats(level(l), this.beatS())))  // (a song the lab hasn't measured: its levels, from its files)
     const intense = sliced(level(P.intense), this.barS(), c.kind === 'fill' ? ((c.bar - 1 - c.bars + jd.N) % jd.N) + 1 : c.bar, c.bars)
     let mellow: Source[]
     if (c.kind === 'fill') mellow = [{ buf: await file(clip(c.fill!)), gain: 1, pre: FILLPAD }]
@@ -140,7 +141,7 @@ export class Scheduler {
     }
     const r = c.run
     if (r && !r.gn) {  // a run's own gain: where it comes in, its level matched to the song it follows, easing to its own over 2 bars
-      r.gn = {}; r.match = {}
+      r.gn = {}; r.match = {}; r.gnTrack = c.track
       for (const st of STATES) {
         const own = db(jd.trimDb(c.track, st)), g = ctx.createGain(), m = change && P.match ? jd.matchGain(prev!, c, st) : own
         g.connect(this.bus[st].g); g.gain.setValueAtTime(m, Math.max(now, t0)); g.gain.setValueAtTime(m, T); g.gain.linearRampToValueAtTime(own, T + 2 * this.barS())
@@ -148,7 +149,9 @@ export class Scheduler {
       }
     }
     const lv = c.kind === 'fill' ? jd.fillLevels(c) : null
-    for (const st of STATES) for (const src of c.bufs?.[st] ?? []) {
+    for (const st of STATES) for (const src0 of c.bufs?.[st] ?? []) {
+      // (a sibling swapped in for a phrase plays at its own trim, against the one the run's gain was set for)
+      const adj = r?.gnTrack && c.track && c.track !== r.gnTrack ? db(jd.trimDb(c.track, st) - jd.trimDb(r.gnTrack, st)) : 1, src = { ...src0, gain: src0.gain * adj }
       const s = ctx.createBufferSource(), g: ChunkGain = ctx.createGain(), dest = r?.gn?.[st] ?? this.bus[st].g
       let into: AudioNode = dest  // (where this source's paths go: the fill's own leveling, else the run's gain)
       if (lv && st === 'mellow') {  // (the fill's own leveling, beat by beat)

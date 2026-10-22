@@ -71,6 +71,8 @@ export interface Run {
   /** Its place in the queue, when the walk plays one. */
   qi?: number
   gn?: Partial<Record<Level, GainNode>> | null
+  /** The song the run's gain was set for (a sibling swapped in later is trimmed against it). */
+  gnTrack?: string
   match?: Partial<Record<Level, number>> | null
 }
 

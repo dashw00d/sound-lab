@@ -3,6 +3,7 @@
 // `music joins --fit`; the same features as music.py join_features: keep the two the same), levels (even levels and
 // matching), cues, entries and siblings.
 import type { Votes } from '../api/types'
+import { beatsOf } from './buffers'
 import { db, med } from './curves'
 import type { Prefs } from './prefs'
 import type { Chunk, Level, Library, Part, Track } from './types'
@@ -133,8 +134,13 @@ export class Judge {
   /** Even levels: a song's own trim toward the library's typical level (the median of the shipped songs' median
    * beats), within 6 dB. Songs are mastered to one LUFS, but a sparse one sits far under its peaks (2026-10-21). */
   private levelOf(tid: string, st: Level): number | null {
-    const b = this.track(tid)?.measure?.beats?.[st === 'mellow' ? 'calm' : 'battle']
+    const b = this.beatsOf(tid, st === 'mellow' ? 'calm' : 'battle')
     return b?.length ? med(b) : null
+  }
+  /** A song's loudness per beat at a level: music trims' measure, else what the player measured from its file. */
+  beatsOf(tid: string | undefined, lv: 'calm' | 'battle'): number[] | null {
+    const b = this.track(tid)?.measure?.beats?.[lv]
+    return b?.length ? b : beatsOf(this.url(tid, lv))
   }
   trimDb(tid: string | undefined, st: Level): number {
     if (!this.prefs().even || !tid) return 0
@@ -147,7 +153,7 @@ export class Judge {
   }
   /** The run's gain where it comes in: its first beat at the level of the song going out's last. */
   matchGain(prev: Chunk, c: Chunk, st: Level): number {
-    const lv = st === 'mellow' ? 'calm' : 'battle', a = this.track(prev.track)?.measure?.beats?.[lv], b = this.track(c.track)?.measure?.beats?.[lv]
+    const lv = st === 'mellow' ? 'calm' : 'battle', a = this.beatsOf(prev.track, lv), b = this.beatsOf(c.track, lv)
     const tB = this.trimDb(c.track, st)
     if (!a || !b || prev.kind !== 'part') return db(tB)
     const tA = this.trimDb(prev.run?.entry ? prev.run.entry.track : prev.track, st)  // (the gain the song going out was playing at)
@@ -156,7 +162,7 @@ export class Judge {
   }
   /** A gain per beat of a fill: 100% to the beats either side at its edges, 70% inside, within 6 dB. */
   fillLevels(c: Chunk): number[] | null {
-    const bt = this.track(c.track)?.measure?.beats?.calm, f = c.fillBeats
+    const bt = this.beatsOf(c.track, 'calm'), f = c.fillBeats
     if (!bt || !f?.length || c.hi == null) return null
     const before = bt[((c.hi - 1) * 4 + 3) % bt.length], after = bt[((c.bar - 1) * 4) % bt.length]
     return f.map((v, k) => { const target = before + (after - before) * (k + 0.5) / f.length, edge = k === 0 || k === f.length - 1 ? 1 : 0.7

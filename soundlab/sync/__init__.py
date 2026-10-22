@@ -94,18 +94,42 @@ class _Lab:
         self.clips, self.cues = votes.get("clips", {}), votes.get("cues", {})
         self.prefs = DEFAULTS | {k: v for k, v in Store.read(st.mixer_settings_path, {}).items() if k in DEFAULTS}
         self.F = Store.read(proj.work / "families.json", {"items": {}, "families": {}})
-        self.N, self.bpm, self.beats = lib["bars"], lib["bpm"], lib["bar_beats"]
+        self.N, self.bpm, self.bar_beats = lib["bars"], lib["bpm"], lib["bar_beats"]
         self.tracks = {t["id"]: t for t in lib["tracks"]}
         self.states = {"mellow": "calm", "intense": self.prefs["intense"]}
         self.scene_of = {m: fid for fid, f in self.F.get("families", {}).items() for m in f.get("members", [])}
-        # (even levels, as the Mixer: each song's median beat against the library's median, within 6 dB; judge.ts trimDb)
-        self.ref = {s: statistics.median(v) if (v := [x for t in self.tracks if (x := self.level(t, s)) is not None]) else None for s in self.states}
+        # (even levels, as the Mixer: each song's median beat against the shipped songs' median, within 6 dB; judge.ts trimDb)
+        self.ref = {s: statistics.median(v) if (v := [statistics.median(b) for t in self.tracks if (b := (self.measure(t).get("beats") or {}).get("calm" if s == "mellow" else "battle"))]) else None
+                    for s in self.states}
 
     def measure(self, sid: str) -> dict:
         return (self.tracks.get(sid) or {}).get("measure") or {}
 
+    def beats(self, sid: str, lv: str) -> list[float] | None:
+        """A song's loudness per beat at a level (calm or battle): music trims' measure, else measured here from its file
+        and kept in work/levels.json (new takes: as the player measures them, web-app/src/mixer/buffers.ts measureBeats)."""
+        b = (self.measure(sid).get("beats") or {}).get(lv)
+        if b:
+            return b
+        src = (self.tracks.get(sid) or {}).get("src") or (self.F["items"].get(sid) or {}).get("src") or {}
+        url = src.get(lv) or src.get("calm")
+        if not url:
+            return None
+        f = _source(self.proj, url)
+        if not f.is_file():
+            return None
+        sig, key = f"{f.stat().st_size}:{f.stat().st_mtime_ns}", str(f)
+        if not hasattr(self, "_levels"):
+            self._levels = Store.read(self.proj.work / "levels.json", {})
+        if self._levels.get(key, {}).get("sig") != sig:
+            from .. import dsp
+            from ..music.measures import _beats
+            self._levels[key] = dict(sig=sig, beats=_beats(dsp.decode(f), int(round(60.0 / self.bpm * dsp.SR))))
+            Store.write(self.proj.work / "levels.json", self._levels)
+        return self._levels[key]["beats"]
+
     def level(self, sid: str, state: str) -> float | None:
-        b = (self.measure(sid).get("beats") or {}).get("calm" if state == "mellow" else "battle")
+        b = self.beats(sid, "calm" if state == "mellow" else "battle")
         return statistics.median(b) if b else None
 
     def trim(self, sid: str, state: str) -> float:
@@ -177,20 +201,19 @@ def manifest(proj: P.Project, lab: _Lab | None = None) -> dict:
         for m in ms:
             it = L.F["items"][m]
             walk_songs[m] = dict(loop=L.cue(m), entry=L.entry(m), phrase=L.phrase(m), energy=it["energy"])
-            b = L.measure(m).get("beats") or {}
             songs[m] = dict(files=have[m], gainDb={s: L.trim(m, s) for s in L.states},
-                            loudness={"mellow": b.get("calm"), "intense": b.get("battle")},
+                            loudness={"mellow": L.beats(m, "calm"), "intense": L.beats(m, "battle")},
                             scene=fid, lead=it.get("lead"), context=it.get("context"))
     for a in walk_songs:
         at = [dict(to=b, after=e, start=s) for b, c in (L.F["items"][a].get("cuts") or {}).items() if b in walk_songs
               for e, s in c.get("at", []) if s >= walk_songs[b]["loop"][0] and s + LEN - 1 <= walk_songs[b]["loop"][1]]
         if at:
             cuts[a] = at
-    p, bar_s = L.prefs, 60 / L.bpm * L.beats
+    p, bar_s = L.prefs, 60 / L.bpm * L.bar_beats
     join = {"tight": 2 * XF, "beat": 60 / L.bpm, "two": 2 * 60 / L.bpm}[p["joins"]]
     return dict(
         format=FORMAT, project=proj.name, made=datetime.now().isoformat(timespec="seconds"),
-        grid=dict(bpm=L.bpm, beatsPerBar=L.beats, barSeconds=round(bar_s, 6), bars=L.N),
+        grid=dict(bpm=L.bpm, beatsPerBar=L.bar_beats, barSeconds=round(bar_s, 6), bars=L.N),
         states=L.states,
         play=dict(
             stay=p["stay"], sceneBars=p["sceneBars"], waveBars=round(p["wave"] * 60 / bar_s, 2), restBars=p["glueBars"], avoid=4,

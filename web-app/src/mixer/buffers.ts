@@ -28,6 +28,25 @@ export function file(url: string): Promise<AudioBuffer> {
   while (files.size > MAX_FILES) files.delete(files.keys().next().value as string)
   return b
 }
+/** Each beat's loudness of a song's file (dB, the mean square of its mono mix: music trims' _beats), measured here for
+ * the songs the lab hasn't measured (new takes, trial takes, extensions), so the player evens and matches their levels
+ * as it does the shipped songs' (2026-10-21: unmeasured, new takes' calm levels ran -6.7 to +3.8 dB off the library). */
+const beatsByUrl = new Map<string, number[]>()
+export const beatsOf = (url: string | null): number[] | null => (url ? beatsByUrl.get(url) ?? null : null)
+export async function measureBeats(url: string, beatS: number): Promise<number[] | null> {
+  const had = beatsByUrl.get(url)
+  if (had) return had
+  try {
+    const b = await file(url), n = Math.round(beatS * b.sampleRate), chs = Array.from({ length: b.numberOfChannels }, (_, c) => b.getChannelData(c)), out: number[] = []
+    for (let k = 0; (k + 1) * n <= b.length; k++) {
+      let s = 0
+      for (let i = k * n; i < (k + 1) * n; i++) { let v = 0; for (const ch of chs) v += ch[i]; v /= chs.length; s += v * v }
+      out.push(10 * Math.log10(s / n + 1e-12))
+    }
+    beatsByUrl.set(url, out)
+    return out
+  } catch { return null }
+}
 /** Bars start.. (1-based) of a loop, with ROLL either side, wrapping round it. */
 function cut(b: AudioBuffer, barS: number, start: number, bars: number): AudioBuffer {
   const sr = b.sampleRate, bar = Math.round(barS * sr), xf = Math.round(ROLL * sr), total = b.length, a = (start - 1) * bar - xf, n = bars * bar + 2 * xf
