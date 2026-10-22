@@ -1,0 +1,1448 @@
+[
+ {
+  "id": "day.any.war.k3.close",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.05,
+  "r2": 0.0,
+  "bright": 0.07,
+  "end_db": 1.2,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.war.k4.close",
+  "cue": [
+   2,
+   9
+  ],
+  "tail_bars": 7,
+  "slope": -0.21,
+  "r2": 0.02,
+  "bright": 0.16,
+  "end_db": -2.9,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.horror.k8.close",
+  "cue": [
+   7,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.62,
+  "r2": 0.23,
+  "bright": 0.47,
+  "end_db": -10.1,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.trailer.k3.close",
+  "cue": [
+   5,
+   10
+  ],
+  "tail_bars": 6,
+  "slope": 0.19,
+  "r2": 0.09,
+  "bright": 0.14,
+  "end_db": -0.1,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.trailer.k4.close",
+  "cue": [
+   2,
+   7
+  ],
+  "tail_bars": 9,
+  "slope": 0.14,
+  "r2": 0.03,
+  "bright": 0.45,
+  "end_db": 2.4,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.war.k3.close",
+  "cue": [
+   5,
+   10
+  ],
+  "tail_bars": 6,
+  "slope": -0.2,
+  "r2": 0.01,
+  "bright": -0.13,
+  "end_db": -1.9,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.choir.k4.close",
+  "cue": [
+   3,
+   10
+  ],
+  "tail_bars": 6,
+  "slope": -0.06,
+  "r2": 0.01,
+  "bright": -0.19,
+  "end_db": -5.7,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.horror.k5.close",
+  "cue": [
+   3,
+   13
+  ],
+  "tail_bars": 3,
+  "slope": 0.07,
+  "r2": 0.01,
+  "bright": -0.37,
+  "end_db": 5.2,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.trailer.k2.close",
+  "cue": [
+   2,
+   9
+  ],
+  "tail_bars": 7,
+  "slope": 0.18,
+  "r2": 0.04,
+  "bright": 0.92,
+  "end_db": 1.7,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.trailer.k3.close",
+  "cue": [
+   2,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": 0.09,
+  "r2": 0.01,
+  "bright": -0.05,
+  "end_db": 4.5,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.trailer.k5.close",
+  "cue": [
+   3,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.11,
+  "r2": 0.03,
+  "bright": -0.02,
+  "end_db": 1.6,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.war.k2.close",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.22,
+  "r2": 0.08,
+  "bright": 0.12,
+  "end_db": 1.0,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.war.k3.close",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.01,
+  "r2": 0.0,
+  "bright": 0.02,
+  "end_db": 1.9,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.war2.k0.stack",
+  "cue": [
+   4,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": 0.16,
+  "r2": 0.03,
+  "bright": -0.02,
+  "end_db": -0.2,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.war2.k2.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.02,
+  "r2": 0.0,
+  "bright": 0.26,
+  "end_db": 0.6,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.bed2.k2.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.03,
+  "r2": 0.0,
+  "bright": 0.31,
+  "end_db": 2.0,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.bed2.k4.stack",
+  "cue": [
+   4,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": -0.03,
+  "r2": 0.0,
+  "bright": 0.43,
+  "end_db": 3.7,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.strings.k2.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.01,
+  "r2": 0.0,
+  "bright": 0.13,
+  "end_db": 1.1,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.strings.k3.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.14,
+  "r2": 0.01,
+  "bright": 0.26,
+  "end_db": 4.2,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.bed2.k1.stack",
+  "cue": [
+   2,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": -0.04,
+  "r2": 0.0,
+  "bright": 0.29,
+  "end_db": 2.4,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.war2.k4.stack",
+  "cue": [
+   3,
+   8
+  ],
+  "tail_bars": 8,
+  "slope": 0.02,
+  "r2": 0.0,
+  "bright": 0.1,
+  "end_db": 5.8,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.war2.k5.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.05,
+  "r2": 0.01,
+  "bright": 0.21,
+  "end_db": 2.9,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.war2.k6.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.3,
+  "r2": 0.18,
+  "bright": 0.43,
+  "end_db": 3.3,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.bed2.k0.stack",
+  "cue": [
+   6,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": 0.05,
+  "r2": 0.0,
+  "bright": -0.09,
+  "end_db": -1.3,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.strings.k0.stack",
+  "cue": [
+   3,
+   10
+  ],
+  "tail_bars": 6,
+  "slope": 0.04,
+  "r2": 0.0,
+  "bright": 0.09,
+  "end_db": 0.8,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.strings.k2.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.19,
+  "r2": 0.04,
+  "bright": -0.01,
+  "end_db": 0.7,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.strings.k4.stack",
+  "cue": [
+   3,
+   8
+  ],
+  "tail_bars": 8,
+  "slope": 0.1,
+  "r2": 0.03,
+  "bright": 0.33,
+  "end_db": 6.8,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.violin.k0.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.0,
+  "r2": 0.0,
+  "bright": 0.8,
+  "end_db": -1.8,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.violin.k2.stack",
+  "cue": [
+   2,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": 0.01,
+  "r2": 0.0,
+  "bright": 0.3,
+  "end_db": 1.2,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.violin.k3.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.11,
+  "r2": 0.01,
+  "bright": 0.17,
+  "end_db": 1.3,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.violintags.k2.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.06,
+  "r2": 0.0,
+  "bright": -0.36,
+  "end_db": 1.1,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.violintags.k3.stack",
+  "cue": [
+   2,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": 0.04,
+  "r2": 0.01,
+  "bright": 0.98,
+  "end_db": -0.1,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.violinbed.k0.stack",
+  "cue": [
+   3,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.11,
+  "r2": 0.03,
+  "bright": 0.03,
+  "end_db": -1.2,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.violinbed.k1.stack",
+  "cue": [
+   2,
+   9
+  ],
+  "tail_bars": 7,
+  "slope": 0.23,
+  "r2": 0.19,
+  "bright": 0.49,
+  "end_db": 2.4,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.violinbed.k4.stack",
+  "cue": [
+   4,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": -0.31,
+  "r2": 0.1,
+  "bright": 0.36,
+  "end_db": 0.6,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.violinbed.k5.stack",
+  "cue": [
+   2,
+   15
+  ],
+  "tail_bars": 1,
+  "buildup": null
+ },
+ {
+  "id": "day.any.violin.k1.stack",
+  "cue": [
+   2,
+   9
+  ],
+  "tail_bars": 7,
+  "slope": 0.34,
+  "r2": 0.33,
+  "bright": 0.4,
+  "end_db": 0.0,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.violin.k2.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.18,
+  "r2": 0.09,
+  "bright": 0.2,
+  "end_db": 1.3,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.violintags.k0.stack",
+  "cue": [
+   4,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": 0.45,
+  "r2": 0.25,
+  "bright": -0.5,
+  "end_db": 4.0,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.violintags.k3.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.07,
+  "r2": 0.05,
+  "bright": -0.12,
+  "end_db": -0.6,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.violinbed.k0.stack",
+  "cue": [
+   2,
+   9
+  ],
+  "tail_bars": 7,
+  "slope": 0.58,
+  "r2": 0.3,
+  "bright": -0.7,
+  "end_db": 2.1,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.violinbed.k1.stack",
+  "cue": [
+   2,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.03,
+  "r2": 0.02,
+  "bright": -0.04,
+  "end_db": -0.1,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.violinbed.k2.stack",
+  "cue": [
+   5,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": 0.05,
+  "r2": 0.01,
+  "bright": 0.03,
+  "end_db": 3.3,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.violinbed.k3.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.12,
+  "r2": 0.05,
+  "bright": 0.31,
+  "end_db": 3.0,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.violinbed.k0.stack",
+  "cue": [
+   3,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.09,
+  "r2": 0.06,
+  "bright": -0.06,
+  "end_db": 0.4,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.violinbed.k1.stack",
+  "cue": [
+   2,
+   9
+  ],
+  "tail_bars": 7,
+  "slope": -0.06,
+  "r2": 0.01,
+  "bright": 0.14,
+  "end_db": 1.3,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.violinbed.k4.stack",
+  "cue": [
+   10,
+   16
+  ],
+  "tail_bars": 0,
+  "buildup": null
+ },
+ {
+  "id": "winter.any.violinbed.k5.stack",
+  "cue": [
+   3,
+   10
+  ],
+  "tail_bars": 6,
+  "slope": -0.14,
+  "r2": 0.06,
+  "bright": 0.24,
+  "end_db": 2.1,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.violin.k0.stack",
+  "cue": [
+   3,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.2,
+  "r2": 0.05,
+  "bright": -0.04,
+  "end_db": -3.3,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.violin.k4.stack",
+  "cue": [
+   2,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": -0.05,
+  "r2": 0.01,
+  "bright": 0.04,
+  "end_db": 0.6,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.violinbed.k0.stack",
+  "cue": [
+   3,
+   9
+  ],
+  "tail_bars": 7,
+  "slope": -0.06,
+  "r2": 0.01,
+  "bright": -0.31,
+  "end_db": 1.2,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.violinbed.k1.stack",
+  "cue": [
+   2,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": 0.23,
+  "r2": 0.14,
+  "bright": 0.55,
+  "end_db": 1.4,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.violinbed.k2.stack",
+  "cue": [
+   2,
+   15
+  ],
+  "tail_bars": 1,
+  "buildup": null
+ },
+ {
+  "id": "bloodmoon.any.violinbed.k3.stack",
+  "cue": [
+   5,
+   16
+  ],
+  "tail_bars": 0,
+  "buildup": null
+ },
+ {
+  "id": "bloodmoon.any.violin.k1.stack",
+  "cue": [
+   3,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.49,
+  "r2": 0.52,
+  "bright": 0.1,
+  "end_db": -2.9,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.violin.k2.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.05,
+  "r2": 0.0,
+  "bright": 0.2,
+  "end_db": -0.4,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.violin.k3.stack",
+  "cue": [
+   5,
+   10
+  ],
+  "tail_bars": 6,
+  "slope": 0.26,
+  "r2": 0.14,
+  "bright": 0.42,
+  "end_db": 5.4,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "menu.any.violinbed.k0.stack",
+  "cue": [
+   3,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.15,
+  "r2": 0.09,
+  "bright": 0.12,
+  "end_db": -1.3,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "menu.any.violinbed.k3.stack",
+  "cue": [
+   5,
+   13
+  ],
+  "tail_bars": 3,
+  "slope": 0.04,
+  "r2": 0.0,
+  "bright": 0.15,
+  "end_db": -1.1,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.winterstrings.k1.stack",
+  "cue": [
+   2,
+   9
+  ],
+  "tail_bars": 7,
+  "slope": 0.21,
+  "r2": 0.03,
+  "bright": 0.16,
+  "end_db": 2.9,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.winterwater.k0.stack",
+  "cue": [
+   6,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": -0.13,
+  "r2": 0.01,
+  "bright": 0.1,
+  "end_db": -5.4,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.winterwater.k1.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.05,
+  "r2": 0.0,
+  "bright": -0.34,
+  "end_db": 1.8,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.winterwater.k2.stack",
+  "cue": [
+   4,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": -0.24,
+  "r2": 0.07,
+  "bright": 0.37,
+  "end_db": 3.7,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.winterwater.k3.stack",
+  "cue": [
+   4,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": -0.06,
+  "r2": 0.0,
+  "bright": 0.07,
+  "end_db": 3.6,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.winterwater.k4.stack",
+  "cue": [
+   6,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": -0.12,
+  "r2": 0.01,
+  "bright": 0.07,
+  "end_db": -0.1,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.winterglass.k0.stack",
+  "cue": [
+   3,
+   10
+  ],
+  "tail_bars": 6,
+  "slope": 0.36,
+  "r2": 0.06,
+  "bright": 0.03,
+  "end_db": 1.2,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.winterglass.k1.stack",
+  "cue": [
+   5,
+   10
+  ],
+  "tail_bars": 6,
+  "slope": 0.19,
+  "r2": 0.04,
+  "bright": -0.08,
+  "end_db": 0.4,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.winterglass.k3.stack",
+  "cue": [
+   4,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": -0.25,
+  "r2": 0.05,
+  "bright": 0.12,
+  "end_db": 3.8,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.winterglass.k4.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.22,
+  "r2": 0.12,
+  "bright": -0.0,
+  "end_db": -0.5,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "winter.any.winterglass.k5.stack",
+  "cue": [
+   2,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": -0.48,
+  "r2": 0.13,
+  "bright": 0.16,
+  "end_db": -6.1,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.tagelharpa.k0.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.08,
+  "r2": 0.03,
+  "bright": 0.18,
+  "end_db": 4.2,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.nyckelharpa.k6.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.4,
+  "r2": 0.18,
+  "bright": 0.13,
+  "end_db": 2.2,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.kantele.k1.stack",
+  "cue": [
+   2,
+   9
+  ],
+  "tail_bars": 7,
+  "slope": 0.26,
+  "r2": 0.06,
+  "bright": 0.04,
+  "end_db": -1.1,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.kantele.k3.stack",
+  "cue": [
+   4,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": 0.05,
+  "r2": 0.01,
+  "bright": 0.04,
+  "end_db": 0.8,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.kantele.k10.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.04,
+  "r2": 0.0,
+  "bright": 0.36,
+  "end_db": -1.8,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.tagelharpa.k0.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.03,
+  "r2": 0.0,
+  "bright": 0.3,
+  "end_db": -1.6,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.nyckelharpa.k0.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.05,
+  "r2": 0.01,
+  "bright": -0.18,
+  "end_db": 1.2,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.kantele2.k0.stack",
+  "cue": [
+   3,
+   8
+  ],
+  "tail_bars": 8,
+  "slope": 1.36,
+  "r2": 0.65,
+  "bright": -0.22,
+  "end_db": 7.6,
+  "rising": true,
+  "buildup": true,
+  "falling": false
+ },
+ {
+  "id": "day.any.kantele2.k3.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.23,
+  "r2": 0.09,
+  "bright": 0.17,
+  "end_db": 1.9,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.tagelharpa2.k1.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.15,
+  "r2": 0.05,
+  "bright": 0.03,
+  "end_db": 3.1,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.tagelharpa2.k2.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.28,
+  "r2": 0.12,
+  "bright": 0.21,
+  "end_db": 0.5,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.tagelharpa2.k4.stack",
+  "cue": [
+   2,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": 0.29,
+  "r2": 0.06,
+  "bright": 0.24,
+  "end_db": 1.2,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.nyckelharpa2.k2.stack",
+  "cue": [
+   3,
+   10
+  ],
+  "tail_bars": 6,
+  "slope": 0.11,
+  "r2": 0.04,
+  "bright": 0.01,
+  "end_db": -1.1,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "day.any.nyckelharpa2.k3.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.7,
+  "r2": 0.52,
+  "bright": 0.61,
+  "end_db": 1.6,
+  "rising": false,
+  "buildup": false,
+  "falling": true
+ },
+ {
+  "id": "day.any.nyckelharpa2.k5.stack",
+  "cue": [
+   2,
+   7
+  ],
+  "tail_bars": 9,
+  "slope": 1.42,
+  "r2": 0.45,
+  "bright": -0.62,
+  "end_db": 9.9,
+  "rising": true,
+  "buildup": true,
+  "falling": false
+ },
+ {
+  "id": "night.any.kantele2.k0.stack",
+  "cue": [
+   7,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.05,
+  "r2": 0.0,
+  "bright": 0.25,
+  "end_db": -0.6,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.tagelharpa2.k0.stack",
+  "cue": [
+   4,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": 0.9,
+  "r2": 0.51,
+  "bright": -0.44,
+  "end_db": 2.5,
+  "rising": true,
+  "buildup": true,
+  "falling": false
+ },
+ {
+  "id": "night.any.tagelharpa2.k1.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.15,
+  "r2": 0.04,
+  "bright": -0.43,
+  "end_db": 4.0,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "night.any.tagelharpa2.k3.stack",
+  "cue": [
+   5,
+   10
+  ],
+  "tail_bars": 6,
+  "slope": 1.17,
+  "r2": 0.53,
+  "bright": -0.73,
+  "end_db": 0.4,
+  "rising": true,
+  "buildup": true,
+  "falling": false
+ },
+ {
+  "id": "night.any.nyckelharpa2.k0.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.99,
+  "r2": 0.6,
+  "bright": -0.82,
+  "end_db": 5.6,
+  "rising": true,
+  "buildup": true,
+  "falling": false
+ },
+ {
+  "id": "night.any.nyckelharpa2.k2.stack",
+  "cue": [
+   4,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": -0.04,
+  "r2": 0.0,
+  "bright": -0.15,
+  "end_db": -0.3,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.kantele2.k2.stack",
+  "cue": [
+   3,
+   10
+  ],
+  "tail_bars": 6,
+  "slope": -0.24,
+  "r2": 0.06,
+  "bright": 0.13,
+  "end_db": 0.3,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.kantele2.k3.stack",
+  "cue": [
+   6,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": 0.06,
+  "r2": 0.0,
+  "bright": -0.91,
+  "end_db": 5.7,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.kantele2.k4.stack",
+  "cue": [
+   5,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": -0.45,
+  "r2": 0.35,
+  "bright": 0.44,
+  "end_db": -2.3,
+  "rising": false,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.tagelharpa2.k0.stack",
+  "cue": [
+   2,
+   9
+  ],
+  "tail_bars": 7,
+  "slope": 1.17,
+  "r2": 0.51,
+  "bright": -0.53,
+  "end_db": 5.4,
+  "rising": true,
+  "buildup": true,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.tagelharpa2.k2.stack",
+  "cue": [
+   3,
+   12
+  ],
+  "tail_bars": 4,
+  "slope": 0.08,
+  "r2": 0.01,
+  "bright": -0.04,
+  "end_db": 1.2,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.tagelharpa2.k4.stack",
+  "cue": [
+   4,
+   11
+  ],
+  "tail_bars": 5,
+  "slope": 0.14,
+  "r2": 0.02,
+  "bright": 0.33,
+  "end_db": 0.9,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ },
+ {
+  "id": "bloodmoon.any.nyckelharpa2.k2.stack",
+  "cue": [
+   2,
+   9
+  ],
+  "tail_bars": 7,
+  "slope": 0.08,
+  "r2": 0.01,
+  "bright": 0.13,
+  "end_db": 1.8,
+  "rising": true,
+  "buildup": false,
+  "falling": false
+ }
+]

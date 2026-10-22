@@ -205,6 +205,14 @@ The designer: "how do we get the individual pieces to go longer?", then "fancy l
 - **Stems** (`music stems`, Demucs, 98 tracks): a phrase varies 45% of the time between drums out (bass and the rest), sparse (the rest, bass -6 dB) and pulse (the battle level's drums in at -10 dB, in step since the levels share the spine).
 - **Solid. SA3 writes loop-point fills well; loudness is what fails.** `music fills`: 1 bar inpainted between each track's end cue and start cue (4 bars kept either side), checked for the grid (90 BPM), rating (at least the calm gate) and loudness (within 3 dB of the bars around it). 367 kept of 513 tried; 89 of 98 tracks got all 4, one none. Kept fills rate 7.57 (median, min 6.32). Of 146 rejected, 137 were partly or only for loudness, 10 off the beat, 18 rated low: a fill tends to rise or drop against the bars it sits between.
 
+### 2026-10-21: are the cut-off endings build-ups? (Musloop's test, for the graph)
+
+The designer asked whether build-up detection (Musloop, `backend/analysis.py` `_is_transition`) could give the graph its lifts. Its test marks a section a build-up, to play once rather than loop, when its loudness has a directed trend: a normalised RMS slope over 0.6 with R² over 0.35, or over 0.35 with R² over 0.25 and brightness rising with it. Applied by `research/buildup_probe.py` to the bars after each shipped song's mellow cue (the ending the trims leave out), on its calm level, per beat; raw results in `research/data/buildup_probe.json`.
+
+- **Solid. Real build-ups are rare: 6 of 94 endings.** Most endings are 4 or 5 bars (41 and 24 songs). 53 rise at all, and only 33 of those get brighter as they do. SA3's crescendo is mostly the gentle swell measured on 2026-10-20 (bars 13-16 +1.6 to +1.8 dB), not a directed ramp.
+- **Leaning. The six that pass are big and dark.** Their last beat is +0.4 to +9.9 dB over the loop's mean (median +5.6), and in all six the brightness falls as the level rises. That suggests the low end and drums are building, though nobody has listened for it yet. They are nyckelharpa2 day k5 and night k0, kantele2 day k0, and tagelharpa2 night k3, bloodmoon k0 and night k0.
+- **So:** detection alone gives the graph a lift out of 6 songs. Lifts for every scene change would have to be made: inpainted between two songs, as fills and grow are, and kept when they pass this test. Not tried.
+
 ### 2026-10-21: glue between parts: none in the library, so frozen from each family's own bar
 
 The designer, on the Mixer ("most of these work super well, some almost perfect"): "an even mellower join that was homogeneous in each family that we could slap in the middle." Uses: a way through when two parts don't join (so a set can hold parts that don't fit each other directly), a breath every few parts (rise and fall instead of one busy level), and later the doorway to the rests and into a fight.
