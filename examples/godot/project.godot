@@ -1,0 +1,13 @@
+; Sound Lab's music in Godot 4: a reference player for a sync folder (see README.md).
+
+config_version=5
+
+[application]
+
+config/name="Sound Lab music (reference)"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.3")
+
+[audio]
+
+driver/enable_input=false

@@ -1,0 +1,9 @@
+.godot/
+/soundlab/*.ogg
+/soundlab/music/
+/soundlab/stingers/
+/soundlab/soundlab.json
+/soundlab/walk.js
+/soundlab/walk.d.ts
+/soundlab/README.md
+/soundlab/soundlab.schema.json
