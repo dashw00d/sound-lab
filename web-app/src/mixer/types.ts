@@ -98,6 +98,10 @@ export interface Chunk {
   bid?: number
   tapeIdx?: number
   heard?: boolean
+  /** Bars into its run when it starts (the timeline's playhead in a queue's song). */
+  at?: number
+  /** A replayed chunk: bars of its tape chunk left out at its start (played from a bar into it). */
+  skip?: number
   replay?: boolean
   rev?: number
   /** Its place in a meeting (playMeeting): which of the parts it is. */

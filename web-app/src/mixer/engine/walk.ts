@@ -175,7 +175,7 @@ export class Walk {
     }
     if (r.bar! > r.hi!) { r.bar = r.lo; r.passes!++ }
     const len = r.played! < stay ? Math.min(LEN - (r.played! % LEN), stay - r.played!, r.hi! - r.bar! + 1) : 1
-    const c: Chunk = { kind: 'part', track: r.track, bar: r.bar!, bars: len, variant: 'full', run: r, entry: r.entry, first: r.first }
+    const c: Chunk = { kind: 'part', at: r.played!, track: r.track, bar: r.bar!, bars: len, variant: 'full', run: r, entry: r.entry, first: r.first }
     r.first = false; r.bar! += len; r.played! += len; r.lastBar = c.bar + len - 1
     this.scene!.bars += len; this.gbars += len; this.heard.set(r.track, (this.heard.get(r.track) ?? 0) + len)
     return c
@@ -237,7 +237,7 @@ export class Walk {
     }
     const len = this.pin ? Math.min(LEN, r.hi! - r.bar! + 1) : r.played! < pr.stay ? Math.min(LEN - (r.played! % LEN), pr.stay - r.played!, r.hi! - r.bar! + 1) : 1
     r.afterFill = false
-    const c: Chunk = { kind: 'part', track: r.track, bar: r.bar!, bars: len, variant: r.variant, run: r, entry: r.entry, first: r.first }
+    const c: Chunk = { kind: 'part', at: r.played!, track: r.track, bar: r.bar!, bars: len, variant: r.variant, run: r, entry: r.entry, first: r.first }
     r.first = false; r.bar! += len; r.played! += len; r.lastBar = c.bar + len - 1
     return c
   }

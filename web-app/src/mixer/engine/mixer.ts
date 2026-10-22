@@ -34,9 +34,9 @@ export class Mixer {
   private script: Chunk[] | null = null
   private replay: Chunk[] | null = null
   private tape: Chunk[] = []
-  /** What played before the plan was last begun again (a seek, Back, a skip): the timeline's history, 150 s of it. */
-  private past: Chunk[] = []
-  private t0: number | null = null  // (when what the timeline holds began: its times count from here)
+  /** The timeline's last drawing: each chunk (its tape index, or itself in a script) → its card, and the bars before it
+   * in the card; the playhead is found through it. */
+  private tlIndex = new Map<number | Chunk, { id: string; before: number }>()
   private bseq = 0
   private gen = 0
   private timer = 0
@@ -163,8 +163,6 @@ export class Mixer {
   async play(script: Chunk[] | null = null, from: Part | null = null, opts: { pin?: boolean; tag?: string; queue?: QueueItem[]; at?: number; ffw?: number; hold?: boolean } = {}) {
     ++this.gen
     const queue = !script && opts.queue?.length ? opts.queue : null, pin = !script && !queue && !!from && !!opts.pin
-    // (the timeline keeps what played when the walk goes on, or the same queue plays on: '.', Back, a song chosen in it)
-    const keep = (!script && !!from && !pin) || (!!queue && this.queueOn && this.queue === queue)
     if (!script && from && !pin) { let n = this.tape.length; while (n > 0 && !this.tape[n - 1].heard) n--; this.tape.length = n }
     else if (!script) this.tape = []
     this.replay = null
@@ -174,8 +172,6 @@ export class Mixer {
     if (!opts.hold) this.paused = false  // (a move within what plays keeps a pause: Back, skip, a seek, a jump)
     if (audio().state === 'suspended' && !this.paused) await audio().resume()
     this.halt()
-    if (!keep) { this.past = []; this.t0 = null }
-    else if (queue) for (const c of this.past) c.tapeIdx = undefined  // (the tape starts again: what played is reached through the queue)
     if (!script && !pin && !queue && !this.walk.pool().length) { toast('Add some parts first'); return }
     this.script = script ? [...script] : null
     this.pinned = pin; this.queueOn = !!queue; this.tag = opts.tag ?? null; this.meeting = null
@@ -186,9 +182,6 @@ export class Mixer {
     this.start()
   }
   private halt() {
-    const now = this.now()  // (what had played joins the timeline's history)
-    this.past = [...this.past, ...this.plan.filter(c => c.scheduled && !c.skipped && c.T! < now).map(c => ({ ...c, end: Math.min(c.end!, now), nodes: undefined, bufs: undefined }))]
-      .filter(c => c.end! > now - 150)
     this.sched.halt(this.plan); this.plan = []; this.playing = false; clearInterval(this.timer)
   }
   stop() { this.gen++; this.halt(); this.script = null; this.tag = null; if (this.paused) { this.paused = false; void audio().resume() } this.changed() }
@@ -229,76 +222,104 @@ export class Mixer {
     const T = this.tape, runs = new Map<Run, Run>()
     const runOf = (r?: Run) => { if (!r) return r; if (!runs.has(r)) runs.set(r, { ...r, gn: null, match: null }); return runs.get(r) }
     const queue = T.slice(k).map((o, j): Chunk => ({ kind: o.kind, track: o.track, bar: o.bar, bars: o.bars, variant: o.variant, fill: o.fill, fillBeats: o.fillBeats,
-      hi: o.hi, glue: o.glue, entry: o.entry, first: o.first || j === 0, bid: o.bid, tapeIdx: k + j, replay: true, run: runOf(o.run) }))
+      hi: o.hi, glue: o.glue, entry: o.entry, first: o.first || j === 0, bid: o.bid, tapeIdx: k + j, replay: true, run: runOf(o.run), at: o.at }))
     const n = queue[0] && queue[0].kind === 'part' ? Math.min(skip, queue[0].bars - 1) : 0
-    if (n > 0) { queue[0].bar += n; queue[0].bars -= n }
+    if (n > 0) { queue[0].bar += n; queue[0].bars -= n; queue[0].skip = n; if (queue[0].at != null) queue[0].at += n }
     ++this.gen; this.halt()
     if (this.walk.run) this.walk.run = runOf(this.walk.run)!  // (the walk goes on in the copy of the run it was in, so the seam is a seam within a run)
     this.replay = queue
     this.start()
   }
-  /** Play from a time on the timeline (the audio clock): what played or is planned there, from that bar. Returns false
-   * where there's nothing to play from (a script: an audition has no tape). */
-  seekTo(t: number): boolean {
-    if (!this.playing || this.script) return false
-    if (this.mode === 'queue' && this.queue) {  // (a queue: that song again, so many bars in)
-      const all = [...this.past, ...this.plan], c = all.find(x => !x.skipped && x.T! <= t && t < x.end! && x.run?.qi != null)
-      if (!c) return false
-      const began = all.find(x => x.run === c.run && !x.skipped)!.T!
-      void this.play(null, null, { queue: this.queue, at: c.run!.qi!, ffw: Math.max(0, Math.floor((t - began) / this.jd.barS())), hold: true })
+  /** What the timeline draws (2026-10-21, the designer: a seek back mustn't add the song again, and a press ahead must
+   * play what's planned there): the tape, block by block (a run's visit, a glue, a rest) as the walk laid it down,
+   * played and planned, or a script's plan; in a queue, its songs, Stay bars each. Each card: its bars (the song's own
+   * numbers: it loops, a fill has none), its shape, its name (none while the walk is rated blind), its rating and the
+   * thumb on the transition after it, where it starts along the timeline (s), and how to play from a bar of it. */
+  timeline(): Timeline {
+    const barS = this.jd.barS(), sess = this.sess, blind = this.walking, cards: TCard[] = [], index = new Map<number | Chunk, { id: string; before: number }>()
+    let at = 0
+    if (this.mode === 'queue' && this.queue) {
+      this.queue.forEach((it, qi) => {
+        const e = this.jd.entryOf(it.id), [lo, hi] = this.jd.loopFor(it.id, e), bars = this.prefs.stay, nums: number[] = []
+        for (let k = 0, b = e; k < bars; k++) { nums.push(b); b = b >= hi ? lo : b + 1 }
+        const shape = this.shapeOf(nums.map(n => ({ kind: 'part', track: it.id, bar: n, bars: 1 })))
+        cards.push({ id: `q${qi}`, key: null, kind: 'part', bars, nums, label: it.label, shape, rating: 0, like: 0, rated: false, start: at, seek: { qi } })
+        at += bars * barS
+      })
+    } else {
+      for (const b of this.blocks(this.script ? this.plan : this.tape)) {
+        const key = blockKey(b), t = this.jd.track(b.track), parts: { k: number; bars: number }[] = []
+        let before = 0
+        for (const c of b.chunks) {
+          index.set(c.tapeIdx ?? c, { id: key, before })
+          if (c.tapeIdx != null) parts.push({ k: c.tapeIdx, bars: c.bars })
+          before += c.bars
+        }
+        cards.push({ id: key, key, kind: b.kind, bars: b.bars, nums: b.chunks.flatMap(c => Array.from({ length: c.bars }, (_, k) => (c.kind === 'part' ? c.bar + k : null))),
+          label: blind ? null : b.kind === 'part' ? (t ? name(t) : b.track ?? '') : b.kind, shape: this.shapeOf(b.chunks),
+          rating: sess?.stars.get(key) ?? 0, like: sess?.likes.get(key) ?? 0, rated: !!sess && sess.rec.has(key), start: at, seek: this.script ? null : { parts } })
+        at += b.bars * barS
+      }
+    }
+    this.tlIndex = index
+    return { barS, beats: this.lib.bar_beats, cards }
+  }
+  /** Each beat's loudness of what some chunks play, from the songs' own measures, 0..1, scaled to its own quietest and
+   * loudest within a floor of 9 dB: the music's swell, not a flat bar. Names nothing. */
+  private shapeOf(chunks: Pick<Chunk, 'kind' | 'track' | 'bar' | 'bars'>[]) {
+    const shape: number[] = []
+    for (const c of chunks) {
+      const bt = this.jd.track(c.track)?.measure?.beats?.[this.state === 'mellow' ? 'calm' : 'battle']
+      for (let k = 0; k < c.bars * this.lib.bar_beats; k++) {
+        if (c.kind !== 'part' || !bt?.length) { shape.push(c.kind === 'fill' ? 0.55 : 0.08); continue }
+        shape.push(bt[((c.bar - 1) * this.lib.bar_beats + k) % bt.length])
+      }
+    }
+    const db = shape.filter(v => v < 0), lo = db.length ? Math.min(...db) : 0, hi = db.length ? Math.max(...db) : 0, span = Math.max(9, hi - lo)
+    for (let k = 0; k < shape.length; k++) if (shape[k] < 0) shape[k] = 0.18 + 0.82 * Math.max(0, (shape[k] - (hi - span)) / span)
+    return shape
+  }
+  /** Where the playhead is on the timeline: its card and how many bars into it (fractional). Between two chunks, as after
+   * a jump while paused, at the start of the one about to play. */
+  headPos(): { id: string; bar: number } | null {
+    if (!this.playing) return null
+    const now = this.now(), c = this.nowChunk(now) ?? this.plan.find(x => !x.skipped && x.T != null && x.T >= now - 0.01)
+    if (!c || c.T == null) return null
+    const into = Math.max(0, Math.min(c.bars, (now - c.T) / this.jd.barS()))
+    if (this.mode === 'queue') return c.run?.qi != null ? { id: `q${c.run.qi}`, bar: (c.at ?? 0) + into } : null
+    const ix = this.tlIndex.get(c.tapeIdx ?? c)
+    return ix ? { id: ix.id, bar: ix.before + (c.skip ?? 0) + into } : null
+  }
+  /** Play from bar `bar` of a card: the tape again from there, every chunk as it was (back: what played; ahead: what's
+   * planned), or a queue's song so many bars in. A pause stays a pause. False where there's nothing to play from (an
+   * audition has no tape). */
+  seekAt(seek: TCard['seek'], bar: number): boolean {
+    if (!this.playing || !seek) return false
+    if ('qi' in seek) {
+      if (!this.queue) return false
+      void this.play(null, null, { queue: this.queue, at: seek.qi, ffw: Math.max(0, Math.round(bar)), hold: true })
       return true
     }
-    const c = [...this.past, ...this.plan].find(x => !x.skipped && x.T! <= t && t < x.end! && x.tapeIdx != null)
-    if (!c) return false
-    this.replayFrom(c.tapeIdx!, Math.max(0, Math.floor((t - c.T!) / this.jd.barS())))
+    let b = Math.max(0, Math.round(bar))
+    for (const p of seek.parts) { if (b < p.bars) { this.replayFrom(p.k, b); return true } b -= p.bars }
+    const last = seek.parts[seek.parts.length - 1]
+    if (!last) return false
+    this.replayFrom(last.k, last.bars - 1)
     return true
   }
-  /** What the timeline draws: the blocks (a run's visit, a glue, a rest) the plan holds, played and to come, each with its
-   * name (none while the walk is rated blind), its rating and the thumb on the transition after it; and in a queue the
-   * songs after the plan, as ghosts of their length. */
-  timeline() {
-    const bl = this.blocks([...this.past, ...this.plan]), sess = this.sess, blind = this.walking, barS = this.jd.barS()
-    const blocks = bl.map((b, i) => {
-      const key = blockKey(b), t = this.jd.track(b.track)
-      // (its shape: the loudness of each beat it plays, from the songs' own measures, 0..1: shows the music, names nothing)
-      const shape: number[] = []
-      for (const c of b.chunks) {
-        const bt = this.jd.track(c.track)?.measure?.beats?.[this.state === 'mellow' ? 'calm' : 'battle']
-        for (let k = 0; k < c.bars * this.lib.bar_beats; k++) {
-          if (c.kind !== 'part' || !bt?.length) { shape.push(c.kind === 'fill' ? 0.55 : 0.08); continue }
-          shape.push(bt[((c.bar - 1) * this.lib.bar_beats + k) % bt.length])
-        }
-      }
-      // (scaled to its own quietest and loudest beats, within a floor of 9 dB: the music's swell, not a flat bar)
-      const db = shape.filter(v => v < 0), lo = db.length ? Math.min(...db) : 0, hi = db.length ? Math.max(...db) : 0, span = Math.max(9, hi - lo)
-      for (let k = 0; k < shape.length; k++) if (shape[k] < 0) shape[k] = 0.18 + 0.82 * Math.max(0, (shape[k] - (hi - span)) / span)
-      // (the song's own bar at each bar of the block: it loops, and a fill has none)
-      const nums = b.chunks.flatMap(c => Array.from({ length: c.bars }, (_, k) => (c.kind === 'part' ? c.bar + k : null)))
-      return { key, id: `${key}@${b.T.toFixed(2)}`, nums, kind: b.kind, T: b.T, end: b.end, bars: b.bars, track: b.track ?? null, qi: b.run?.qi ?? null,
-        label: blind ? null : b.kind === 'part' ? (t ? name(t) : b.track ?? '') : b.kind, shape,
-        bar: b.bar, rating: sess?.stars.get(key) ?? 0, like: sess?.likes.get(key) ?? 0, rated: !!sess && sess.rec.has(key), next: i < bl.length - 1 }
-    })
-    const ghosts: { qi: number; label: string; T: number; end: number }[] = []
-    if (this.mode === 'queue' && this.queue) {
-      const last = this.plan[this.plan.length - 1], q = this.queue
-      let at = last?.end ?? this.now(), qi = (last?.run?.qi ?? 0) + 1
-      for (let k = 0; k < Math.min(4, q.length - 1); k++, qi++) {
-        const it = q[qi % q.length], [lo, hi] = this.jd.cueOf(it.id), bars = Math.min(this.prefs.stay, hi - lo + 1)
-        ghosts.push({ qi: qi % q.length, label: it.label, T: at, end: at + bars * barS }); at += bars * barS
-      }
-    }
-    if (this.t0 == null && blocks.length) this.t0 = blocks[0].T
-    return { now: this.now(), barS, beats: this.lib.bar_beats, blocks, ghosts, origin: this.t0 ?? this.now() }
-  }
-  /** To just before the next transition (2026-10-21, the designer: "easy to skip to right before transitions to save
-   * time"): in a queue, the song playing from 2 bars before it ends; on the walk, the song playing is done and the walk
-   * moves on at its next chance (a few seconds: what's planned plays first). */
+  /** To 2 bars before the next transition (2026-10-21, the designer: "easy to skip to right before transitions to save
+   * time"), on the timeline: the card playing's, or once in its last 2 bars, the next card's. On the walk with nothing
+   * planned past the card playing, the walk moves on at its next phrase end instead. */
   nextTransition() {
-    if (this.mode === 'queue' && this.queue) {
-      const qi = this.heard().qi ?? 0
-      void this.play(null, null, { queue: this.queue, at: qi, ffw: Math.max(0, this.prefs.stay - 2), hold: true })
-      toast('Two bars before the next song', 'next')
-    } else if (this.walking) { this.walk.hurry(); toast('Moving on at the next phrase end', 'next') }
+    const cards = this.timeline().cards, h = this.headPos(), i = h ? cards.findIndex(c => c.id === h.id) : -1
+    const q = this.mode === 'queue', after = (j: number) => (q ? cards[(j + 1) % cards.length] : cards[j + 1])
+    if (i >= 0 && after(i)) {
+      const c = cards[i], to = Math.max(0, c.bars - 2)
+      if (h!.bar < to - 0.05) { this.seekAt(c.seek, to); toast('Two bars before the transition', 'next'); return }
+      const n = after(i)!, j = cards.indexOf(n)
+      if (after(j)) { this.seekAt(n.seek, Math.max(0, n.bars - 2)); toast('Two bars before the next transition', 'next'); return }
+    }
+    if (this.walking) { this.walk.hurry(); toast('Moving on at the next phrase end', 'next') }
   }
   skip() {
     if (this.mode === 'queue') { this.jumpQueue((this.heard().qi ?? 0) + 1); return }
@@ -400,7 +421,7 @@ export class Mixer {
   blocks(chunks: Chunk[] = this.plan): Block[] {
     const out: Block[] = []
     for (const c of chunks.filter(c => !c.skipped)) {
-      const b = out[out.length - 1], same = !!b && inRun(c) && b.kind === 'part' && b.run === c.run
+      const b = out[out.length - 1], same = !!b && inRun(c) && b.kind === 'part' && (b.run === c.run || (c.bid != null && b.chunks[b.chunks.length - 1].bid === c.bid))  // (a visit replayed and gone on in a copy of its run is still one block)
       const lastBar = c.kind === 'fill' ? null : c.bar + c.bars - 1
       if (same) { b.bars += c.bars; b.end = c.end!; if (lastBar != null) b.last = lastBar; b.chunks.push(c); if (c.variant && c.variant !== 'full') b.vars.add(c.variant) }
       else out.push({ kind: inRun(c) ? 'part' : c.kind, run: c.run, track: c.run?.entry ? c.run.entry.track : c.track, bar: c.bar, bars: c.bars, last: lastBar ?? c.bar,
@@ -483,3 +504,10 @@ export class Mixer {
   }
 }
 export type Snapshot = ReturnType<Mixer['snapshot']>
+/** A card of the timeline: a block of the tape (or of a script), or a queue's song. */
+export interface TCard {
+  id: string; key: string | null; kind: Chunk['kind']; bars: number; nums: (number | null)[]; label: string | null; shape: number[]
+  rating: number; like: number; rated: boolean; start: number
+  seek: { parts: { k: number; bars: number }[] } | { qi: number } | null
+}
+export interface Timeline { barS: number; beats: number; cards: TCard[] }
