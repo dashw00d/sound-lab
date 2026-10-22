@@ -1,96 +1,177 @@
 // The game (2026-10-21, the designer: "this app should allow you to sync with a game's source as a folder and maybe
 // include json/code/docs ... so the game knows how to plug it in. It should be agnostic"): the folder the lab keeps in
-// the game, what's in it against what the lab has now, and the one button that writes it. Beside it, the README the
-// game gets: how to plug the music in, in any engine. Nothing is written but by that button.
-import { useEffect, useState, type ReactNode } from 'react'
+// the game. Audio goes over a batch at a time ("when you are happy with a big ol' batch, you can move it over to the
+// source, optionally keep a local copy, and have your next batch separate and local. Those tracks would be shipped"):
+// the songs ready to ship, by scene, each to hear and to leave out; what's in the game already; the manifest, the walk
+// and the docs, written for what's shipped. Beside it, the README the game gets. Nothing is written but by a button.
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api } from '../../api/client'
-import type { SyncPlan } from '../../api/types'
-import { useProject } from '../../data/resources'
+import type { SyncPlan, SyncSong } from '../../api/types'
+import { useFamilies, useProject } from '../../data/resources'
+import { useEngine } from '../../player/hooks'
+import { usePlayer } from '../../player/store'
 import { Icon } from '../../shell/Icon'
 import { toast } from '../../shell/toast'
-import { Seg } from '../../ui/Seg'
+import { Energy } from '../../ui/Energy'
 import { Split } from '../../ui/Split'
+import { colour, hue } from '../families/model'
 import './game.css'
 
-const mb = (b: number) => (b >= 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1e3))} KB`)
-const STATE = { new: 'new', changed: 'changed', same: 'in sync', remove: 'to remove', missing: 'missing' } as const
+const mb = (b: number) => (!b ? '0 MB' : b >= 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1e3))} KB`)
+const STATE = { new: 'new', changed: 'changed', same: 'in sync' } as const
+const KIND: Record<string, string> = { shipped: 'promoted', candidate: 'kept take', trial: 'trial take', extension: 'extension' }
+/** day.any.war.k3.close → war k3 · day */
+const nameOf = (id: string) => { const p = id.split('.'); return p.length >= 4 ? { title: `${p[2]} ${p[3]}`, sub: p[0] } : { title: id, sub: '' } }
+const bySceneOf = <T extends SyncSong>(xs: T[]) => {
+  const m = new Map<string, T[]>()
+  for (const x of xs) { const k = x.scene ?? 'none'; m.set(k, [...(m.get(k) ?? []), x]) }
+  return [...m.entries()].sort((a, b) => b[1].length - a[1].length)
+}
 
 export default function GamePage() {
-  const project = useProject()?.name ?? 'the game'
-  const [link, setLink] = useState(() => localStorage.getItem('sync.link') === '1')
-  const [plans, setPlans] = useState<Partial<Record<'copy' | 'link', SyncPlan>>>({}), [err, setErr] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false), [open, setOpen] = useState(false)
-  const load = (l: boolean) => api.syncPlan(l).then(p => setPlans(x => ({ ...x, [l ? 'link' : 'copy']: p }))).catch(e => setErr(String(e)))
-  useEffect(() => { void load(false); void load(true) }, [])
-  const plan = plans[link ? 'link' : 'copy']
-  const choose = (l: boolean) => { setLink(l); localStorage.setItem('sync.link', l ? '1' : '0') }
-  const sync = async () => {
-    setBusy(true)
-    try {
-      const p = await api.sync(link)
-      setPlans(x => ({ ...x, [link ? 'link' : 'copy']: p })); void load(!link)
-      toast(`Synced into ${p.folder.split('/').slice(-2).join('/')}`, 'check')
-    } catch (e) { toast(`Couldn't sync: ${e}`, 'x') }
-    setBusy(false)
+  const project = useProject()?.name ?? 'the game', F = useFamilies().data, m = usePlayer().m
+  useEngine(m)
+  const [plan, setPlan] = useState<SyncPlan | null>(null), [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState<'ship' | 'sync' | null>(null), [left, setLeft] = useState<Set<string>>(new Set())
+  const [keep, setKeep] = useState(() => localStorage.getItem('ship.keep') !== '0'), [showIn, setShowIn] = useState(false)
+  const load = () => api.syncPlan().then(setPlan).catch(e => setErr(String(e)))
+  useEffect(() => { void load() }, [])
+  const ready = plan?.ready ?? [], chosen = useMemo(() => ready.filter(r => !left.has(r.id)), [ready, left])
+  const play = (id: string) => {
+    if (!m) return
+    if (m.playing && m.tag === id) { m.stop(); return }
+    const src = F?.items[id]?.src
+    if (!m.jd.track(id) && src) m.ensure(id, src as Record<string, string>)
+    m.playSong(id)
   }
-  if (err && !plan) return <div className="empty-state"><div><b>Couldn't read what a sync would write</b>{err}</div></div>
+  const toggle = (ids: string[], on: boolean) => setLeft(s => { const n = new Set(s); for (const i of ids) { if (on) n.delete(i); else n.add(i) } return n })
+  const ship = async () => {
+    setBusy('ship')
+    try {
+      const p = await api.ship(chosen.map(r => r.id), keep)
+      setPlan(p); setLeft(new Set())
+      toast(`Shipped ${chosen.length} song${chosen.length > 1 ? 's' : ''} into the game`, 'check')
+    } catch (e) { toast(`Couldn't ship: ${e}`, 'x') }
+    setBusy(null)
+  }
+  const sync = async () => {
+    setBusy('sync')
+    try { setPlan(await api.sync()); toast("The game's manifest and docs are up to date", 'check') } catch (e) { toast(`Couldn't write: ${e}`, 'x') }
+    setBusy(null)
+  }
+  if (err && !plan) return <div className="empty-state"><div><b>Couldn't read the game's folder</b>{err}</div></div>
   if (!plan) return <div className="empty-state"><div className="lib-loading" /></div>
 
-  const texts = plan.rows.filter(r => r.kind === 'text'), audio = plan.rows.filter(r => r.kind === 'audio')
-  const n = (s: string) => audio.filter(r => r.state === s).length, writes = plan.rows.filter(r => r.state === 'new' || r.state === 'changed')
-  const when = plan.synced ? new Date(plan.synced).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null
+  const when = (s: string | null) => (s ? new Date(s).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null)
+  const inBytes = plan.bytes, readyBytes = chosen.reduce((a, r) => a + r.bytes, 0), lost = plan.in_game.filter(s => s.missing.length)
   return (
-    <Split id="game" initial={560} max={760} left={
+    <Split id="game" initial={600} max={800} left={
       <div className="gm">
         <header className="gm-head">
-          <span className="lbl">Sync to the game</span>
+          <span className="lbl">The game's folder</span>
           <h2>{project}</h2>
           <code className="gm-folder" title="The folder the lab keeps in the game: nothing outside it is written">{plan.folder}</code>
           <div className={`gm-status ${!plan.synced ? 'never' : plan.changes ? 'behind' : 'ok'}`}>
-            <i />{!plan.synced ? 'Never synced' : plan.changes ? `${plan.changes} change${plan.changes > 1 ? 's' : ''} since ${when}` : `In sync · ${when}`}
+            <i />{!plan.synced ? 'Nothing in the game yet' : plan.changes ? `The manifest is behind the lab (written ${when(plan.synced)})` : `Up to date · ${when(plan.synced)}`}
           </div>
         </header>
 
         <div className="gm-tiles">
-          <div className="tile"><span className="lbl">Songs</span><b>{plan.songs}</b></div>
-          <div className="tile"><span className="lbl">Scenes</span><b>{plan.scenes}</b></div>
-          <div className="tile"><span className="lbl">Seamless cuts</span><b>{plan.cuts}</b></div>
-          <div className="tile"><span className="lbl">Audio</span><b>{mb(plan.bytes)}</b></div>
+          <div className="tile"><span className="lbl">In the game</span><b>{plan.in_game.length}<small> songs</small></b><span className="sub">{mb(inBytes)}</span></div>
+          <div className="tile"><span className="lbl">Walked</span><b>{plan.scenes}<small> scenes</small></b><span className="sub">{plan.cuts} seamless cuts</span></div>
+          <div className="tile hot"><span className="lbl">Ready to ship</span><b>{ready.length}<small> songs</small></b><span className="sub">{mb(ready.reduce((a, r) => a + r.bytes, 0))}</span></div>
+          <div className="tile"><span className="lbl">Local</span><b>{plan.local}<small> takes</small></b><span className="sub">not kept yet</span></div>
         </div>
 
         <section className="gm-sec">
-          <span className="lbl">The audio</span>
-          <Seg value={link ? 'link' : 'copy'} onChange={v => choose(v === 'link')} options={[
-            { value: 'copy', label: `Copy into the folder${plans.copy ? ` · ${mb(plans.copy.bytes)}` : ''}`, tip: 'The folder holds every song it plays: self-contained, whatever else the game has' },
-            { value: 'link', label: `Use the game's files${plans.link ? ` · ${mb(plans.link.bytes)}` : ''}`, tip: "Where the game already has a song's audio (shipped by music promote), the manifest points at it; only retuned copies go in the folder" }]} />
-          <p className="gm-hint">{link ? "The manifest points at the songs the game already ships; the folder holds only the retuned copies the Mixer plays." : 'Each song the walk plays, mellow and intense, as the Mixer hears it (retuned where it is).'}</p>
+          <div className="gm-sh"><span className="lbl">Ready to ship · the batch</span>
+            {ready.length > 0 && <span className="gm-sel"><button onClick={() => setLeft(new Set())}>all</button><button onClick={() => setLeft(new Set(ready.map(r => r.id)))}>none</button></span>}
+          </div>
+          {!ready.length ? (
+            <p className="gm-hint">Nothing is ready. Songs get ready when you keep them: Keep, New family or Belongs with in the Inbox, or a like on the Music page. The rest stay local, your next batch.</p>
+          ) : (
+            <div className="gm-batch">
+              {bySceneOf(ready).map(([fid, rs]) => {
+                const on = rs.filter(r => !left.has(r.id)).length
+                return (
+                  <div key={fid} className="gm-scene">
+                    <label className="gm-sc-h">
+                      <input type="checkbox" checked={on === rs.length} ref={el => { if (el) el.indeterminate = on > 0 && on < rs.length }} onChange={e => toggle(rs.map(r => r.id), e.target.checked)} />
+                      <span className="sw" style={{ background: fid === 'none' ? 'var(--line-3)' : colour(hue(fid)) }} />
+                      <b>{fid === 'none' ? 'No scene' : `Scene ${fid.replace(/^f/, '')}`}</b>
+                      <span className="dim">{[...new Set(rs.map(r => r.lead).filter(Boolean))].slice(0, 2).join(' · ')}</span>
+                      <span className="n">{on}/{rs.length}</span>
+                    </label>
+                    {rs.sort((a, b) => a.energy - b.energy).map(r => {
+                      const n = nameOf(r.id), playing = m?.playing && m.tag === r.id
+                      return (
+                        <div key={r.id} className={`gm-song ${left.has(r.id) ? 'out' : ''} ${playing ? 'playing' : ''}`}>
+                          <input type="checkbox" checked={!left.has(r.id)} onChange={e => toggle([r.id], e.target.checked)} />
+                          <button className="gm-play" title={playing ? 'Stop' : 'Hear it'} onClick={() => play(r.id)}><Icon name={playing ? 'stop' : 'play'} /></button>
+                          <span className="nm"><b>{n.title}</b><span>{n.sub}</span></span>
+                          <span className={`gm-kind k-${r.kind}`}>{KIND[r.kind] ?? r.kind}</span>
+                          <Energy value={r.energy} />
+                          <span className="gm-size">{r.missing.length ? <span className="bad">missing</span> : mb(r.bytes)}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {ready.length > 0 && (
+            <div className="gm-go">
+              <label className="gm-keep"><input type="checkbox" checked={keep} onChange={e => { setKeep(e.target.checked); localStorage.setItem('ship.keep', e.target.checked ? '1' : '0') }} />
+                Keep a local copy<span className="dim"> · {keep ? 'the lab keeps its own audio of what ships' : "the lab's own audio of what ships goes; it plays them from the game's folder (the game's own files are never touched)"}</span></label>
+              <button className="btn primary" disabled={!!busy || !chosen.length || chosen.some(r => r.missing.length)} onClick={() => void ship()}>
+                <Icon name={busy === 'ship' ? 'refresh' : 'check'} />{busy === 'ship' ? 'Shipping…' : `Ship ${chosen.length} song${chosen.length === 1 ? '' : 's'} into the game · ${mb(readyBytes)}`}
+              </button>
+              <span className="gm-hint">Their mellow and intense audio goes into {plan.folder.split('/').slice(-2).join('/')}/music, and the manifest walks them.</span>
+            </div>
+          )}
         </section>
 
         <section className="gm-sec">
-          <span className="lbl">What it writes</span>
+          <button className="gm-sh link" onClick={() => setShowIn(o => !o)}><span className="lbl">In the game · {plan.in_game.length} songs</span><Icon name={showIn ? 'up' : 'down'} /></button>
+          {lost.length > 0 && <p className="gm-warn"><Icon name="flag" />{lost.length} shipped song{lost.length > 1 ? 's have' : ' has'} lost audio in the folder: ship {lost.length > 1 ? 'them' : 'it'} again</p>}
+          {showIn && (
+            <div className="gm-batch">
+              {bySceneOf(plan.in_game).map(([fid, rs]) => (
+                <div key={fid} className="gm-scene">
+                  <div className="gm-sc-h"><span className="sw" style={{ background: fid === 'none' ? 'var(--line-3)' : colour(hue(fid)) }} /><b>{fid === 'none' ? 'No scene' : `Scene ${fid.replace(/^f/, '')}`}</b><span className="n">{rs.length}</span></div>
+                  {rs.map(r => {
+                    const n = nameOf(r.id)
+                    return (
+                      <div key={r.id} className={`gm-song in ${r.walked ? '' : 'out'}`}>
+                        <button className="gm-play" title="Hear it" onClick={() => play(r.id)}><Icon name="play" /></button>
+                        <span className="nm"><b>{n.title}</b><span>{n.sub}</span></span>
+                        <span className="gm-kind">{r.walked ? `shipped ${when(r.at)}` : 'not walked (a bad take now)'}</span>
+                        <span className="gm-size">{r.missing.length ? <span className="bad">audio gone</span> : mb(r.bytes)}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="gm-sec">
+          <span className="lbl">The manifest, the walk and the docs</span>
           <div className="gm-files">
-            {texts.map(r => (
+            {plan.rows.map(r => (
               <div key={r.path} className={`gm-file s-${r.state}`}>
                 <Icon name={r.path.endsWith('.md') ? 'layers' : 'save'} /><code>{r.path}</code><span className="gm-what">{ABOUT[r.path] ?? ''}</span><span className="gm-state">{STATE[r.state]}</span>
               </div>
             ))}
-            <button className={`gm-file audio ${n('new') + n('changed') + n('remove') ? 's-changed' : 's-same'}`} onClick={() => setOpen(o => !o)}>
-              <Icon name="wave" /><code>music/</code>
-              <span className="gm-what">{audio.length - n('remove')} files{n('remove') ? `, ${n('remove')} to remove` : ''}</span>
-              <span className="gm-state">{[n('new') && `${n('new')} new`, n('changed') && `${n('changed')} changed`, n('remove') && `${n('remove')} to remove`].filter(Boolean).join(' · ') || 'in sync'}</span>
-            </button>
-            {open && <div className="gm-audio">{audio.map(r => <div key={r.path} className={`s-${r.state}`}><code>{r.path.replace(/^music\//, '')}</code><span>{mb(r.bytes)}</span><span className="gm-state">{STATE[r.state]}</span></div>)}</div>}
-            {plan.missing > 0 && <p className="gm-warn"><Icon name="flag" />{plan.missing} audio file{plan.missing > 1 ? 's' : ''} the lab can't find: run music retune or music promote again</p>}
+          </div>
+          <div className="gm-go row">
+            <button className="btn" disabled={!!busy || !plan.changes} onClick={() => void sync()}><Icon name={busy === 'sync' ? 'refresh' : 'save'} />{plan.changes ? `Write ${plan.changes} file${plan.changes > 1 ? 's' : ''} into the game` : 'Up to date'}</button>
+            <span className="gm-hint">{plan.changes ? 'A cue, a vote or a setting changed what the game walks. Shipping writes these too.' : "They describe what's in the game now."}</span>
+            <button className="btn ghost sm" onClick={() => { setPlan(null); void load() }}><Icon name="refresh" />Check again</button>
           </div>
         </section>
-
-        <div className="gm-go">
-          <button className="btn primary" disabled={busy || !plan.changes} onClick={() => void sync()}>
-            <Icon name={busy ? 'refresh' : 'check'} />{busy ? 'Syncing…' : plan.changes ? `Sync ${writes.length} file${writes.length === 1 ? '' : 's'} into the game` : 'Nothing to sync'}
-          </button>
-          <span className="gm-hint">{plan.changes ? `${mb(plan.write_bytes)} into ${plan.folder.split('/').slice(-2).join('/')}${n('remove') ? `, and ${n('remove')} old audio file${n('remove') > 1 ? 's' : ''} removed` : ''}. Nothing outside the folder is touched.` : 'The folder has everything the lab has now.'}</span>
-          <button className="btn ghost sm" onClick={() => { setPlans({}); void load(false); void load(true) }}><Icon name="refresh" />Check again</button>
-        </div>
       </div>
     } right={
       <div className="gm-readme">
@@ -130,7 +211,7 @@ function markdown(text: string): ReactNode[] {
       out.push(<table key={i}><thead><tr>{rows[0].map((c, j) => <th key={j}>{inline(c, j)}</th>)}</tr></thead><tbody>{rows.slice(1).map((r, j) => <tr key={j}>{r.map((c, k) => <td key={k}>{inline(c, k)}</td>)}</tr>)}</tbody></table>)
     } else if (/^\s*(-|\d+\.) /.test(l)) {
       const ordered = /^\d+\./.test(l.trim()), items: { text: string; sub: string[] }[] = []
-      for (; i < lines.length && /^\s*(-|\d+\.) /.test(lines[i]); i++) {
+      for (; i < lines.length && (/^\s*(-|\d+\.) /.test(lines[i]) || (/^\s{3,}\S/.test(lines[i]) && items.length)); i++) {
         if (/^\s{2,}/.test(lines[i]) && items.length) items[items.length - 1].sub.push(lines[i].trim().replace(/^(-|\d+\.) /, ''))
         else items.push({ text: lines[i].trim().replace(/^(-|\d+\.) /, ''), sub: [] })
       }

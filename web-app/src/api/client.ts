@@ -26,10 +26,12 @@ export const api = {
     if (!r.ok) throw new Error(((await r.json().catch(() => null)) as { error?: string } | null)?.error ?? String(r.status))
     return r.json() as Promise<Mixes>
   },
-  /** What a sync into the game's folder would write (link: point at the game's own copies of the audio). */
-  syncPlan: (link: boolean) => json<SyncPlan>(`/api/sync?link=${link ? 1 : 0}`),
-  /** Sync the music into the game's folder: what the plan showed. Returns the plan after (all the same). */
-  sync: (link: boolean) => post<SyncPlan>('/api/sync', { link }),
+  /** The game's folder: its texts against the lab's, the songs shipped into it, the batch ready to ship. */
+  syncPlan: () => json<SyncPlan>('/api/sync'),
+  /** Write the manifest, the walk and the docs into the game's folder. Returns where it stands after. */
+  sync: () => post<SyncPlan>('/api/sync', {}),
+  /** Ship a batch into the game's folder (keep: the lab keeps its own copy). Returns where it stands after. */
+  ship: (ids: string[], keep: boolean) => post<SyncPlan>('/api/sync/ship', { ids, keep }),
   /** A thumb or answer: value 1, -1, or 0 to clear it. Returns the votes as saved. */
   vote: (clip: string, value: number) => post<Votes>('/api/vote', { clip, value }),
 }

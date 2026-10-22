@@ -47,3 +47,33 @@ button.gm-file { cursor: pointer; } button.gm-file:hover { background: rgba(255,
 .md table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12.5px; }
 .md th { text-align: left; color: var(--text); font-weight: 600; padding: 7px 10px; border-bottom: 1px solid var(--line-3); }
 .md td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+
+/* ---- the batch: by scene, each song to hear and to leave out */
+.gm-tiles .tile .sub { font: 500 11px var(--mono); color: var(--faint); }
+.gm-tiles .tile small { font-size: 11px; color: var(--faint); margin-left: 4px; font-weight: 500; }
+.gm-tiles .tile.hot { border-color: rgba(255, 200, 87, .35); background: linear-gradient(180deg, rgba(255, 200, 87, .06), var(--panel)); }
+.gm-sh { display: flex; align-items: center; gap: 10px; }
+button.gm-sh { border: 0; background: none; padding: 0; color: var(--faint); cursor: pointer; } button.gm-sh .i { width: 12px; height: 12px; }
+.gm-sel { margin-left: auto; display: flex; gap: 2px; }
+.gm-sel button { border: 0; background: none; color: var(--faint); font: 500 11px var(--mono); padding: 2px 7px; border-radius: 6px; cursor: pointer; }
+.gm-sel button:hover { color: var(--text); background: var(--hover); }
+.gm-batch { display: flex; flex-direction: column; gap: 10px; max-height: 520px; overflow-y: auto; padding-right: 4px; }
+.gm-scene { flex: none; border-radius: var(--r); background: var(--panel); border: 1px solid var(--line); overflow: hidden; }
+.gm-sc-h { display: flex; align-items: center; gap: 9px; padding: 9px 12px; border-bottom: 1px solid var(--line); font-size: 12.5px; cursor: pointer; }
+.gm-sc-h .sw { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.gm-sc-h .dim { color: var(--faint); font-size: 12px; } .gm-sc-h .n { margin-left: auto; font: 500 11px var(--mono); color: var(--faint); }
+.gm-song { display: grid; grid-template-columns: 16px 26px minmax(120px, 1fr) 84px 54px 64px; gap: 10px; align-items: center; padding: 5px 12px; font-size: 12.5px; transition: opacity .15s; }
+.gm-song.in { grid-template-columns: 26px minmax(120px, 1fr) auto 64px; }
+.gm-song:hover { background: rgba(255, 255, 255, .02); }
+.gm-song.out { opacity: .42; }
+.gm-song.playing { background: var(--accent-soft); }
+.gm-song .nm { display: flex; gap: 8px; align-items: baseline; min-width: 0; white-space: nowrap; overflow: hidden; }
+.gm-song .nm b { font-weight: 560; } .gm-song .nm span { font: 500 11px var(--mono); color: var(--faint); }
+.gm-play { width: 24px; height: 24px; border-radius: 7px; border: 0; background: none; color: var(--faint); display: grid; place-items: center; cursor: pointer; }
+.gm-play:hover { background: var(--hover); color: var(--text); } .gm-play .i { width: 11px; height: 11px; }
+.gm-kind { font: 500 10.5px var(--mono); color: var(--faint); white-space: nowrap; }
+.gm-kind.k-candidate, .gm-kind.k-trial, .gm-kind.k-extension { color: var(--accent-2); }
+.gm-size { font: 500 11px var(--mono); color: var(--faint); text-align: right; } .gm-size .bad { color: var(--bad); }
+input[type=checkbox] { accent-color: #9a8cff; width: 14px; height: 14px; margin: 0; cursor: pointer; }
+.gm-keep { display: flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer; } .gm-keep .dim { color: var(--faint); }
+.gm-go.row { flex-direction: row; align-items: center; flex-wrap: wrap; }

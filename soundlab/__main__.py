@@ -206,9 +206,13 @@ def main() -> int:
                    help="ship just these takes beside what has shipped (nothing is removed)")
     p.add_argument("--replace", action="store_true",
                    help="with --add: these takes become the whole rotation of their contexts (the rest is removed)")
-    p = sub.add_parser("sync", help="the music, its rules, the walk and the docs, into the game's folder (dry run without --apply)")
-    p.add_argument("--apply", action="store_true", help="write it")
-    p.add_argument("--link", action="store_true", help="point at a song's audio where the game already has it, instead of a copy")
+    p = sub.add_parser("sync", help="the manifest, the walk and the docs for the songs shipped, into the game's folder (dry run without --apply)")
+    p.add_argument("--apply", action="store_true", help="write them")
+    p = sub.add_parser("ship", help="a batch of songs into the game's folder: their audio, then the manifest (dry run without --apply)")
+    p.add_argument("ids", nargs="*", help="song ids (see `soundlab sync` for the ready ones)")
+    p.add_argument("--all", action="store_true", help="every song ready to ship")
+    p.add_argument("--drop-local", action="store_true", help="remove the lab's own copy of what it ships (it plays them from the game's folder)")
+    p.add_argument("--apply", action="store_true", help="ship them")
     ba = sub.add_parser("balance").add_subparsers(dest="action", required=True)
     ba.add_parser("measure")
     a = ap.parse_args()
@@ -292,7 +296,10 @@ def main() -> int:
         return music.add(proj, a.add, a.apply, a.replace) if a.add else music.promote(proj, a.apply)
     if a.cmd == "sync":
         from . import sync
-        return sync.run(proj, a.apply, a.link)
+        return sync.run(proj, a.apply)
+    if a.cmd == "ship":
+        from . import sync
+        return sync.run_ship(proj, a.ids, a.all, a.drop_local, a.apply)
     if a.cmd == "balance":
         from . import balance
 

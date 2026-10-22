@@ -8,8 +8,10 @@
   GET  /api/mixes           the Mixer page's saved sets: {name: {parts: [{track, start, bars}], at}}
   POST /api/mixes           {name, parts | null}: save a set of parts under a name (null: delete it)
   GET  /api/mixer           the Mixer's settings (data/mixer.json), so they're the same in any browser
-  GET  /api/sync?link=1      what a sync into the game's folder would write (soundlab/sync), and its README
-  POST /api/sync            {link}: sync the music into the game's folder (the designer's button)
+  GET  /api/sync            the game's folder (soundlab/sync): its texts against the lab's, the songs shipped into it, the
+                            batch ready to ship, and the README
+  POST /api/sync            write the texts (manifest, walk, docs, schema) into the game's folder (the designer's button)
+  POST /api/sync/ship       {ids, keep}: ship a batch into the game's folder (the designer's button)
   POST /api/mixer           {settings}: save them
   GET  /api/votes           votes.json alone
   GET  /api/families        every song sorted into families, and the queue of what to judge next (work/families.json)
@@ -50,7 +52,7 @@ from datetime import date, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import unquote, urlparse
 
 from . import paths, project as P, tuning
 from .store import Store
@@ -308,9 +310,8 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                 self.send_json(Store.read(st.mixer_settings_path, {}))
             elif url == "/api/sync":
                 from . import sync
-                link = parse_qs(urlparse(self.path).query).get("link", ["0"])[0] == "1"
                 with LOCK:
-                    p = sync.plan(proj, link)
+                    p = sync.plan(proj)
                 self.send_json({k: v for k, v in p.items() if k != "texts"} | dict(readme=p["texts"]["README.md"]))
             elif url == "/api/mixes":
                 with LOCK:
@@ -325,7 +326,11 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                 mix = Store.read(mix_path, {}) if mix_path else {}  # (the page follows the mix file's kind, and saves against its stamp)
                 self.send_json(dict(balance=Store.read(st.balance_path, {}), mix=mix, version=_version(mix), base=mix_stamp()))
             elif url.startswith("/clips/"):
-                self.send_file(_inside(st.clips, url[7:]))
+                f = _inside(st.clips, url[7:])
+                if f is not None and not f.is_file():  # (a song shipped without the lab keeping its copy: the game's folder has it)
+                    from . import sync
+                    f = sync.local_copy(proj, url) or f
+                self.send_file(f)
             elif url.startswith("/shipped/"):
                 self.send_file(_inside(proj.assets, url[9:]))
             else:
@@ -418,10 +423,17 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                     st.write(st.mixes_path, mixes, sort=True)
                     self.send_json(mixes)
                 return
-            if url == "/api/sync":  # (into the game's folder: what the plan showed, and nothing else)
+            if url in ("/api/sync", "/api/sync/ship"):  # (into the game's folder: the designer's buttons, and nothing else)
                 from . import sync
+                msg = self.body()
                 with LOCK:
-                    p = sync.apply(proj, bool(self.body().get("link")))
+                    if url == "/api/sync":
+                        p = sync.write(proj)
+                    else:
+                        ids = msg.get("ids")
+                        if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids) or not ids:
+                            raise HttpError(400, "ids: the songs to ship")
+                        p = sync.ship(proj, ids, keep=msg.get("keep", True) is not False)
                 self.send_json({k: v for k, v in p.items() if k != "texts"} | dict(readme=p["texts"]["README.md"]))
                 return
             if url == "/api/mixer":  # (the Mixer's settings: one small object)

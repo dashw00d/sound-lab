@@ -74,20 +74,24 @@ export interface Families {
 /** data/mixes.json: the Mixer's saved sets of parts. */
 export type Mixes = Record<string, { parts: { track: string; start: number; bars: number }[]; at: string }>
 
-/** GET /api/sync: what a sync into the game's folder would write (soundlab/sync plan). */
+/** GET /api/sync: the game's folder (soundlab/sync plan): its texts against the lab's, what's shipped into it, the batch
+ * ready to ship. */
+export interface SyncSong { id: string; kind: string; scene: string | null; bytes: number; missing: string[] }
 export interface SyncPlan {
   folder: string
-  link: boolean
   exists: boolean
-  /** When the music in the folder last changed (its manifest's `made`), or null: never synced. */
+  /** When the music in the folder last changed (its manifest's `made`), or null: never written. */
   synced: string | null
-  rows: { path: string; kind: 'text' | 'audio'; state: 'new' | 'changed' | 'same' | 'remove' | 'missing'; bytes: number }[]
+  rows: { path: string; state: 'new' | 'changed' | 'same'; bytes: number }[]
+  /** The songs walked from the folder: those shipped, in scenes, not bad takes. */
   songs: number
   scenes: number
   cuts: number
   changes: number
-  missing: number
+  in_game: (SyncSong & { at: string; kept: boolean; walked: boolean })[]
+  ready: (SyncSong & { energy: number; lead: string | null })[]
+  /** New takes not kept (yet): the next batch, local. */
+  local: number
   bytes: number
-  write_bytes: number
   readme: string
 }
