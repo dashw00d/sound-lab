@@ -49,8 +49,6 @@
 .tlc.cur .tlc-wave > svg path { stroke: rgba(205, 198, 255, .55); }
 .tlc-lit { position: absolute; inset: 0 8px; }
 .tlc-lit path { stroke: #8fe6ff; filter: drop-shadow(0 0 3px rgba(91, 214, 255, .8)); }
-.tlc-lead { position: absolute; top: 5px; bottom: 5px; right: 4px; border-radius: 0 7px 7px 0; pointer-events: none;
-  background: linear-gradient(90deg, rgba(255, 200, 87, .04), rgba(255, 200, 87, .13)); box-shadow: inset 1px 0 0 rgba(255, 200, 87, .35); }
 .tlc-kind { position: absolute; left: 9px; top: 3px; font: 600 9px var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); pointer-events: none; }
 
 .tlc-ctl { flex: 1; display: flex; align-items: center; gap: 6px; padding: 0 6px; border-top: 1px solid rgba(255, 255, 255, .07); min-width: 0; }
@@ -119,13 +117,11 @@ button.tlc-label:hover { background: var(--hover); color: var(--text); }
 .tls-cursor { position: absolute; left: 0; top: 2px; height: 116px; width: 0; z-index: 6; pointer-events: none; }
 .tls-cursor::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1px solid rgba(255, 255, 255, .38); }
 .tls-cursor.down::before { left: -1px; border-left: 2px solid rgba(255, 255, 255, .92); }
-.tls-cursor.snap::before { border-left-color: var(--pick); box-shadow: 0 0 10px rgba(255, 200, 87, .6); }
 .tls-cursor.none::before { border-left-style: dashed; border-left-color: rgba(255, 255, 255, .25); }
 .tls-bubble { position: absolute; top: 94px; left: 6px; height: 18px; display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border-radius: 5px; white-space: nowrap;
   background: #1b1f29; box-shadow: 0 0 0 1px var(--line-3), 0 6px 18px -6px rgba(0, 0, 0, .9); font: 500 10px/1 var(--mono); color: var(--text); }
 .tls-bubble .i { width: 10px; height: 10px; }
 .tls-cursor.flip .tls-bubble { left: auto; right: 6px; }
-.tls-cursor.snap .tls-bubble { color: var(--pick); box-shadow: 0 0 0 1px rgba(255, 200, 87, .55), 0 6px 18px -6px rgba(0, 0, 0, .9); }
 .tls-cursor.none .tls-bubble { color: var(--faint); }
 .tls-now { position: absolute; right: 8px; top: 24px; z-index: 7; display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 7px 0 10px; border-radius: 99px; border: 0;
   background: #1b1f29; box-shadow: 0 0 0 1px var(--accent-line), 0 6px 18px -6px rgba(0, 0, 0, .9); color: var(--text); font: 500 10.5px var(--font); }

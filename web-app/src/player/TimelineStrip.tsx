@@ -4,10 +4,11 @@
 // exceptional; at its right end, so a card half out of view still shows it); between two cards, the transition, its
 // thumbs once it has played (as the lane had them).
 // The rail on top is the progress: lit up to the playhead, a dot per transition, and before each transition its last 2
-// bars in gold, which play from there in one click ("easy to skip to right before transitions"). The ruler below: a
-// tick a beat, a bar, a phrase (the song's own bars numbered), each block's start timed, lit as it's played. The
-// playhead's head reads the time; the pointer shows where a press would land (2 bars before the transition near one).
-// Press a card's shape, or drag the head, to play from there. The cards move along a block at a time, and hold still
+// bars in gold, which play from there in one click ("easy to skip to right before transitions"; so does the chevron
+// between two cards, and '.'). The ruler below: a tick a beat, a bar, a phrase (the song's own bars numbered), each
+// block's start timed, lit as it's played. The playhead's head reads the time. Press a card, or drag the head: it
+// lands on the nearest bar line (2026-10-21, the designer: "why can't the timeline just snap to bars"), the guide on
+// its tick and the bar named on the ruler. The cards move along a block at a time, and hold still
 // while the pointer is over them (the wheel looks back and ahead).
 import { useEffect, useRef, useState } from 'react'
 import { audio } from '../audio/context'
@@ -19,7 +20,7 @@ import { useFrame } from './hooks'
 import { RATING } from './Rating'
 import './timelineStrip.css'
 
-const G = 50, BARW = 48, MINW = 192, MAXW = 640, EASE = 0.15, SNAP = 14, WAVE_H = 34
+const G = 50, BARW = 48, MINW = 192, MAXW = 640, EASE = 0.15, WAVE_H = 34
 const RULER_H = 26, TICK = [4, 7, 11, 16]  // (the ruler's height; a beat's tick, a bar's, a phrase's, a block's start)
 type TL = ReturnType<Mixer['timeline']>
 type Blk = TL['blocks'][number]
@@ -146,16 +147,16 @@ export function TimelineStrip({ m }: { m: Mixer }) {
 
   // ---- landing: a time from a point on the row (in the row's own coordinates)
   const before = (c: Card) => c.end - 2 * tl.barS
-  const target = (x: number): { t: number; snap: boolean; card: Card | null } | null => {
+  /** Where a press at x lands: the nearest bar line of the card under it (between two cards, the next one's start). */
+  const target = (x: number): { t: number; x: number; card: Card } | null => {
     for (let i = 0; i < cards.length; i++) {
       const c = cards[i], nx = cards[i + 1]
-      const lead = c.b?.kind === 'part' && c.bars >= 3 && nx ? xOf(cards, before(c)) : c.x + c.w
-      if (nx && x >= Math.min(lead, c.x + c.w - SNAP) && x <= nx.x + SNAP) return { t: before(c), snap: true, card: c }
-      if (x >= c.x && x <= c.x + c.w) {
-        if (c.g) return { t: c.T, snap: false, card: c }
-        const dl = i ? EASE : 0, dr = nx ? EASE : 0, t = c.T + dl + ((x - c.x) / c.w) * (c.end - c.T - dl - dr)
-        return { t: c.T + Math.floor((t - c.T) / tl.barS) * tl.barS + 0.01, snap: false, card: c }
-      }
+      if (nx && x > c.x + c.w && x < nx.x) return nx.g ? { t: nx.T, x: nx.x, card: nx } : { t: nx.T + 0.01, x: nx.x, card: nx }
+      if (x < c.x - (i ? 0 : G) || x > c.x + c.w) continue
+      if (c.g) return { t: c.T, x: c.x, card: c }
+      const pb = c.w / c.bars, k = Math.max(0, Math.min(nx ? c.bars : c.bars - 1, Math.round((x - c.x) / pb)))
+      if (k === c.bars) return nx!.g ? { t: nx!.T, x: nx!.x, card: nx! } : { t: nx!.T + 0.01, x: nx!.x, card: nx! }
+      return { t: c.T + k * tl.barS + 0.01, x: c.x + k * pb, card: c }
     }
     return null
   }
@@ -167,7 +168,7 @@ export function TimelineStrip({ m }: { m: Mixer }) {
     if (b.kind !== 'part') return `${b.kind} · ${at}`
     return `${b.label ? `${b.label} · ` : ''}${n != null ? `bar ${n}` : 'fill'} · ${at}`
   }
-  const go = (tg: { t: number; card: Card | null } | null) => {
+  const go = (tg: { t: number; card: Card } | null) => {
     if (!tg || !playing) return
     if (tg.card?.g && tg.t >= tg.card.T) { m.jumpQueue(tg.card.g.qi); return }
     if (!m.seekTo(tg.t)) toast('Nothing to play from there', 'x')
@@ -190,8 +191,7 @@ export function TimelineStrip({ m }: { m: Mixer }) {
   }
   const hover = (e: React.PointerEvent) => setHov(playing && !(e.target as HTMLElement).closest(NOT_HERE) ? local(e.clientX) : null)
 
-  const px = scrub ?? hov, tg = px == null || !playing ? null : target(px), tip = tg ? where(tg.t) : null
-  const cx = tg ? (tg.snap ? xOf(cards, tg.t) : px!) : 0
+  const px = scrub ?? hov, tg = px == null || !playing ? null : target(px), tip = tg ? where(tg.t) : null, cx = tg?.x ?? 0
   const state = (c: Card) => (c.g || c.T > now + 0.01 ? 'next' : c.end <= now || !playing ? 'past' : 'cur')
   return (
     <div className={`tls ${playing ? 'live' : ''} ${m.paused ? 'paused' : ''}`}>
@@ -225,7 +225,6 @@ export function TimelineStrip({ m }: { m: Mixer }) {
           </div>
           {cards.map((c, i) => {
             const st = state(c), b = c.b, nx = cards[i + 1]
-            const leadX = b?.kind === 'part' && c.bars >= 3 && nx ? xOf(cards, before(c)) - c.x : null
             const path = wave(b?.shape ?? [], c.w - 16, WAVE_H)
             return (
               <div key={c.id}>
@@ -233,7 +232,6 @@ export function TimelineStrip({ m }: { m: Mixer }) {
                   <div className="tlc-wave">
                     <svg width={c.w - 16} height={WAVE_H}><path d={path} /></svg>
                     {st === 'cur' && <div className="tlc-lit" ref={lit}><svg width={c.w - 16} height={WAVE_H}><path d={path} /></svg></div>}
-                    {leadX != null && <span className="tlc-lead" style={{ left: leadX }} />}
                     {b && b.kind !== 'part' && <span className="tlc-kind">{b.kind}</span>}
                     {c.g && <span className="tlc-kind">up later</span>}
                   </div>
@@ -274,8 +272,8 @@ export function TimelineStrip({ m }: { m: Mixer }) {
             </div>
           )}
           {tg && (
-            <div className={`tls-cursor ${scrub != null ? 'down' : ''} ${tip ? '' : 'none'} ${tg.snap ? 'snap' : ''} ${cx + applied.current > w * 0.62 ? 'flip' : ''}`} style={{ transform: `translateX(${cx}px)` }}>
-              <span className="tls-bubble">{tip ? <>{tg.snap && <Icon name="next" />}{tg.snap ? `2 bars before the transition · ${tip}` : tip}</> : 'nothing there'}</span>
+            <div className={`tls-cursor ${scrub != null ? 'down' : ''} ${tip ? '' : 'none'} ${cx + applied.current > w * 0.62 ? 'flip' : ''}`} style={{ transform: `translateX(${cx}px)` }}>
+              <span className="tls-bubble">{tip ?? 'nothing there'}</span>
             </div>
           )}
         </div>
