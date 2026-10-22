@@ -254,7 +254,7 @@ export function TimelineStrip({ m }: { m: Mixer }) {
           )}
         </div>
         {!all.length && <div className="tls-idle">Space plays the walk · each block shows here to rate</div>}
-        {panned && <button className="tls-now" onClick={leave}>Now <Icon name="next" /></button>}
+        {panned && <button className="tls-now" title="Back to now: the timeline follows the playhead again" onClick={leave}>Now <Icon name="next" /></button>}
       </div>
     </div>
   )

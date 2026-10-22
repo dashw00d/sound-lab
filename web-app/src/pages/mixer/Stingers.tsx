@@ -36,7 +36,7 @@ export function Stingers({ m }: { m: Mixer }) {
             tip={ts.length ? `${KIND[k].tip}. ${liked ? `${liked} liked: the walk plays those` : `${ts.length} takes, none liked yet: the walk plays any not thumbed down`}` : `${KIND[k].tip}: none made yet (music stingers)`}
             onChange={v => set(k, v)} />
         })}
-        {n > 0 && <button className={`btn ghost sm ${open ? 'on' : ''}`} onClick={() => setOpen(o => !o)}><Icon name="volume" />Hear and judge {n}</button>}
+        {n > 0 && <button className={`btn ghost sm ${open ? 'on' : ''}`} title="Hear and judge: every take, to play and thumb" onClick={() => setOpen(o => !o)}><Icon name="volume" />Hear and judge {n}</button>}
       </Field>
       {open && all && (
         <div className="stg">
@@ -47,8 +47,8 @@ export function Stingers({ m }: { m: Mixer }) {
                 {all[k].map(t => {
                   const v = clips[t.id] || 0
                   return (
-                    <span key={t.id} className={`stg-take ${v > 0 ? 'up' : v < 0 ? 'down' : ''}`} title={`${t.variant} s${t.seed} · ${t.seconds ?? '?'} s${t.rises != null ? (t.rises ? ' · a directed build' : ' · a weak build') : ''}`}>
-                      <button className="stg-play" onClick={() => hear(t)}><Icon name="play" />{t.variant}<small>{t.seed}</small></button>
+                    <span key={t.id} className={`stg-take ${v > 0 ? 'up' : v < 0 ? 'down' : ''}`}>
+                      <button className="stg-play" title={`Hear ${t.variant} ${t.seed}: ${t.seconds ?? '?'} s${t.rises != null ? (t.rises ? ', a directed build' : ', a weak build') : ''}`} onClick={() => hear(t)}><Icon name="play" />{t.variant}<small>{t.seed}</small></button>
                       <button className={`stg-v ${v > 0 ? 'on' : ''}`} title="Good: the walk plays it, the game gets it" onClick={() => void vote(t.id, v > 0 ? 0 : 1)}><Icon name="up" /></button>
                       <button className={`stg-v dn ${v < 0 ? 'on' : ''}`} title="Bad: never played" onClick={() => void vote(t.id, v < 0 ? 0 : -1)}><Icon name="down" /></button>
                     </span>

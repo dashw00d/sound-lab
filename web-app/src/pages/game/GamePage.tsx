@@ -85,7 +85,7 @@ export default function GamePage() {
 
         <section className="gm-sec">
           <div className="gm-sh"><span className="lbl">Ready to ship · the batch</span>
-            {ready.length > 0 && <span className="gm-sel"><button onClick={() => setLeft(new Set())}>all</button><button onClick={() => setLeft(new Set(ready.map(r => r.id)))}>none</button></span>}
+            {ready.length > 0 && <span className="gm-sel"><button title="Every song ready goes in the batch" onClick={() => setLeft(new Set())}>all</button><button title="None: then tick the ones to ship" onClick={() => setLeft(new Set(ready.map(r => r.id)))}>none</button></span>}
           </div>
           {!ready.length ? (
             <p className="gm-hint">Nothing is ready. Songs get ready when you keep them: Keep, New family or Belongs with in the Inbox, or a like on the Music page. The rest stay local, your next batch.</p>
@@ -124,7 +124,7 @@ export default function GamePage() {
             <div className="gm-go">
               <label className="gm-keep"><input type="checkbox" checked={keep} onChange={e => { setKeep(e.target.checked); localStorage.setItem('ship.keep', e.target.checked ? '1' : '0') }} />
                 Keep a local copy<span className="dim"> · {keep ? 'the lab keeps its own audio of what ships' : "the lab's own audio of what ships goes; it plays them from the game's folder (the game's own files are never touched)"}</span></label>
-              <button className="btn primary" disabled={!!busy || !chosen.length || chosen.some(r => r.missing.length)} onClick={() => void ship()}>
+              <button className="btn primary" disabled={!!busy || !chosen.length || chosen.some(r => r.missing.length)} title="Ship the batch: their audio into the game's folder, recorded in shipped.json, and the manifest, walk and docs written for them" data-tip-title="Ship into the game" onClick={() => void ship()}>
                 <Icon name={busy === 'ship' ? 'refresh' : 'check'} />{busy === 'ship' ? 'Shipping…' : `Ship ${chosen.length} song${chosen.length === 1 ? '' : 's'} into the game · ${mb(readyBytes)}`}
               </button>
               <span className="gm-hint">Their mellow and intense audio goes into {plan.folder.split('/').slice(-2).join('/')}/music, and the manifest walks them.</span>
@@ -133,7 +133,7 @@ export default function GamePage() {
         </section>
 
         <section className="gm-sec">
-          <button className="gm-sh link" onClick={() => setShowIn(o => !o)}><span className="lbl">In the game · {plan.in_game.length} songs</span><Icon name={showIn ? 'up' : 'down'} /></button>
+          <button className="gm-sh link" title={showIn ? 'Hide the songs in the game' : 'Show the songs in the game, by scene'} onClick={() => setShowIn(o => !o)}><span className="lbl">In the game · {plan.in_game.length} songs</span><Icon name={showIn ? 'up' : 'down'} /></button>
           {lost.length > 0 && <p className="gm-warn"><Icon name="flag" />{lost.length} shipped song{lost.length > 1 ? 's have' : ' has'} lost audio in the folder: ship {lost.length > 1 ? 'them' : 'it'} again</p>}
           {showIn && (
             <div className="gm-batch">
@@ -167,9 +167,9 @@ export default function GamePage() {
             ))}
           </div>
           <div className="gm-go row">
-            <button className="btn" disabled={!!busy || !plan.changes} onClick={() => void sync()}><Icon name={busy === 'sync' ? 'refresh' : 'save'} />{plan.changes ? `Write ${plan.changes} file${plan.changes > 1 ? 's' : ''} into the game` : 'Up to date'}</button>
+            <button className="btn" disabled={!!busy || !plan.changes} title="Write the manifest, the walk, the docs and the schema into the game's folder: only what differs" data-tip-title="Update the game's manifest" onClick={() => void sync()}><Icon name={busy === 'sync' ? 'refresh' : 'save'} />{plan.changes ? `Write ${plan.changes} file${plan.changes > 1 ? 's' : ''} into the game` : 'Up to date'}</button>
             <span className="gm-hint">{plan.changes ? 'A cue, a vote or a setting changed what the game walks. Shipping writes these too.' : "They describe what's in the game now."}</span>
-            <button className="btn ghost sm" onClick={() => { setPlan(null); void load() }}><Icon name="refresh" />Check again</button>
+            <button className="btn ghost sm" title="Check again: read the game's folder and the lab's data again" onClick={() => { setPlan(null); void load() }}><Icon name="refresh" />Check again</button>
           </div>
         </section>
       </div>

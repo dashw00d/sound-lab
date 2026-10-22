@@ -88,11 +88,11 @@ function SetHead({ m, mixes, setMixes }: { m: Mixer; mixes: Mixes; setMixes: (x:
     <div className="mx-sethead">
       <h3>The set · {p.set.length} part{p.set.length === 1 ? '' : 's'}{p.scope === 'all' && <span className="dim"> · not used while drawing from everything</span>}</h3>
       <input ref={nameRef} placeholder="Name this set" value={p.name} onChange={e => m.setPrefs({ name: e.target.value })} />
-      <button className="btn" disabled={!p.set.length} onClick={() => void save()}><Icon name="save" />Save</button>
-      <button className="btn ghost" disabled={!p.set.length} onClick={() => { if (m.playing) m.stop(); m.setPrefs({ set: [], name: '' }) }}><Icon name="x" />Clear</button>
+      <button className="btn" disabled={!p.set.length} title="Save the set under its name (mixes.json): load it again any time" onClick={() => void save()}><Icon name="save" />Save</button>
+      <button className="btn ghost" disabled={!p.set.length} title="Clear the set: start an empty one (saved sets stay)" onClick={() => { if (m.playing) m.stop(); m.setPrefs({ set: [], name: '' }) }}><Icon name="x" />Clear</button>
       {names.map(k => (
         <span key={k} className={`chip mixc ${k === p.name ? 'on' : ''}`}>
-          <button onClick={() => load(k)}>{k} · {mixes[k].parts.length}</button>
+          <button title={`Load ${k}: its ${mixes[k].parts.length} parts become the set`} onClick={() => load(k)}>{k} · {mixes[k].parts.length}</button>
           <button title="Delete this saved set" onClick={() => void del(k)}><Icon name="x" /></button>
         </span>
       ))}
@@ -147,7 +147,7 @@ function Starters({ m }: { m: Mixer }) {
       <h3>Start from a set that already goes together</h3>
       <div className="starters">
         {st.map((s, i) => (
-          <button key={i} className="starter" onClick={() => m.setPrefs({ set: s.parts.map(p => ({ ...p })), name: '' })}>
+          <button key={i} className="starter" title="Start from this set: parts that all join well with each other, both ways" onClick={() => m.setPrefs({ set: s.parts.map(p => ({ ...p })), name: '' })}>
             <b>{s.parts.length} parts · {s.parts.length} songs</b>
             <small>joins {s.mean.toFixed(2)} on average, every pair both ways ≥ 0.75</small>
             <span>{[...new Set(s.parts.map(style))].join(', ')}</span>
@@ -171,7 +171,7 @@ function Suggestions({ m, onAdd }: { m: Mixer; onAdd: (p: Part) => void }) {
             <div className="pn"><b>{name(m.jd.track(o.p.track)!)}</b><small>bars {o.p.start}–{o.p.start + LEN - 1} · weakest with {m.jd.label(o.weak)}</small></div>
             <button className="tb" title="Hear it alone" onClick={() => m.playPart(o.p)}><Icon name="play" /></button>
             <button className="tb" title="Hear the part it joins worst with, then it" onClick={() => m.playJoin(o.weak, o.p)}><Icon name="arrow" /></button>
-            <button className="btn" onClick={() => onAdd(o.p)}><Icon name="plus" />Add</button>
+            <button className="btn" title="Add it to the set" onClick={() => onAdd(o.p)}><Icon name="plus" />Add</button>
           </div>
         ))}
       </div>

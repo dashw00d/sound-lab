@@ -29,8 +29,8 @@ export function ReviewCard({ m, note, setNote }: { m: Mixer; note: Record<number
             <div className="rvrow"><span className="lbl">pieces</span>{piecesOf(m.jd, w).map((p, k) => <span key={k} className={`rvc ${lit(i, 'pieces', k) ? 'now' : ''}`}>{p.label}</span>)}</div>
             <div className="row">
               <button className="btn" disabled={!w.chunks} title={w.chunks ? undefined : 'Rated before blocks kept their chunks: play it piece by piece'} onClick={() => void m.reviewPlay(i, 'exact')}><Icon name="play" />As it played</button>
-              <button className="btn" onClick={() => void m.reviewPlay(i, 'pieces')}><Icon name="play" />Piece by piece</button>
-              <button className="btn primary" disabled={!on || !snap.playing} onClick={() => void m.reviewMark(note[i] ?? '')}><Icon name="flag" />That one<kbd>W</kbd></button>
+              <button className="btn" title="Piece by piece: each song, variation and fill of the block alone, in turn" onClick={() => void m.reviewPlay(i, 'pieces')}><Icon name="play" />Piece by piece</button>
+              <button className="btn primary" disabled={!on || !snap.playing} title="That one: mark the piece playing as the one that spoiled the block (W)" onClick={() => void m.reviewMark(note[i] ?? '')}><Icon name="flag" />That one<kbd>W</kbd></button>
               <input className="rvnote" placeholder="what was off (optional)" value={note[i] ?? ''} onChange={e => setNote({ ...note, [i]: e.target.value })} />
             </div>
           </div>

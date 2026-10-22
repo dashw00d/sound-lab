@@ -30,6 +30,13 @@ const ICONS = {
     <circle cx="12" cy="3.8" r="1.5" /><circle cx="4.4" cy="9.5" r="1.5" /><circle cx="7.2" cy="18.6" r="1.5" /><circle cx="16.8" cy="18.6" r="1.5" /><circle cx="19.6" cy="9.5" r="1.5" /></>,
   prev: <><path {...FILL} d="M18 6.6v10.8a.9.9 0 0 1-1.4.75L9 12.75a.9.9 0 0 1 0-1.5l7.6-5.4A.9.9 0 0 1 18 6.6z" /><path d="M6.5 6v12" /></>,
   next: <><path {...FILL} d="M6 6.6v10.8a.9.9 0 0 0 1.4.75L15 12.75a.9.9 0 0 0 0-1.5L7.4 5.85A.9.9 0 0 0 6 6.6z" /><path d="M17.5 6v12" /></>,
+  // (the sections, for their tooltips)
+  inbox: <><path d="M3.5 13.5l2.6-7.2A1.5 1.5 0 0 1 7.5 5.3h9a1.5 1.5 0 0 1 1.4 1l2.6 7.2" /><path d="M3.5 13.5V18a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5v-4.5h-5l-1.5 2.5h-4l-1.5-2.5z" /></>,
+  list: <><path d="M8.5 6.5h11M8.5 12h11M8.5 17.5h11" /><circle cx="4.5" cy="6.5" r="1" /><circle cx="4.5" cy="12" r="1" /><circle cx="4.5" cy="17.5" r="1" /></>,
+  graph: <><circle cx="6" cy="7" r="2.3" /><circle cx="18" cy="6" r="2.3" /><circle cx="12" cy="17.5" r="2.3" /><path d="M8.2 6.7l7.6-.5M7.1 9l3.8 6.4M16.9 8.1l-3.8 7.3" /></>,
+  history: <><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6" /><path d="M3.5 4v4.5H8" /><path d="M12 7.5V12l3 2" /></>,
+  game: <><path d="M7 8h10a4.5 4.5 0 0 1 4.4 5.4l-.8 3.8a2 2 0 0 1-3.5.8L15 15.5H9l-2.1 2.5a2 2 0 0 1-3.5-.8l-.8-3.8A4.5 4.5 0 0 1 7 8z" /><path d="M8 11v3M6.5 12.5h3" /><circle {...FILL} cx="15.5" cy="11.3" r="1" /><circle {...FILL} cx="17.4" cy="13.4" r="1" /></>,
+  external: <><path d="M14 4.5h5.5V10" /><path d="M19.5 4.5L11 13" /><path d="M18 14v4.5a1 1 0 0 1-1 1H5.5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1H10" /></>,
 } as const
 export type IconName = keyof typeof ICONS
 

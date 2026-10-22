@@ -69,7 +69,7 @@ function Page({ m, mixes, setMixes }: { m: Mixer; mixes: Mixes; setMixes: (x: Mi
         {m.train.on && <TrainingCard m={m} />}
         {reviewOpen && <ReviewCard m={m} note={note} setNote={setNote} />}
         <section className="mx-sets">
-          <button className={`mx-sets-h ${sets ? 'open' : ''}`} onClick={() => { setSets(!sets); localStorage.setItem('mixer.sets', sets ? '0' : '1') }}>
+          <button className={`mx-sets-h ${sets ? 'open' : ''}`} title={sets ? 'Fold the hand-made sets away' : 'Hand-made sets: parts of songs you put together, the join grid, starter sets'} onClick={() => { setSets(!sets); localStorage.setItem('mixer.sets', sets ? '0' : '1') }}>
             <Icon name="right" /><b>Hand-made sets</b><span className="dim">parts of songs you put together, the join grid, starter sets{m.prefs.set.length ? ` · ${m.prefs.set.length} parts in yours` : ''}</span>
           </button>
           {sets && <SetBuilder m={m} mixes={mixes} setMixes={setMixes} />}

@@ -14,6 +14,15 @@ import { Timeline } from '../../ui/Timeline'
 import { colour, FamilyView, hue, label } from '../families/model'
 import { KIND, type Answer, type Take } from './model'
 
+/** What each answer does, for its tooltip. */
+const ANSWER_TIP: Record<string, string> = {
+  'Keep': 'a good take: it stays in the scene the sort put it in, and it is ready to ship',
+  'Bad take': 'out of the walk and the scenes; never shipped, never deleted',
+  'New family': 'good, and unlike any scene: it starts one of its own, and grow extends it',
+  'A new family': 'good, and unlike any scene: it starts one of its own, and grow extends it',
+  'Not new': 'it is like what we have: it goes where the sort puts it',
+}
+
 export function TakeInspector({ t, onPlay, onAnswer }: { t: Take; onPlay: () => void; onAnswer: (a: Answer) => void }) {
   const m = usePlayer().m, F = useFamilies().data, votes = useVotesData()
   useEngine(m)
@@ -75,7 +84,7 @@ export function TakeInspector({ t, onPlay, onAnswer }: { t: Take; onPlay: () => 
 
       <div className="answers">
         {t.answers.map(a => (
-          <button key={a.key} className={`ans-btn ${a.tone} ${t.answered?.label === a.label ? 'on' : ''}`} onClick={() => onAnswer(a)}>
+          <button key={a.key} className={`ans-btn ${a.tone} ${t.answered?.label === a.label ? 'on' : ''}`} title={`${a.label}: ${ANSWER_TIP[a.label] ?? 'your answer'} (${a.key.toUpperCase()})`} onClick={() => onAnswer(a)}>
             <span>{a.label}</span><kbd>{a.key.toUpperCase()}</kbd>
           </button>
         ))}

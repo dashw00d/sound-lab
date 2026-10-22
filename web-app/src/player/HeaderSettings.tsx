@@ -29,17 +29,17 @@ function Controls({ m }: { m: Mixer }) {
   return (
     <div className="hset" ref={box}>
       <span className="hl">Stay</span>
-      <Seg value={P.stay} onChange={stay => set({ stay })} options={[4, 8, 12, 16].map(k => ({
+      <Seg value={P.stay} icon="history" onChange={stay => set({ stay })} options={[4, 8, 12, 16].map(k => ({
         value: k, label: String(k), tip: `${k} bars: each song of a queue plays ${k} bars; the walk stays in a song at least ${k}` }))} />
       <span className="hl">Joins</span>
-      <Seg value={P.joins} onChange={joins => set({ joins })} options={[
+      <Seg value={P.joins} icon="link" onChange={joins => set({ joins })} options={[
         { value: 'tight', label: 'tight', tip: 'A song change is an 80 ms crossfade at the bar line' },
         { value: 'beat', label: '1 beat', tip: 'The two songs overlap for a beat around the bar line' },
         { value: 'two', label: '2 beats', tip: 'The two songs overlap for two beats around the bar line' }]} />
-      <button className={`hswap ${P.bassSwap ? 'on' : ''}`} title={`Bass swap: at a song change only the melody and harmony cross over; the bass and kick (under ${SWAP_HZ} Hz) swap on the bar line, so two basslines never overlap`} onClick={() => set({ bassSwap: !P.bassSwap })}>
+      <button className={`hswap ${P.bassSwap ? 'on' : ''}`} data-tip-icon="wave" title={`Bass swap: at a song change only the melody and harmony cross over; the bass and kick (under ${SWAP_HZ} Hz) swap on the bar line, so two basslines never overlap`} onClick={() => set({ bassSwap: !P.bassSwap })}>
         <i />Bass swap
       </button>
-      <button className={`iconbtn ${open ? 'on' : ''}`} title="Levels, the bed, what intense is" onClick={() => setOpen(o => !o)}><Icon name="sliders" /></button>
+      <button className={`iconbtn ${open ? 'on' : ''}`} title="More settings: even and matched levels, the bed, what intense is" onClick={() => setOpen(o => !o)}><Icon name="sliders" /></button>
       {open && (
         <div className="hpop card">
           <Field label="Levels">

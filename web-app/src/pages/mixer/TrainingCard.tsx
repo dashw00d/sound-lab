@@ -21,11 +21,11 @@ export function TrainingCard({ m }: { m: Mixer }) {
         </div>
       ) : <div className="dim">No transition left to rate.</div>}
       <div className="row">
-        <button className="btn good" disabled={!c} onClick={() => void m.trainVote(1)}><Icon name="up" />Good<kbd>↑</kbd></button>
-        <button className="btn bad" disabled={!c} onClick={() => void m.trainVote(-1)}><Icon name="down" />Bad<kbd>↓</kbd></button>
-        <button className="btn" onClick={() => m.trainNext()}><Icon name="next" />Skip<kbd>→</kbd></button>
-        <button className="btn ghost" onClick={() => m.trainPlay()}><Icon name="refresh" />Replay<kbd>R</kbd></button>
-        <button className="btn ghost" onClick={() => m.trainToggle()}><Icon name="x" />Done</button>
+        <button className="btn good" disabled={!c} title="Good transition: a vote the taste model learns from (↑)" onClick={() => void m.trainVote(1)}><Icon name="up" />Good<kbd>↑</kbd></button>
+        <button className="btn bad" disabled={!c} title="Bad transition: the walk never takes it again (↓)" onClick={() => void m.trainVote(-1)}><Icon name="down" />Bad<kbd>↓</kbd></button>
+        <button className="btn" title="Skip: the next transition, no vote (→)" onClick={() => m.trainNext()}><Icon name="next" />Skip<kbd>→</kbd></button>
+        <button className="btn ghost" title="Replay: hear this transition again (R)" onClick={() => m.trainPlay()}><Icon name="refresh" />Replay<kbd>R</kbd></button>
+        <button className="btn ghost" title="Done: back to the walk (T)" onClick={() => m.trainToggle()}><Icon name="x" />Done</button>
       </div>
       {l && (
         <div className="dim">last: {nm(l.a)} → {nm(l.b.track)} · you said <b>{l.v > 0 ? 'good' : 'bad'}</b>

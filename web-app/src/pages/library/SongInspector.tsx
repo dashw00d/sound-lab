@@ -49,7 +49,7 @@ export function SongInspector({ row: r, all }: { row: SongRow; all: SongRow[] })
       <header className="insp-head">
         <div className="insp-kicker">
           <span className={`ctx c-${r.context}`}>{r.context}</span>
-          {r.scene && <button className="chip" onClick={() => go('scenes', r.id)} title="Its scene on the map"><span className="sw" style={{ background: colour(hue(r.scene)) }} />Scene {r.scene.replace(/^f/, '')} · {mates.length + 1} shipped{r.sceneSize > mates.length + 1 ? `, ${r.sceneSize - mates.length - 1} new` : ''}</button>}
+          {r.scene && <button className="chip" onClick={() => go('scenes', r.id)} title="Its scene: the songs it could pass as one piece with, and the seamless cuts between them" data-tip-title={`Scene ${r.scene.replace(/^f/, '')}`} data-tip-link={`#/scenes/${r.id}`} data-tip-link-label="Open it in Scenes"><span className="sw" style={{ background: colour(hue(r.scene)) }} />Scene {r.scene.replace(/^f/, '')} · {mates.length + 1} shipped{r.sceneSize > mates.length + 1 ? `, ${r.sceneSize - mates.length - 1} new` : ''}</button>}
           {r.lead && <span className="chip">{r.lead}</span>}
         </div>
         <h2>{r.style} <span>{r.take}</span></h2>
@@ -68,7 +68,7 @@ export function SongInspector({ row: r, all }: { row: SongRow; all: SongRow[] })
       <div className="insp-sec">
         <div className="insp-sh"><span className="lbl">{LEVEL_NAME[lv] ?? lv} · its loop</span>
           <span className={`cue-state ${cue ? 'mine' : ''}`}>{cue ? 'your cues' : 'guessed'} · bars {loop[0]}–{loop[1]}</span>
-          {cue && <button className="btn sm ghost" onClick={() => void setCue(r.id, view, null).then(() => toast('Back to the guessed loop', 'undo'))}>Reset</button>}
+          {cue && <button className="btn sm ghost" title="Reset: back to the guessed loop (your cues cleared)" onClick={() => void setCue(r.id, view, null).then(() => toast('Back to the guessed loop', 'undo'))}>Reset</button>}
         </div>
         <Timeline url={url(lv)} loop={loop} mine={!!cue} ticks={ticks} markers={view === 'mellow' ? markers : []}
           onLoop={b => void setCue(r.id, view, b).then(() => toast(`Loop: bars ${b[0]}–${b[1]}`, 'check'))}
@@ -101,11 +101,11 @@ export function SongInspector({ row: r, all }: { row: SongRow; all: SongRow[] })
       {mates.length > 0 && (
         <div className="insp-sec">
           <div className="insp-sh"><span className="lbl">Its scene · {mates.length + 1} songs, chill to intense</span>
-            <button className="btn sm" onClick={() => { if (!m) return; const ids = [r.id, ...mates.map(x => x.id)]; m.playQueue(ids.map(id => ({ id, label: id.split('.').slice(2, -1).join(' · ') }))) }}><Icon name="play" />Queue it</button>
+            <button className="btn sm" title="Queue it: this song and the rest of its scene, chill to intense, Stay bars each" onClick={() => { if (!m) return; const ids = [r.id, ...mates.map(x => x.id)]; m.playQueue(ids.map(id => ({ id, label: id.split('.').slice(2, -1).join(' · ') }))) }}><Icon name="play" />Queue it</button>
           </div>
           <div className="mates">
             {mates.slice(0, 12).map(x => (
-              <button key={x.id} className="mate" onClick={() => go('library', x.id, true)}>
+              <button key={x.id} className="mate" title="Open it in the Library" onClick={() => go('library', x.id, true)}>
                 <span className="nm"><b>{x.style}</b> {x.take} <span className="dim">{x.context}</span></span>
                 {cuts[x.id] && <span className="cutn" title={`${cuts[x.id].at.length} seamless cuts from this song into it`}><Icon name="link" />{cuts[x.id].at.length}</span>}
                 <Energy value={x.energy} />
@@ -119,5 +119,5 @@ export function SongInspector({ row: r, all }: { row: SongRow; all: SongRow[] })
 }
 
 function FileRow({ name, sub, onPlay }: { name: string; sub: string; onPlay: () => void }) {
-  return <button className="frow" onClick={onPlay}><Icon name="play" /><span>{name}</span><span className="dim">{sub}</span></button>
+  return <button className="frow" title={`Hear the ${sub} alone`} onClick={onPlay}><Icon name="play" /><span>{name}</span><span className="dim">{sub}</span></button>
 }

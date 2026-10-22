@@ -207,7 +207,7 @@ function Graph() {
     <div className="fa">
       <div className="fa-graph">
         <div className="fa-tools">
-          <button className={`btn ${gs ? 'on' : 'primary'}`} onClick={() => { if (!m) return; if (gs) { m.stop(); return } m.setPrefs({ scope: 'graph' }); void m.play() }}>
+          <button className={`btn ${gs ? 'on' : 'primary'}`} title={gs ? 'Stop the walk: the music stops here' : 'Walk the graph: scene by scene, cutting from song to song inside each, a rest between scenes, rising and falling in energy. The scene playing lights up'} onClick={() => { if (!m) return; if (gs) { m.stop(); return } m.setPrefs({ scope: 'graph' }); void m.play() }}>
             <Icon name={gs ? 'stop' : 'play'} />{gs ? 'Stop the walk' : 'Walk the graph'}</button>
           {m && <>
             <span className="lbl">Scene</span>
@@ -229,8 +229,8 @@ function Graph() {
       <aside className="fa-side">
         <div className="lbl">{Object.keys(F.items).length} songs · {fams.length} scenes · sorted {F.made}</div>
         <div className="row">
-          <button className="btn" onClick={resort} disabled={sorting}>{sorting ? 'Sorting…' : 'Re-sort now'}</button>
-          <button className={`btn ${showBad ? 'on' : ''}`} onClick={() => setShowBad(b => !b)}>Bad matches</button>
+          <button className="btn" title="Re-sort now: every song into scenes again, with your answers so far (music families, about a minute)" onClick={resort} disabled={sorting}>{sorting ? 'Sorting…' : 'Re-sort now'}</button>
+          <button className={`btn ${showBad ? 'on' : ''}`} title="Bad matches: show the pairs you said don't go together, as red lines" onClick={() => setShowBad(b => !b)}>Bad matches</button>
         </div>
         <details className="fa-help"><summary>How it works</summary><p className="dim help">A scene is songs of one lead, beat and bass, amount of noise, that flow into each other; each is a star round its root (faint lines: the sort's guesses; solid: you confirmed). Drag from a song to another: it joins that song's scene. Click a line: confirmed → near duplicate → out (a bad match) → none. Click a song to hear it; Shift-drag a box or Ctrl-click to choose several, <kbd>Q</kbd> plays them in turn and <kbd>M</kbd> <kbd>N</kbd> <kbd>B</kbd> vote on each transition. Keys: <kbd>Space</kbd> play <kbd>1</kbd><kbd>2</kbd> mellow / intense <kbd>G</kbd> good <kbd>D</kbd> bad take <kbd>Y</kbd> new family.</p></details>
         {m?.queue && <QueueCard F={F} fv={fv} m={m} onVote={pairVote} onMerge={() => void linkAll()} onDrop={drop} onClear={() => { setPicked([]); m.setQueue(null) }} />}
@@ -240,25 +240,25 @@ function Graph() {
             <div className="nm">{label(sel, it)}</div>
             {it.words && <div className="dim words">{Object.values(it.words).filter(Boolean).map(w => w.replace('{s} ', 'strings ')).join(' · ')}</div>}
             <div className="row">
-              <button className="btn" onClick={() => toggle(sel)}>{playing === sel ? 'Stop' : 'Play'}</button>
-              <button className={`btn ${m?.state === 'mellow' ? 'on' : ''}`} onClick={() => m?.setState('mellow')}>mellow</button>
-              <button className={`btn ${m?.state === 'intense' ? 'on' : ''}`} onClick={() => m?.setState('intense')}>intense</button>
+              <button className="btn" title={playing === sel ? 'Stop' : 'Play it: round its loop, as the game would'} onClick={() => toggle(sel)}>{playing === sel ? 'Stop' : 'Play'}</button>
+              <button className={`btn ${m?.state === 'mellow' ? 'on' : ''}`} title="Mellow: its calm level (1)" onClick={() => m?.setState('mellow')}>mellow</button>
+              <button className={`btn ${m?.state === 'intense' ? 'on' : ''}`} title="Intense: its battle level (2)" onClick={() => m?.setState('intense')}>intense</button>
             </div>
             <div className="row">
-              <button className={`btn good ${votes.clips[`ok_${sel}`] > 0 ? 'on' : ''}`} onClick={() => answer('good')}>Good <kbd>G</kbd></button>
-              <button className={`btn bad ${votes.clips[`ok_${sel}`] < 0 ? 'on' : ''}`} onClick={() => answer('bad')}>Bad take <kbd>D</kbd></button>
-              <button className={`btn ${votes.clips[novelKey(sel, it)] > 0 ? 'on' : ''}`} onClick={() => answer('novel')}>New family <kbd>Y</kbd></button>
+              <button className={`btn good ${votes.clips[`ok_${sel}`] > 0 ? 'on' : ''}`} title="Good: a good take that stays in its scene (G)" onClick={() => answer('good')}>Good <kbd>G</kbd></button>
+              <button className={`btn bad ${votes.clips[`ok_${sel}`] < 0 ? 'on' : ''}`} title="Bad take: out of the walk and the scenes; never shipped, never deleted (D)" onClick={() => answer('bad')}>Bad take <kbd>D</kbd></button>
+              <button className={`btn ${votes.clips[novelKey(sel, it)] > 0 ? 'on' : ''}`} title="New family: good, and unlike any scene: it starts one of its own, and grow extends it (Y)" onClick={() => answer('novel')}>New family <kbd>Y</kbd></button>
             </div>
             <FamilyCard F={F} fv={fv} sel={sel} playing={playing} onPlay={o => { setSel(o); play(o) }} onSet={setLink} onOut={out} onConfirmAll={confirmAll} onQueue={playQueue} />
           </section>
         ) : <p className="dim">Click a song to hear it and see its links.</p>}
         <div className="lbl famh">scenes</div>
         <div className="fa-fams">
-          {focus && <button className="famb on" onClick={() => focusOn(null)}>All scenes ×</button>}
+          {focus && <button className="famb on" title="All scenes: back to the whole graph" onClick={() => focusOn(null)}>All scenes ×</button>}
           {fams.map(f => {
             const sure = f.members.slice(1).filter(x => fv.relation(x, f.root)).length, shipped = f.members.filter(x => F.items[x].kind === 'shipped').length
             return (
-              <button key={f.id} className={`famb ${focus === f.id ? 'on' : ''}`} onClick={() => focusOn(focus === f.id ? null : f.id)}>
+              <button key={f.id} className={`famb ${focus === f.id ? 'on' : ''}`} title={focus === f.id ? 'Back to every scene' : 'Just this scene: its songs, its cuts and its guesses'} onClick={() => focusOn(focus === f.id ? null : f.id)}>
                 <span className="dot" style={{ background: colour(hue(f.id)) }} />
                 <b>{f.members.length}</b> {leads(f.members)}<span className="dim">{shipped ? ` · ${shipped} shipped` : ''}{sure ? ` · ${sure} confirmed` : ''}</span>
               </button>

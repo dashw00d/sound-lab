@@ -78,7 +78,7 @@ export default function InboxPage() {
     <Split id="inbox" left={
       <div className="lib">
         <div className="lib-bar">
-          <button className="btn primary" disabled={!waiting} onClick={playAll}><Icon name="play" />Play all unanswered<kbd>Q</kbd></button>
+          <button className="btn primary" disabled={!waiting} title="Play all unanswered: each new take in turn, as a queue (Q)" onClick={playAll}><Icon name="play" />Play all unanswered<kbd>Q</kbd></button>
           <Toggle on={open} label="Unanswered only" onChange={o => { setOpen(o); localStorage.setItem('inbox.all', o ? '0' : '1') }} />
           <span className="lib-count">{waiting} waiting · {all.length - waiting} answered</span>
         </div>

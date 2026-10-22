@@ -29,7 +29,7 @@ export function FamilyCard({ F, fv, sel, playing, onPlay, onSet, onOut, onConfir
                 <div key={x} className={`fa-li ${x === f.root ? 'root' : ''} ${x === sel ? 'sel' : ''} ${x === playing ? 'now' : ''} ${x !== f.root && !rel ? 'guess' : ''}`}>
                   {x === f.root ? <span className="hub" style={{ color: dot(x) }} title="The family's root: every member is linked to it"><Icon name="root" /></span>
                     : <span className="dot" style={{ background: dot(x) }} />}
-                  <button className="lnk" onClick={() => onPlay(x)}>{name(x)}</button>
+                  <button className="lnk" title="Hear it" onClick={() => onPlay(x)}>{name(x)}</button>
                   {x !== f.root && <>
                     <button className={`okb ${rel ? 'on' : ''}`} title={rel ? 'Confirmed: click to undo (back to the sort’s suggestion)' : 'The sort’s suggestion: click to confirm it belongs'}
                       onClick={() => onSet(x, f.root, rel ? null : 'match')}>✓</button>
@@ -42,8 +42,8 @@ export function FamilyCard({ F, fv, sel, playing, onPlay, onSet, onOut, onConfir
             })}
           </div>
           <div className="row">
-            {sure < f.members.length - 1 && <button className="btn" onClick={() => onConfirmAll(sel)}>Confirm all</button>}
-            <button className="btn" onClick={() => onQueue(f.members)}>Play the scene as a queue</button>
+            {sure < f.members.length - 1 && <button className="btn" title="Confirm all: every member belongs, as the sort put them (a link vote each)" onClick={() => onConfirmAll(sel)}>Confirm all</button>}
+            <button className="btn" title="Play the scene as a queue: each member in turn, Stay bars each, to hear whether they match" onClick={() => onQueue(f.members)}>Play the scene as a queue</button>
           </div>
         </>
       )}
@@ -52,7 +52,7 @@ export function FamilyCard({ F, fv, sel, playing, onPlay, onSet, onOut, onConfir
         {close.map(g => (
           <div key={g.id} className={`fa-li ${g.id === playing ? 'now' : ''}`}>
             <span className="dot" style={{ background: dot(g.id) }} />
-            <button className="lnk" onClick={() => onPlay(g.id)}>{name(g.id)}{fv.family(g.id).members.length > 1 ? <small> · in a family of {fv.family(g.id).members.length}</small> : null}</button>
+            <button className="lnk" title="Hear it" onClick={() => onPlay(g.id)}>{name(g.id)}{fv.family(g.id).members.length > 1 ? <small> · in a family of {fv.family(g.id).members.length}</small> : null}</button>
             <span className="sc" title="How well it fits the scene (its average likeness with the scene's songs; a scene is 0.5 or more)">{g.worst.toFixed(2)}</span>
             <button className="addb" title={f.members.length > 1 ? 'Bring it into this scene' : 'Make these two a scene'} onClick={() => onSet(g.id, f.root, 'match')}>+</button>
             <button className="x" title="A bad match: never guessed for this family again" onClick={() => onSet(g.id, f.root, 'bad')}>✗</button>
@@ -74,7 +74,7 @@ export function FamilyCard({ F, fv, sel, playing, onPlay, onSet, onOut, onConfir
       {best.map(o => (
         <div key={o} className={`fa-li ${o === playing ? 'now' : ''}`}>
           <span className="dot" style={{ background: dot(o) }} />
-          <button className="lnk" onClick={() => onPlay(o)}>{name(o)}{fv.family(o).members.length > 1 ? <small> · in a family of {fv.family(o).members.length}</small> : null}</button>
+          <button className="lnk" title="Hear it" onClick={() => onPlay(o)}>{name(o)}{fv.family(o).members.length > 1 ? <small> · in a family of {fv.family(o).members.length}</small> : null}</button>
           <button className="addb" title="Bring it into this scene" onClick={() => onSet(o, f.root, 'match')}>+</button>
         </div>
       ))}

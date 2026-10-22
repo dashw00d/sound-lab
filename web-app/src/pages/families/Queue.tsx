@@ -33,9 +33,9 @@ export function QueueCard({ F, fv, m, onVote, onMerge, onDrop, onClear }: {
     <section className="fa-sel fa-queue">
       <div className="lbl">The queue · {q.length} songs{on ? '' : ' · Space plays it'}</div>
       <div className="row">
-        {!on && <button className="btn primary" onClick={() => m.playQueue(q)}>Play <kbd>Q</kbd></button>}
+        {!on && <button className="btn primary" title="Play the queue: each song in turn, Stay bars each (Q)" onClick={() => m.playQueue(q)}>Play <kbd>Q</kbd></button>}
         <button className="btn" title="One family of them all, under one root (the root of the family most of them are in)" onClick={onMerge}>Make one family</button>
-        <button className="btn ghost" onClick={onClear}>Clear</button>
+        <button className="btn ghost" title="Clear the queue" onClick={onClear}>Clear</button>
       </div>
       {on && (h.from && h.track ? (
         <div className="fa-heard">

@@ -1,0 +1,29 @@
+/* The app's tooltips: a card with the element's icon, a title, what it does, its keys, a link; an arrow to the element. */
+.tt { position: fixed; z-index: 1000; max-width: 320px; min-width: 120px; padding: 11px 13px 12px; border-radius: 12px; pointer-events: none;
+  background: linear-gradient(180deg, rgba(32, 35, 47, .97), rgba(21, 23, 31, .97)); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .09), inset 0 1px 0 rgba(255, 255, 255, .07), 0 2px 6px rgba(0, 0, 0, .35), 0 22px 54px -14px rgba(0, 0, 0, .9), 0 0 40px -20px rgba(154, 140, 255, .55);
+  opacity: 0; transform: translateY(5px) scale(.97); transform-origin: 50% 100%; transition: opacity .14s ease, transform .2s cubic-bezier(.2, .8, .2, 1); }
+.tt.below { transform: translateY(-5px) scale(.97); transform-origin: 50% 0; }
+.tt.on { opacity: 1; transform: none; pointer-events: auto; }
+.tt.compact { min-width: 0; padding: 7px 11px 8px; border-radius: 9px; }
+.tt-arrow { position: absolute; bottom: -5px; width: 10px; height: 10px; margin-left: -5px; transform: rotate(45deg); border-radius: 0 0 2px 0;
+  background: #15171f; box-shadow: 1px 1px 0 rgba(255, 255, 255, .09); }
+.tt.below .tt-arrow { bottom: auto; top: -5px; background: #20232f; border-radius: 2px 0 0 0; box-shadow: -1px -1px 0 rgba(255, 255, 255, .09); }
+.tt-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.tt-ic { flex: none; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; color: #d6d0ff;
+  background: linear-gradient(135deg, rgba(154, 140, 255, .28), rgba(91, 214, 255, .14)); box-shadow: inset 0 0 0 1px rgba(154, 140, 255, .38), 0 4px 12px -4px rgba(154, 140, 255, .5); }
+.tt-ic .i { width: 14px; height: 14px; }
+.tt-title { font-size: 13px; font-weight: 620; letter-spacing: -.005em; color: var(--text); line-height: 1.3; }
+.tt.compact .tt-title { font-size: 12.5px; font-weight: 560; }
+.tt-body { margin: 7px 0 0; font-size: 12.5px; line-height: 1.52; color: var(--dim); text-wrap: pretty; }
+.tt-head + .tt-body { padding-left: 36px; }
+.tt-head:not(:has(.tt-ic)) + .tt-body { padding-left: 0; }
+.tt-keys { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 9px; font-size: 11.5px; color: var(--faint); }
+.tt-head + .tt-body + .tt-keys { padding-left: 36px; }
+.tt-keys.inline { margin: 0 0 0 auto; padding-left: 10px; flex-wrap: nowrap; }
+.tt-keys kbd { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 6px; display: inline-grid; place-items: center; font: 600 11px/1 var(--mono); color: var(--text);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .1), rgba(255, 255, 255, .04)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .13), inset 0 -1.5px 0 rgba(0, 0, 0, .45); }
+.tt-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; font-size: 12px; font-weight: 560; color: var(--accent-2); text-decoration: none; }
+.tt-head + .tt-body ~ .tt-link { margin-left: 36px; }
+.tt-link .i { width: 12px; height: 12px; transition: transform .15s var(--ease); }
+.tt-link:hover { color: #9be6ff; } .tt-link:hover .i { transform: translateX(2px); }

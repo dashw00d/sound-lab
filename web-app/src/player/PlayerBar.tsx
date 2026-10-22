@@ -82,7 +82,7 @@ function Bar({ m }: { m: Mixer }) {
         <div className="pb-right">
           <div className="pb-levels">
             {STATES.map((st, i) => (
-              <button key={st} className={`pb-lvl ${m.state === st ? 'on' : ''}`} title={`${st === 'mellow' ? 'calm' : m.prefs.intense} level (${i + 1}; X switches)`} onClick={() => m.setState(st)}>
+              <button key={st} className={`pb-lvl ${m.state === st ? 'on' : ''}`} title={st === 'mellow' ? `Mellow: every song at its calm level, crossfading over 2 beats; the meter shows it playing (${i + 1}; X switches)` : `Intense: every song at its ${m.prefs.intense} level, crossfading over 2 beats; the meter shows it playing (${i + 1}; X switches)`} onClick={() => m.setState(st)}>
                 <span>{st}</span><div className="vu"><div ref={el => { meters.current[st] = el }} /></div>
               </button>
             ))}
