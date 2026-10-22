@@ -18,6 +18,11 @@ main { flex: 1; min-height: 0; position: relative; }
 .hset .hl { font: 500 10.5px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .07em; margin-left: 6px; }
 .hset .seg button { padding: 3px 9px; font-size: 12px; }
 .hset .iconbtn { width: 30px; height: 30px; } .hset .iconbtn.on { color: var(--text); border-color: var(--accent-line); }
+.hswap { display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--raised); color: var(--dim); font-size: 12px; }
+.hswap i { width: 7px; height: 7px; border-radius: 50%; background: var(--ghost); transition: background .15s, box-shadow .15s; }
+.hswap:hover { color: var(--text); }
+.hswap.on { color: var(--text); border-color: var(--accent-line); background: var(--accent-soft); }
+.hswap.on i { background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2); }
 .hpop { position: absolute; top: calc(100% + 10px); right: 0; z-index: 25; width: 380px; padding: 16px; display: flex; flex-direction: column; gap: 14px;
   background: var(--overlay); border: 0; border-radius: var(--r); box-shadow: var(--shadow-pop); animation: pop-in .16s var(--ease); }
 @keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }

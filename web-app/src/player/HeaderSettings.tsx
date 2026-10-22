@@ -1,6 +1,6 @@
 // The settings for everything the player plays (data/mixer.json, the Mixer's), in the header of every page: how long
-// each song stays (the walk's least; each song of a queue), how two songs join, and behind the sliders: the levels, the
-// bed, what intense is. The walk's own settings (what it draws from, the taste bar, variation, glue) are the Mixer's.
+// each song stays (the walk's least; each song of a queue), how two songs join and whether their basslines swap (in view:
+// behind the sliders it went unfound twice, 2026-10-21), and behind the sliders: the levels, the bed, what intense is. The walk's own settings (what it draws from, the taste bar, variation, glue) are the Mixer's.
 import { useEffect, useRef, useState } from 'react'
 import { SWAP_HZ } from '../mixer/curves'
 import type { Mixer } from '../mixer/engine/mixer'
@@ -36,13 +36,15 @@ function Controls({ m }: { m: Mixer }) {
         { value: 'tight', label: 'tight', tip: 'A song change is an 80 ms crossfade at the bar line' },
         { value: 'beat', label: '1 beat', tip: 'The two songs overlap for a beat around the bar line' },
         { value: 'two', label: '2 beats', tip: 'The two songs overlap for two beats around the bar line' }]} />
+      <button className={`hswap ${P.bassSwap ? 'on' : ''}`} title={`Bass swap: at a song change only the melody and harmony cross over; the bass and kick (under ${SWAP_HZ} Hz) swap on the bar line, so two basslines never overlap`} onClick={() => set({ bassSwap: !P.bassSwap })}>
+        <i />Bass swap
+      </button>
       <button className={`iconbtn ${open ? 'on' : ''}`} title="Levels, the bed, what intense is" onClick={() => setOpen(o => !o)}><Icon name="sliders" /></button>
       {open && (
         <div className="hpop card">
           <Field label="Levels">
             <Toggle on={P.even} label="Even levels" onChange={even => set({ even })} tip="Each song trimmed toward the library's typical level (by its median beat, within 6 dB)" />
             <Toggle on={P.match} label="Match levels" onChange={match => set({ match })} tip="The song coming in starts at the level of the one going out (within 6 dB), then eases to its own over 2 bars" />
-            <Toggle on={P.bassSwap} label="Bass swap" onChange={bassSwap => set({ bassSwap })} tip={`Only the melody and harmony cross over; the bass and kick (under ${SWAP_HZ} Hz) swap on the bar line`} />
           </Field>
           <Field label="Bed">
             <Seg value={P.bed} onChange={bed => set({ bed })} options={[
