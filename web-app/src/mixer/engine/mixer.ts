@@ -243,7 +243,7 @@ export class Mixer {
         const e = this.jd.entryOf(it.id), [lo, hi] = this.jd.loopFor(it.id, e), bars = this.prefs.stay, nums: number[] = []
         for (let k = 0, b = e; k < bars; k++) { nums.push(b); b = b >= hi ? lo : b + 1 }
         const shape = this.shapeOf(nums.map(n => ({ kind: 'part', track: it.id, bar: n, bars: 1 })))
-        cards.push({ id: `q${qi}`, key: null, kind: 'part', bars, nums, label: it.label, shape, rating: 0, like: 0, rated: false, start: at, seek: { qi } })
+        cards.push({ id: `q${qi}`, key: null, kind: 'part', bars, nums, label: it.label, shape, tracks: [it.id, it.id], rating: 0, like: 0, rated: false, start: at, seek: { qi } })
         at += bars * barS
       })
     } else {
@@ -256,7 +256,8 @@ export class Mixer {
           before += c.bars
         }
         cards.push({ id: key, key, kind: b.kind, bars: b.bars, nums: b.chunks.flatMap(c => Array.from({ length: c.bars }, (_, k) => (c.kind === 'part' ? c.bar + k : null))),
-          label: blind ? null : b.kind === 'part' ? (t ? name(t) : b.track ?? '') : b.kind, shape: this.shapeOf(b.chunks),
+          label: blind ? null : `${b.chunks[0].note ? `${b.chunks[0].note} · ` : ''}${b.kind === 'part' ? (t ? name(t) : b.track ?? '') : b.kind}`, shape: this.shapeOf(b.chunks),
+          tracks: [b.chunks[0].track ?? null, b.chunks[b.chunks.length - 1].track ?? null],
           rating: sess?.stars.get(key) ?? 0, like: sess?.likes.get(key) ?? 0, rated: !!sess && sess.rec.has(key), start: at, seek: this.script ? null : { parts } })
         at += b.bars * barS
       }
@@ -365,7 +366,65 @@ export class Mixer {
     }
   }
   /** The music graph (work/families.json: scenes, energies, cuts), read again when the sort changes. */
-  setGraph(F: Families | null) { this.walk.setGraph(F ? new Graph(F, this.jd) : null); this.changed() }
+  private graph: Graph | null = null
+  setGraph(F: Families | null) { this.graph = F ? new Graph(F, this.jd) : null; this.walk.setGraph(this.graph); this.changed() }
+
+  // ---- comparing a transition (2026-10-22, the designer: "We have a bunch of transitions and stuff that are hard to
+  // sample"): the same transition under each variant of a setting, back to back and labelled, to hear the difference
+  compareOpen: { t: Transition; kind: CompareKind } | null = null
+  openCompare(t: Transition | null, kind?: CompareKind) {
+    this.compareOpen = t ? { t, kind: kind ?? this.compareOpen?.kind ?? 'bass' } : null
+    if (!t) toast('No transition to compare yet: play the walk a little first', 'x')
+    this.changed()
+  }
+  closeCompare() { this.compareOpen = null; if (this.tag === 'compare') this.stop(); this.changed() }
+  setCompareKind(kind: CompareKind) { if (this.compareOpen) { this.compareOpen = { ...this.compareOpen, kind }; this.changed() } }
+  /** Which variant is playing now, in a comparison. */
+  comparing(): number | null { return this.tag === 'compare' && this.playing ? this.nowChunk()?.cmp ?? null : null }
+  /** Play a variant (or all in turn, twice): 2 bars of the song leaving, the transition (a rest or glue between, where the
+   * variant is about one), 3 bars of the song coming in, then a bar of silence. */
+  playCompare(which: number | 'all') {
+    const o = this.compareOpen
+    if (!o) return
+    const spec = COMPARE[o.kind], via = spec.via === undefined ? o.t.via : spec.via, gid = this.jd.glueOf(o.t.a)
+    const order = which === 'all' ? [...spec.variants.keys(), ...spec.variants.keys()] : [which]
+    const chunks: Chunk[] = []
+    for (const i of order) {
+      const v = spec.variants[i], note = `${'ABCD'[i]} · ${v.label}`, over: Partial<Prefs> = { ...v.over, ...(via === 'rest' ? { glueKind: 'rest' } : {}) }
+      chunks.push({ ...this.part({ track: o.t.a, start: Math.max(1, o.t.exit - 1) }, 0, 2), over, note, cmp: i })
+      if (via === 'rest') chunks.push({ kind: 'rest', bar: 1, bars: this.prefs.glueBars, track: o.t.a, over, note, cmp: i })
+      else if (via === 'glue' && gid) chunks.push({ kind: 'glue', bar: 1, glue: gid, bars: this.prefs.glueBars, track: o.t.a, over, note, cmp: i })
+      chunks.push({ ...this.part({ track: o.t.b, start: o.t.start }, 0, 3), over, note, cmp: i })
+      chunks.push({ kind: 'rest', bar: 1, bars: 1, track: o.t.b, over: { ...over, tail: 'taper' }, note: 'between', cmp: i })
+    }
+    void this.play(chunks, null, { tag: 'compare' })
+  }
+  /** The transition after a card of the timeline: the song leaving at the card's last bar, a rest or a glue between if
+   * there was one, the song coming in at its first. */
+  transitionAfter(id: string): Transition | null {
+    const cards = this.timeline().cards, i = cards.findIndex(c => c.id === id), a = cards[i]
+    if (!a || a.kind !== 'part') return null
+    let j = i + 1, via: Transition['via'] = null
+    if (cards[j]?.kind === 'rest' || cards[j]?.kind === 'glue') { via = cards[j].kind as 'rest' | 'glue'; j++ }
+    const b = cards[j], exit = [...a.nums].reverse().find((n): n is number => n != null), start = b?.nums.find((n): n is number => n != null)
+    if (!b || b.kind !== 'part' || exit == null || start == null || !a.tracks[1] || !b.tracks[0]) return null
+    const nm = (tid: string) => { const t = this.jd.track(tid); return t ? name(t) : tid }
+    return { a: a.tracks[1], exit, b: b.tracks[0], start, via, label: `${nm(a.tracks[1])} bar ${exit} → ${via ? `${via} → ` : ''}${nm(b.tracks[0])} bar ${start}` }
+  }
+  /** The last transition heard (the playhead's card's, or the one before it), else one from the graph: the seamless cut
+   * between the two most energetic songs that meet, where a bassline is likeliest. */
+  lastTransition(): Transition | null {
+    const cards = this.timeline().cards, h = this.headPos(), at = h ? cards.findIndex(c => c.id === h.id) : cards.length
+    for (let i = Math.min(at, cards.length) - 1; i >= 0; i--) { const t = this.transitionAfter(cards[i].id); if (t) return t }
+    const d = this.graph?.data(this.jd.votes().clips, this.jd.votes().cues)
+    if (!d) return null
+    let best: Transition | null = null, bestE = -Infinity
+    for (const [a, cs] of Object.entries(d.cuts)) for (const c of cs) {
+      const e = Math.min(d.songs[a].energy, d.songs[c.to].energy)
+      if (e > bestE) { bestE = e; const nm = (tid: string) => { const t = this.jd.track(tid); return t ? name(t) : tid }; best = { a, exit: c.after, b: c.to, start: c.start, via: null, label: `${nm(a)} bar ${c.after} → ${nm(c.to)} bar ${c.start}` } }
+    }
+    return best
+  }
   graphState() { return this.walk.graphState() }
 
   // ---- songs, for any page
@@ -411,6 +470,7 @@ export class Mixer {
   // ---- what's playing
   nowChunk(now = this.now()): Chunk | null { return this.plan.find(c => c.scheduled && !c.skipped && c.T! - XF <= now && now < c.end!) ?? null }
   chunkLabel(c: Chunk): string {
+    if (c.note && c.note !== 'between') return `${c.note} · ${this.chunkLabel({ ...c, note: undefined })}`
     if (c.kind === 'glue') return `glue · ${this.jd.glueName(c.glue!)}`
     if (c.kind === 'rest') return `rest · ${c.bars} bar${c.bars > 1 ? 's' : ''} of silence`
     const t = this.jd.track(c.track), tags = [c.kind === 'fill' ? 'fill' : VARIANT[c.variant ?? 'full'], c.run?.entry && c.track !== c.run.entry.track ? 'variation' : ''].filter(Boolean)
@@ -507,7 +567,29 @@ export type Snapshot = ReturnType<Mixer['snapshot']>
 /** A card of the timeline: a block of the tape (or of a script), or a queue's song. */
 export interface TCard {
   id: string; key: string | null; kind: Chunk['kind']; bars: number; nums: (number | null)[]; label: string | null; shape: number[]
+  /** The song it enters with and the one it ends in (a sibling may have taken a phrase): for a comparison of the
+   * transition after it. */
+  tracks: [string | null, string | null]
   rating: number; like: number; rated: boolean; start: number
   seek: { parts: { k: number; bars: number }[] } | { qi: number } | null
 }
 export interface Timeline { barS: number; beats: number; cards: TCard[] }
+/** A transition to compare: song a leaving after its bar `exit`, song b coming in at its bar `start`, a rest or glue
+ * between or not. */
+export interface Transition { a: string; exit: number; b: string; start: number; via: 'rest' | 'glue' | null; label: string }
+export type CompareKind = 'bass' | 'joins' | 'tail' | 'stingers' | 'match'
+/** What a comparison can be about, and its variants (each a few settings over the Mixer's). `via`: whether the
+ * transition goes through a rest for it (a rest's tail, stingers) or straight (a join), else as it was. */
+export const COMPARE: Record<CompareKind, { title: string; about: string; via?: 'rest' | null; variants: { label: string; over: Partial<Prefs> }[] }> = {
+  bass: { title: 'Bass swap', about: 'Under 180 Hz: two basslines crossfading together, or the bass and kick handing over on the bar line', via: null,
+    variants: [{ label: 'without bass swap', over: { bassSwap: false } }, { label: 'with bass swap', over: { bassSwap: true } }] },
+  joins: { title: 'Joins', about: 'How long the two songs overlap around the bar line', via: null,
+    variants: [{ label: 'tight (80 ms)', over: { joins: 'tight' } }, { label: '1 beat', over: { joins: 'beat' } }, { label: '2 beats', over: { joins: 'two' } }] },
+  tail: { title: 'Into a rest', about: 'How the song goes into a rest: tapering over its last bar, ringing out past the bar line, or echoing out', via: 'rest',
+    variants: [{ label: 'taper', over: { tail: 'taper' } }, { label: 'ring out', over: { tail: 'ring' } }, { label: 'echo out', over: { tail: 'echo' } }] },
+  stingers: { title: 'Stingers', about: 'Out of a rest into the next song: nothing, a riser into its downbeat, a boom on it, or both', via: 'rest',
+    variants: [{ label: 'none', over: { stingers: { riser: false, boom: false, crash: false } } }, { label: 'riser', over: { stingers: { riser: true, boom: false, crash: false } } },
+      { label: 'boom', over: { stingers: { riser: false, boom: true, crash: false } } }, { label: 'riser and boom', over: { stingers: { riser: true, boom: true, crash: false } } }] },
+  match: { title: 'Match levels', about: 'Whether the song coming in starts at the level of the one going out', via: null,
+    variants: [{ label: 'levels not matched', over: { match: false } }, { label: 'levels matched', over: { match: true } }] },
+}

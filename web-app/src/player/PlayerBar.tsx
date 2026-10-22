@@ -13,6 +13,7 @@ import { useEngine, useFrame, useSnapshot } from './hooks'
 import { useKeys } from './keys'
 import { usePlayer } from './store'
 import { TimelineStrip } from './TimelineStrip'
+import { Compare } from './Compare'
 import './player.css'
 
 const MODE = { walk: 'The walk', song: 'Song', queue: 'Queue', script: 'Audition' } as const
@@ -56,6 +57,7 @@ function Bar({ m }: { m: Mixer }) {
   const walk = snap.mode === 'walk', queue = !walk ? m.queue : null, inQueue = snap.mode === 'queue'
   return (
     <footer className="pbar">
+      <Compare m={m} />
       <div className="pb-row">
         <div className="pb-left">
           <div className="pb-top">

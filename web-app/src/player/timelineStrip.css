@@ -68,13 +68,18 @@ button.tlc-label:hover { background: var(--hover); color: var(--text); }
 /* ---- the transitions: a marker on a line (2 bars before it, in one click) and its thumbs once it has played */
 .tls-seam { position: absolute; top: 22px; height: 64px; z-index: 2; display: flex; flex-direction: column; align-items: center; }
 .tls-seam::before { content: ""; position: absolute; left: 50%; top: -10px; bottom: -6px; width: 1px; background: rgba(255, 255, 255, .1); pointer-events: none; }
-.tls-jump { position: relative; width: 100%; height: 34px; flex: none; padding: 0; border: 0; background: none; display: grid; place-items: center; cursor: pointer; }
-.tls-jump::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: transparent; transition: background .15s; }
+.tls-seamtop { position: relative; width: 100%; height: 34px; flex: none; display: flex; align-items: center; justify-content: center; gap: 2px; }
+.tls-seamtop::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: transparent; transition: background .15s; }
+.tls-seam:hover .tls-seamtop::before { background: rgba(255, 200, 87, .45); }
+.tls-jump { position: relative; width: 22px; height: 22px; flex: none; padding: 0; border: 0; background: none; display: grid; place-items: center; cursor: pointer; }
 .tls-jump i { width: 18px; height: 18px; border-radius: 6px; display: grid; place-items: center; opacity: 0; transform: scale(.8); background: rgba(255, 200, 87, .14); box-shadow: 0 0 0 1px rgba(255, 200, 87, .5); color: var(--pick); transition: opacity .15s, transform .15s var(--ease); }
 .tls-jump i .i { width: 10px; height: 10px; }
-.tls-jump:hover:not(:disabled)::before { background: rgba(255, 200, 87, .6); }
-.tls-jump:hover:not(:disabled) i { opacity: 1; transform: none; }
+.tls-seam:hover .tls-jump:not(:disabled) i { opacity: 1; transform: none; }
 .tls-jump:disabled { cursor: default; }
+.tls-ab { position: relative; height: 18px; padding: 0 4px; border-radius: 5px; border: 0; font: 700 9px/1 var(--mono); letter-spacing: .02em; color: #cfc8ff; cursor: pointer;
+  background: rgba(154, 140, 255, .16); box-shadow: 0 0 0 1px rgba(154, 140, 255, .5); opacity: 0; transform: scale(.8); transition: opacity .15s, transform .15s var(--ease); }
+.tls-seam:hover .tls-ab { opacity: 1; transform: none; }
+.tls-ab:hover { background: rgba(154, 140, 255, .3); color: #fff; }
 .tls-seam .thumbs { margin-top: 3px; padding: 1px; border-radius: 99px; background: var(--overlay); box-shadow: 0 0 0 1px var(--line-2); }
 .tls-seam .thumbs button { width: 21px; height: 21px; border-radius: 99px; }
 .tls-seam .thumbs .i { width: 11px; height: 11px; }

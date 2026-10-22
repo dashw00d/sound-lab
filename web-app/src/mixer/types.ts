@@ -1,3 +1,4 @@
+import type { Prefs } from './prefs'
 // What the Mixer works with: the library (GET /api/songs: music.library, plus the scored new takes), and the walk's
 // own pieces (parts, runs, chunks, blocks).
 export type Level = 'mellow' | 'intense'
@@ -112,6 +113,11 @@ export interface Chunk {
   rev?: number
   /** Its place in a meeting (playMeeting): which of the parts it is. */
   seg?: number
+  /** Settings for this chunk alone (a comparison: the same transition under each variant), over the Mixer's. */
+  over?: Partial<Prefs>
+  /** What it is in a comparison ("A · with bass swap"), shown with it; `cmp`: which variant. */
+  note?: string
+  cmp?: number
 }
 /** A block in the lane: a run's visit (its chunks folded), or a glue or a rest. */
 export interface Block {

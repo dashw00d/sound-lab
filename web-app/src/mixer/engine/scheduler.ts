@@ -49,9 +49,9 @@ export class Scheduler {
 
   /** The buffers a chunk plays: its mellow and intense sources, or a glue's. */
   async prepare(c: Chunk): Promise<NonNullable<Chunk['bufs']>> {
-    const jd = this.jd, P = this.prefs()
-    if (c.kind === 'glue') return { glue: await file(this.glueUrl(c.glue!)), stingers: await this.stingers() }
-    if (c.kind === 'rest') return { stingers: await this.stingers() }  // (silence, and the stingers into what comes after it)
+    const jd = this.jd, P = { ...this.prefs(), ...c.over }
+    if (c.kind === 'glue') return { glue: await file(this.glueUrl(c.glue!)), stingers: await this.stingers(P.stingers) }
+    if (c.kind === 'rest') return { stingers: await this.stingers(P.stingers) }  // (silence, and the stingers into what comes after it)
     const t = jd.track(c.track)!, clip = (u: string) => '/clips/' + u, st = t.stems ?? {}, level = (l: string) => jd.url(c.track, l)!
     const gid = jd.glueOf(c.track), bed = P.bed !== 'off' && gid ? bedPad(gid, this.glueUrl(gid), this.barS()) : null
     if (!t.measure?.beats) await Promise.all(['calm', 'battle'].map(l => measureBeats(level(l), this.beatS())))  // (a song the lab hasn't measured: its levels, from its files)
@@ -74,8 +74,8 @@ export class Scheduler {
   /** The stingers for the scene change after a rest or a glue (Stingers, in the Mixer's glue settings): one take of each
    * kind that's on, a liked one if any is liked (else any not disliked), never the take used last. */
   private lastStinger: Partial<Record<StingerKind, string>> = {}
-  private async stingers() {
-    const on = this.prefs().stingers, all = this.jd.lib.stingers, clips = this.jd.votes().clips
+  private async stingers(on = this.prefs().stingers) {
+    const all = this.jd.lib.stingers, clips = this.jd.votes().clips
     if (!all || !on) return []
     const out: { kind: StingerKind; id: string; buf: AudioBuffer }[] = []
     for (const kind of ['riser', 'boom', 'crash'] as StingerKind[]) {
@@ -104,7 +104,7 @@ export class Scheduler {
 
   /** Puts a chunk on the audio clock at c.T, crossing over from the chunk before. */
   schedule(c: Chunk, prev: Chunk | undefined) {
-    const ctx = audio(), now = this.now(), P = this.prefs(), jd = this.jd, T = c.T!
+    const ctx = audio(), now = this.now(), P = { ...this.prefs(), ...c.over }, jd = this.jd, T = c.T!  // (a comparison's chunk: its own settings)
     c.nodes = []
     if (c.kind === 'glue') {  // it rises over the bar before T as the chunk before fades out over it (a slow handover)
       const lead = this.barS(), dur = c.bars * this.barS()
