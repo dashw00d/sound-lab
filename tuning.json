@@ -283,6 +283,17 @@
      "by": "agent",
      "added": "2026-10-21",
      "pinned": false
+    },
+    {
+     "id": "r23",
+     "text": "No stingers or accent sounds (risers, booms, crashes, impacts) around the music: not as takes, not at scene changes, not inside fills. A fill that acts like one (music fills _accent: an impact, crash, boom, hit, peak or riser past what its own song does) is never kept.",
+     "why": "2026-10-22: 72 stinger takes (4 riser, 4 boom and 4 crash prompts, 6 seeds each, sfx rules, dark cinematic): the designer: \"I HATE the stingers, all of them are aweful and not needed\"; removed from the lab. They had also heard \"stingers baked into\" SA3's fills: 111 of 467 fills go past their songs on one of those counts (MODELS_LOG 2026-10-22).",
+     "tasks": [
+      "music",
+      "sfx"
+     ],
+     "by": "agent",
+     "added": "2026-10-22"
     }
    ],
    "templates": {

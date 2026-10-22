@@ -9,7 +9,6 @@ the lab's own, holding everything a game needs to play its music as the Mixer pl
                          Mixer walks the graph with the same code
   README.md              how to plug it in, for any engine
   music/<song>.<state>.ogg   each shipped song's mellow and intense levels
-  stingers/<take>.ogg    the stingers the designer liked (music stingers), for a scene change
   glues/<glue>.ogg       the pads between scenes (music glues), when the Mixer goes from scene to scene through a pad
 
 Audio goes in on demand, a batch at a time (the designer: "when you are happy with a big ol' batch, you can move it over
@@ -43,8 +42,7 @@ SWAP_HZ = 180  # the bass swap's split (web-app/src/mixer/curves.ts SWAP_HZ)
 XF = 0.04  # seconds either side of a bar line where a song steps within itself (web-app/src/mixer/judge.ts XF)
 # The Mixer's settings this reads, with the web app's defaults (web-app/src/mixer/prefs.ts DEFAULTS)
 DEFAULTS = dict(intense="battle", glue="breaths", glueKind="rest", glueBars=1, tail="taper", stay=12, joins="two", match=True, even=True, bassSwap=False,
-                sceneBars=48, wave=8, stingers=dict(riser=False, boom=False, crash=False))
-STINGER_DB = -6  # (a stinger under the music: web-app/src/mixer/engine/scheduler.ts playStingers)
+                sceneBars=48, wave=8)
 
 
 def folder(proj: P.Project) -> Path:
@@ -179,12 +177,6 @@ class _Lab:
         return sid in self.scene_of and (self.F["items"].get(sid) or {}).get("energy") is not None and not self.bad(sid)
 
 
-def liked_stingers(proj: P.Project) -> dict[str, list[dict]]:
-    """The stinger takes the designer liked, by kind: what the game gets."""
-    from ..music import stingers
-    return {k: [t for t in v if t["vote"] > 0] for k, v in stingers.takes(proj).items()}
-
-
 def manifest(proj: P.Project, lab: _Lab | None = None) -> dict:
     """The manifest, for the songs whose audio is in the folder. The walk's music is made as the Mixer makes it
     (web-app/src/mixer/engine/graph.ts Graph.data): a scene's members that aren't bad takes, each one's loop (the
@@ -229,9 +221,7 @@ def manifest(proj: P.Project, lab: _Lab | None = None) -> dict:
             bassSwap=dict(on=p["bassSwap"], hz=SWAP_HZ),
             betweenScenes=between,
             rest=dict(tail=p["tail"]),
-            stingers=dict(**{k: bool(p["stingers"].get(k)) for k in ("riser", "boom", "crash")}, db=STINGER_DB),
         ),
-        stingers={k: [f"stingers/{t['id']}.ogg" for t in v] for k, v in liked_stingers(proj).items()},
         songs=songs,
         walk=dict(bars=L.N, songs=walk_songs, scenes=scenes, cuts=cuts),
     )
@@ -247,8 +237,7 @@ def readme(proj: P.Project, man: dict) -> str:
                 wave_bars=round(p["waveBars"]), rest_bars=p["restBars"], join=p["join"]["seconds"],
                 swap="on" if p["bassSwap"]["on"] else "off", tail=p["rest"]["tail"], intense=man["states"]["intense"], format=FORMAT,
                 between=p["betweenScenes"], between_words={"straight": "straight on, no break", "pad": f"a pad of {p['restBars']} bar(s) between them",
-                                                           "rest": f"a rest of {p['restBars']} bar(s) between them"}[p["betweenScenes"]],
-                **{k: "on" if p["stingers"][k] else "off" for k in ("riser", "boom", "crash")})
+                                                           "rest": f"a rest of {p['restBars']} bar(s) between them"}[p["betweenScenes"]])
     text = (HERE / "README.md").read_text()
     for k, v in fill.items():
         text = text.replace("{{" + k + "}}", str(v))
@@ -271,13 +260,7 @@ def plan(proj: P.Project) -> dict:
         f = out / name
         state = "new" if not f.exists() else "same" if f.read_text() == text else "changed"
         rows.append(dict(path=name, state=state, bytes=len(text.encode())))
-    owned = {f for v in old.get("stingers", {}).values() for f in v}  # (the stingers the last sync wrote)
-    for kind, ts in liked_stingers(proj).items():
-        for t in ts:
-            rel, src = f"stingers/{t['id']}.ogg", proj.work / "clips" / t["file"]
-            state = "new" if not (out / rel).exists() else "same" if _same(src, out / rel) else "changed"
-            rows.append(dict(path=rel, state=state, bytes=src.stat().st_size, source=str(src)))
-            owned.discard(rel)
+    owned = {f for v in old.get("stingers", {}).values() for f in v}  # (audio an older sync wrote that nothing ships now: removed)
     owned_glues = {s.get("glue") for s in old.get("songs", {}).values() if s.get("glue")}  # (the pads the last sync wrote)
     for s in man["songs"].values():
         if s.get("glue"):
@@ -322,7 +305,7 @@ def write(proj: P.Project) -> dict:
             f.unlink(missing_ok=True)
         elif r["state"] != "same":
             f.parent.mkdir(parents=True, exist_ok=True)
-            if "source" in r:  # (a stinger's audio)
+            if "source" in r:  # (a pad's audio)
                 shutil.copyfile(r["source"], f)
                 continue
             tmp = f.with_name(f.name + ".tmp")

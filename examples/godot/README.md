@@ -5,7 +5,7 @@ A Godot 4 project that plays a Sound Lab sync folder (the folder `soundlab sync`
 | file | what it is |
 |---|---|
 | `soundlab/soundlab_walk.gd` | the scene walk: a line-for-line port of the folder's `walk.js` (made from the lab's `web-app/src/mixer/engine/scenewalk.ts`). With the same seed it walks exactly the same steps |
-| `soundlab/soundlab_music.gd` | `SoundLabMusic`, a node that plays the walk: each song's mellow and intense layers together, the joins, rests, stingers, and evened and matched levels |
+| `soundlab/soundlab_music.gd` | `SoundLabMusic`, a node that plays the walk: each song's mellow and intense layers together, the joins, scene changes and rests, and evened and matched levels |
 | `main.tscn`, `main.gd` | the demo: Space plays and stops, I switches between mellow and intense, N moves on to the next scene |
 | `test_walk.gd` | prints a seeded walk's steps, to compare with `walk.js` |
 | `test_player.gd` | runs the player headless for a while and prints each step as it starts |

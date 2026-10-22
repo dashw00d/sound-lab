@@ -230,7 +230,7 @@ export function TimelineStrip({ m }: { m: Mixer }) {
                   <div className={`tls-seam ${c.like > 0 ? 'up' : c.like < 0 ? 'down' : ''} ${k.i < hi ? 'passed' : ''}`} style={{ left: k.x + k.w, width: G }}>
                     <div className="tls-seamtop">
                       <button className="tls-jump" disabled={!playing} title="Play from 2 bars before this transition" onClick={() => go(k, before(k))}><i><Icon name="next" /></i></button>
-                      {c.kind === 'part' && <button className="tls-ab" data-tip-icon="layers" title="Compare this transition: the same one under each variant of a setting, back to back (bass swap, joins, the tail into a rest, stingers, matched levels)"
+                      {c.kind === 'part' && <button className="tls-ab" data-tip-icon="layers" title="Compare this transition: the same one under each variant of a setting, back to back (bass swap, joins, the tail into a rest, matched levels)"
                         onClick={() => m.openCompare(m.transitionAfter(c.id))}>A/B</button>}
                     </div>
                     {c.rated && c.key && k.i < hi && (

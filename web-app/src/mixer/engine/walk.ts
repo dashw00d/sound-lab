@@ -166,7 +166,7 @@ export class Walk {
       const r = this.run, [ms, me] = jd.cueOf(r.entry.track)
       const swing = (f: { beats?: number[] | null }) => (f.beats?.length ? Math.max(...f.beats) - Math.min(...f.beats) : 0)
       const fl = pr.vary.fills && r.lo === ms && r.hi === me ? (jd.track(r.track)?.fills?.[`${ms}-${me}`] ?? [])
-        .filter(f => (clips['fill_' + f.file] || 0) >= 0 && swing(f) <= 10 && (f.click || 0) <= 3) : []
+        .filter(f => (clips['fill_' + f.file] || 0) >= 0 && swing(f) <= 10 && (f.click || 0) <= 3 && !f.stinger?.length) : []
       if (fl.length) {
         const fresh = fl.filter(f => f.file !== r.lastFill), f = (fresh.length ? fresh : fl)[Math.floor(Math.random() * (fresh.length || fl.length))]
         r.lastFill = f.file; r.lastBar = r.lo! - 1; this.held = s
@@ -226,7 +226,7 @@ export class Walk {
       const swing = (f: { beats?: number[] | null }) => (f.beats?.length ? Math.max(...f.beats) - Math.min(...f.beats) : 0)  // (over 10 dB inside: a fill no leveling saves)
       const [ms, me] = jd.cueOf(r.track)
       const fl = pr.vary.fills && !this.plain ? (jd.track(r.track)?.fills?.[`${ms}-${me}`] ?? [])
-        .filter(f => (clips['fill_' + f.file] || 0) >= 0 && swing(f) <= 10 && (f.click || 0) <= 3) : []  // (3: dsp.CLICK)
+        .filter(f => (clips['fill_' + f.file] || 0) >= 0 && swing(f) <= 10 && (f.click || 0) <= 3 && !f.stinger?.length) : []  // (3: dsp.CLICK)
       if (fl.length && r.lo === ms && r.hi === me) {
         const fresh = fl.filter(f => f.file !== r.lastFill), f = (fresh.length ? fresh : fl)[Math.floor(Math.random() * (fresh.length || fl.length))]
         r.lastFill = f.file; r.afterFill = true

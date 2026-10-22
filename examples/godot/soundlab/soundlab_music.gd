@@ -1,8 +1,7 @@
 ## Plays a Sound Lab sync folder in Godot 4 as the lab's Mixer plays it: the scene walk (soundlab_walk.gd, a port of the
 ## folder's walk.js) picks each step, and this puts it on the bar grid: each song's mellow and intense layers together,
 ## sample-aligned, the state crossfading between them; a new song crossfading over the join, a song going round its
-## loop over 80 ms; between scenes, straight on, a pad, or a rest tapering or ringing out; stingers at a scene change;
-## levels evened and matched. It's a
+## loop over 80 ms; between scenes, straight on, a pad, or a rest tapering or ringing out; levels evened and matched. It's a
 ## reference: read it, copy it, change it. See the sync folder's README.md for the rules it follows.
 ##
 ## Timing: Godot can't start a sound at a future time, so each voice starts in the frame its time falls inside the next
@@ -40,7 +39,6 @@ var _w_from := 0.0
 var _w_to := 0.0
 var _w_t0 := -1.0
 var _streams := {}
-var _last_stinger := {}
 
 
 func _ready() -> void:
@@ -169,8 +167,6 @@ func _schedule(step: Dictionary, t: float) -> void:
 		xf = float(P.step.seconds); curve = "line"  # (round its loop)
 	elif _after_rest or _cur == null:
 		xf = 0.08; curve = "power"
-		if _after_rest:
-			_stingers(t)
 	else:
 		xf = float(P.join.seconds); curve = "power"  # (a new song)
 	var h := xf / 2.0
@@ -244,28 +240,6 @@ func _fade(v: Dictionary, now: float) -> float:
 			"taper": g *= 0.0 if k >= 1.0 else pow(10.0, -2.4 * k * k)
 			"decay": g *= 0.0 if k >= 1.0 else pow(10.0, -2.4 * k)
 	return g
-
-
-## A scene change's stingers (README "Stingers"): a riser ending on t, a boom or a crash starting on it.
-func _stingers(t: float) -> void:
-	var P: Dictionary = manifest.play.get("stingers", {})  # (an older manifest has none)
-	for kind in ["riser", "boom", "crash"]:
-		var files: Array = manifest.get("stingers", {}).get(kind, [])
-		if not P.get(kind, false) or files.is_empty():
-			continue
-		var pick: String = files[randi() % files.size()]
-		if files.size() > 1:
-			while pick == _last_stinger.get(kind, ""):
-				pick = files[randi() % files.size()]
-		_last_stinger[kind] = pick
-		var stream := _stream(pick)
-		var p := AudioStreamPlayer.new()
-		p.stream = stream; p.bus = bus; add_child(p)
-		var length := stream.get_length()
-		var t0 := t - length if kind == "riser" else t
-		_voices.append({players = [p], layer_w = [-1], t0 = maxf(t0, _clock()), pos0 = maxf(0.0, _clock() - t0), end_t = t0 + length,
-			fades = [], gain = {mellow = db_to_linear(float(P.get("db", -6)))}, match = null, started = false, visit = -1, next_bar = -1, song = ""})
-
 
 func _stream(path: String) -> AudioStream:
 	if _streams.has(path):

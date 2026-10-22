@@ -25,7 +25,7 @@ export default function App() {
     { id: 'sessions', title: 'Sessions', icon: 'history' as const, view: () => <SessionsPage />,
       tip: 'Your listening sessions: every block you rated and every transition you thumbed, to hear again exactly as it played' },
     { id: 'mixer', title: 'Mixer', icon: 'sliders' as const, view: () => <MixerPage />,
-      tip: 'How the walk plays: what it draws from, the scenes and the wave, variation, glue and stingers; and training, the review and hand-made sets' },
+      tip: 'How the walk plays: what it draws from, the scenes and the wave, variation and glue; and training, the review and hand-made sets' },
     { id: 'game', title: 'Game', icon: 'game' as const, view: () => <GamePage />,
       tip: "The folder the lab keeps in the game: ship a batch of songs, and the manifest, the walk and the docs any engine plugs in" },
   ]

@@ -126,7 +126,8 @@ def library(proj: P.Project) -> dict:
             t["stem_gain"] = stem_index[t["id"]].get("gain", {})  # (each variation's gain back to the full level, dB)
             t["stem_loud"] = stem_index[t["id"]].get("loud", {})  # (the calm drums' loudness per bar: the taste model's drums_a)
         if t["id"] in fill_index:
-            t["fills"] = {k: [dict(file=f["file"], bars=f["bars"], seed=f["seed"], beats=f.get("beats"), click=f.get("click")) for f in v] for k, v in fill_index[t["id"]].items()
+            t["fills"] = {k: [dict(file=f["file"], bars=f["bars"], seed=f["seed"], beats=f.get("beats"), click=f.get("click"),
+                                   stinger=(f.get("accent") or {}).get("stinger") or None) for f in v] for k, v in fill_index[t["id"]].items()
                           if not k.endswith(".tried") and v}
     glue_index = Store.read(proj.work / "glues.json", {})  # (music glues: a mellow pad per family, for the Mixer)
     of = {tid: g for g in glue_index.values() for tid in g["members"]}

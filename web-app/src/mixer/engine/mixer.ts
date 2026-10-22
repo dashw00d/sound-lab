@@ -577,9 +577,9 @@ export interface Timeline { barS: number; beats: number; cards: TCard[] }
 /** A transition to compare: song a leaving after its bar `exit`, song b coming in at its bar `start`, a rest or glue
  * between or not. */
 export interface Transition { a: string; exit: number; b: string; start: number; via: 'rest' | 'glue' | null; label: string }
-export type CompareKind = 'bass' | 'joins' | 'tail' | 'stingers' | 'match'
+export type CompareKind = 'bass' | 'joins' | 'tail' | 'match'
 /** What a comparison can be about, and its variants (each a few settings over the Mixer's). `via`: whether the
- * transition goes through a rest for it (a rest's tail, stingers) or straight (a join), else as it was. */
+ * transition goes through a rest for it (a rest's tail) or straight (a join), else as it was. */
 export const COMPARE: Record<CompareKind, { title: string; about: string; via?: 'rest' | null; variants: { label: string; over: Partial<Prefs> }[] }> = {
   bass: { title: 'Bass swap', about: 'Under 180 Hz: two basslines crossfading together, or the bass and kick handing over on the bar line', via: null,
     variants: [{ label: 'without bass swap', over: { bassSwap: false } }, { label: 'with bass swap', over: { bassSwap: true } }] },
@@ -587,9 +587,6 @@ export const COMPARE: Record<CompareKind, { title: string; about: string; via?: 
     variants: [{ label: 'tight (80 ms)', over: { joins: 'tight' } }, { label: '1 beat', over: { joins: 'beat' } }, { label: '2 beats', over: { joins: 'two' } }] },
   tail: { title: 'Into a rest', about: 'How the song goes into a rest: tapering over its last bar, ringing out past the bar line, or echoing out', via: 'rest',
     variants: [{ label: 'taper', over: { tail: 'taper' } }, { label: 'ring out', over: { tail: 'ring' } }, { label: 'echo out', over: { tail: 'echo' } }] },
-  stingers: { title: 'Stingers', about: 'Out of a rest into the next song: nothing, a riser into its downbeat, a boom on it, or both', via: 'rest',
-    variants: [{ label: 'none', over: { stingers: { riser: false, boom: false, crash: false } } }, { label: 'riser', over: { stingers: { riser: true, boom: false, crash: false } } },
-      { label: 'boom', over: { stingers: { riser: false, boom: true, crash: false } } }, { label: 'riser and boom', over: { stingers: { riser: true, boom: true, crash: false } } }] },
   match: { title: 'Match levels', about: 'Whether the song coming in starts at the level of the one going out', via: null,
     variants: [{ label: 'levels not matched', over: { match: false } }, { label: 'levels matched', over: { match: true } }] },
 }

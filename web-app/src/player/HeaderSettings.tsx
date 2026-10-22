@@ -39,7 +39,7 @@ function Controls({ m }: { m: Mixer }) {
       <button className={`hswap ${P.bassSwap ? 'on' : ''}`} data-tip-icon="wave" title={`Bass swap: at a song change only the melody and harmony cross over; the bass and kick (under ${SWAP_HZ} Hz) swap on the bar line, so two basslines never overlap`} onClick={() => set({ bassSwap: !P.bassSwap })}>
         <i />Bass swap
       </button>
-      <button className={`hab ${m.compareOpen ? 'on' : ''}`} data-tip-icon="layers" title="Compare: the last transition you heard (or one from the graph) under each variant of a setting, back to back: bass swap, joins, the tail into a rest, stingers, matched levels"
+      <button className={`hab ${m.compareOpen ? 'on' : ''}`} data-tip-icon="layers" title="Compare: the last transition you heard (or one from the graph) under each variant of a setting, back to back: bass swap, joins, the tail into a rest, matched levels"
         onClick={() => (m.compareOpen ? m.closeCompare() : m.openCompare(m.lastTransition()))}>A/B</button>
       <button className={`iconbtn ${open ? 'on' : ''}`} title="More settings: even and matched levels, the bed, what intense is" onClick={() => setOpen(o => !o)}><Icon name="sliders" /></button>
       {open && (

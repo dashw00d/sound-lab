@@ -24,7 +24,7 @@ const GUESS: [RegExp, IconName][] = [
   [/^(save|write|update)/i, 'save'], [/^(reset|back to|undo)/i, 'undo'], [/^(skip|move on|next)/i, 'next'],
   [/^(replay|check again|re-sort)/i, 'refresh'], [/^(load|start from)/i, 'layers'], [/^add/i, 'plus'], [/^ship/i, 'game'],
   [/^(mellow|intense|calm)/i, 'wave'], [/scene/i, 'graph'], [/^(all|none)$/i, 'check'], [/root/i, 'root'], [/^(rest|glue)/i, 'link'],
-  [/^(riser|boom|crash|stinger)/i, 'sparkle'], [/^(mute|unmute|volume)/i, 'volume'], [/folder|game/i, 'game'],
+  [/^(mute|unmute|volume)/i, 'volume'], [/folder|game/i, 'game'],
 ]
 
 /** A hint's keys: the trailing parenthetical ("(Space)", "(1; X switches)", "(← →)"), its key-like words as key caps. */

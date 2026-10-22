@@ -7,7 +7,7 @@ import { bedPad, file, FILLPAD, measureBeats, ROLL, sliced } from '../buffers'
 import { curve, db, decay, hold, line, SWAP_HZ, swapCurve, taper } from '../curves'
 import { XF, type Judge } from '../judge'
 import type { Prefs } from '../prefs'
-import { STATES, type Chunk, type Level, type Source, type StingerKind } from '../types'
+import { STATES, type Chunk, type Level, type Source } from '../types'
 
 type BedVoice = { gid: string; s: AudioBufferSourceNode; g: GainNode; level: number }
 /** A chunk's gain: its level kept for the next chunk's crossfade, and (with the bass swap) its low band's gain. */
@@ -50,8 +50,8 @@ export class Scheduler {
   /** The buffers a chunk plays: its mellow and intense sources, or a glue's. */
   async prepare(c: Chunk): Promise<NonNullable<Chunk['bufs']>> {
     const jd = this.jd, P = { ...this.prefs(), ...c.over }
-    if (c.kind === 'glue') return { glue: await file(this.glueUrl(c.glue!)), stingers: await this.stingers(P.stingers) }
-    if (c.kind === 'rest') return { stingers: await this.stingers(P.stingers) }  // (silence, and the stingers into what comes after it)
+    if (c.kind === 'glue') return { glue: await file(this.glueUrl(c.glue!)) }
+    if (c.kind === 'rest') return {}  // (silence: nothing to load)
     const t = jd.track(c.track)!, clip = (u: string) => '/clips/' + u, st = t.stems ?? {}, level = (l: string) => jd.url(c.track, l)!
     const gid = jd.glueOf(c.track), bed = P.bed !== 'off' && gid ? bedPad(gid, this.glueUrl(gid), this.barS()) : null
     if (!t.measure?.beats) await Promise.all(['calm', 'battle'].map(l => measureBeats(level(l), this.beatS())))  // (a song the lab hasn't measured: its levels, from its files)
@@ -69,37 +69,6 @@ export class Scheduler {
     }
     if (bed) await bed
     return { mellow, intense: [{ buf: await intense, gain: 1, pre: ROLL }] }
-  }
-
-  /** The stingers for the scene change after a rest or a glue (Stingers, in the Mixer's glue settings): one take of each
-   * kind that's on, a liked one if any is liked (else any not disliked), never the take used last. */
-  private lastStinger: Partial<Record<StingerKind, string>> = {}
-  private async stingers(on = this.prefs().stingers) {
-    const all = this.jd.lib.stingers, clips = this.jd.votes().clips
-    if (!all || !on) return []
-    const out: { kind: StingerKind; id: string; buf: AudioBuffer }[] = []
-    for (const kind of ['riser', 'boom', 'crash'] as StingerKind[]) {
-      if (!on[kind]) continue
-      const ok = (all[kind] ?? []).filter(t => (clips[t.id] || 0) >= 0), liked = ok.filter(t => (clips[t.id] || 0) > 0)
-      const from = (liked.length ? liked : ok).filter((t, _, a) => a.length < 2 || t.id !== this.lastStinger[kind])
-      const t = from[Math.floor(Math.random() * from.length)]
-      if (!t) continue
-      this.lastStinger[kind] = t.id
-      try { out.push({ kind, id: t.id, buf: await file('/clips/' + t.file) }) } catch { /* a take gone: no stinger */ }
-    }
-    return out
-  }
-  /** A scene change's stingers, around the first downbeat T of what follows the rest or glue: a riser ending on it,
-   * a boom or a crash starting on it; 6 dB under the music, in either state. */
-  private playStingers(prev: Chunk | undefined, T: number) {
-    const ctx = audio(), now = this.now()
-    for (const s of prev?.bufs?.stingers ?? []) {
-      const src = ctx.createBufferSource(), g = ctx.createGain(), d = s.buf.duration
-      src.buffer = s.buf; g.gain.value = db(-6); src.connect(g).connect(this.out)
-      if (s.kind === 'riser') { const at = T - d; if (at >= now) src.start(at); else if (T - now > 0.3) src.start(now, now - at); else continue }
-      else if (T >= now) src.start(T); else continue
-      prev!.nodes?.push(src, g)
-    }
   }
 
   /** Puts a chunk on the audio clock at c.T, crossing over from the chunk before. */
@@ -128,7 +97,6 @@ export class Scheduler {
       if (this.bedVoice) { this.fadeOut(this.bedVoice, t0, T - t0); this.bedVoice = null }  // (the next song's bed comes back with it)
       return
     }
-    if (prev && !prev.skipped && (prev.kind === 'rest' || prev.kind === 'glue')) this.playStingers(prev, T)  // (a scene change)
     const dur = c.bars * this.barS(), live = !!prev && !prev.skipped && !!prev.nodes && prev.kind !== 'glue' && prev.kind !== 'rest'
     const same = live && !!prev!.run && prev!.run === c.run, change = live && !same && !!prev!.run
     // a song change crosses over around the bar line (Joins: tight 80 ms, or one or two beats); within a run, 80 ms linear

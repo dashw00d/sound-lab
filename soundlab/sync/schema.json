@@ -12,8 +12,7 @@
     "states",
     "play",
     "songs",
-    "walk",
-    "stingers"
+    "walk"
   ],
   "properties": {
     "format": {
@@ -80,7 +79,6 @@
         "matchLevels",
         "bassSwap",
         "rest",
-        "stingers",
         "betweenScenes"
       ],
       "properties": {
@@ -173,30 +171,6 @@
                 "ring",
                 "echo"
               ]
-            }
-          }
-        },
-        "stingers": {
-          "type": "object",
-          "description": "Which kinds play at a scene change (the step after a rest), and their level",
-          "required": [
-            "riser",
-            "boom",
-            "crash",
-            "db"
-          ],
-          "properties": {
-            "riser": {
-              "type": "boolean"
-            },
-            "boom": {
-              "type": "boolean"
-            },
-            "crash": {
-              "type": "boolean"
-            },
-            "db": {
-              "type": "number"
             }
           }
         },
@@ -350,30 +324,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "stingers": {
-      "type": "object",
-      "description": "The stinger files of each kind, relative to this folder",
-      "properties": {
-        "riser": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "boom": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "crash": {
-          "type": "array",
-          "items": {
-            "type": "string"
           }
         }
       }

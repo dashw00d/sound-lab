@@ -179,7 +179,7 @@ export default function GamePage() {
           <div className="gm-files">
             {plan.rows.map(r => (
               <div key={r.path} className={`gm-file s-${r.state}`}>
-                <Icon name={r.path.endsWith('.md') ? 'layers' : r.path.startsWith('stingers/') ? 'sparkle' : 'save'} /><code>{r.path}</code><span className="gm-what">{ABOUT[r.path] ?? ''}</span><span className="gm-state">{STATE[r.state]}</span>
+                <Icon name={r.path.endsWith('.md') ? 'layers' : r.path.startsWith('glues/') ? 'wave' : 'save'} /><code>{r.path}</code><span className="gm-what">{ABOUT[r.path] ?? ''}</span><span className="gm-state">{STATE[r.state]}</span>
               </div>
             ))}
           </div>

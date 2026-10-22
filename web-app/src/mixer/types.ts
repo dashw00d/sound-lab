@@ -15,7 +15,10 @@ export interface Measure {
   beats?: Record<string, number[]>
   onset?: { busy: number[]; attack: number[] }
 }
-export interface Fill { file: string; bars: number; seed: number; beats?: number[] | null; click?: number | null }
+export interface Fill { file: string; bars: number; seed: number; beats?: number[] | null; click?: number | null
+  /** What it does past its song, if it acts like a stinger (music fills _accent): the walk never plays it. */
+  stinger?: string[] | null
+}
 export interface Track {
   id: string
   context?: string
@@ -44,11 +47,7 @@ export interface Library {
   candidates?: Track[]
   glues: Record<string, Glue>
   join_model: JoinModel | null
-  /** Stingers (music stingers): takes of each kind, for a scene change. */
-  stingers?: Record<StingerKind, StingerTake[]>
 }
-export type StingerKind = 'riser' | 'boom' | 'crash'
-export interface StingerTake { id: string; file: string; variant: string; seed: number; seconds: number | null; rises?: boolean | null; slope?: number | null; vote: number }
 
 /** A part: bars start..start+3 of a song. */
 export interface Part { track: string; start: number }
@@ -96,7 +95,7 @@ export interface Chunk {
   // set as it's planned and played
   T?: number
   end?: number
-  bufs?: { mellow?: Source[]; intense?: Source[]; glue?: AudioBuffer; stingers?: { kind: StingerKind; id: string; buf: AudioBuffer }[] }
+  bufs?: { mellow?: Source[]; intense?: Source[]; glue?: AudioBuffer }
   nodes?: AudioNode[]
   scheduled?: boolean
   skipped?: boolean

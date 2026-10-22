@@ -1,6 +1,6 @@
 // Compare a transition (2026-10-22, the designer: "can you show me an example with and without bass swap ... We have a
 // bunch of transitions and stuff that are hard to sample"): one transition, heard under each variant of a setting, back
-// to back and labelled: the bass swap, the joins, the tail into a rest, stingers, matched levels. The variant playing
+// to back and labelled: the bass swap, the joins, the tail into a rest, matched levels. The variant playing
 // lights up, your setting is marked, and "Keep" makes a variant your setting. Opened from a transition on the timeline
 // (A/B on its seam) or from the header (the last transition heard).
 import type { Mixer, CompareKind } from '../mixer/engine/mixer'

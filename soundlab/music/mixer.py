@@ -162,13 +162,51 @@ def retune(proj: P.Project, force: bool = False) -> int:
 FILL_CTX = 4  # (bars kept either side of a fill: the end of the loop before it, its start after it)
 
 
-def fills(proj: P.Project, seeds: int = 4, bars: int = 1, only: list[str] | None = None) -> int:
+# A fill that acts like a stinger (2026-10-22, the designer: "there are like stingers baked into a bunch of these ... remove
+# stingers from fills"): one that goes past what its own song does around the loop point. Measured on all 467 fills
+# against their songs' bars (each song's 2 bars before its loop end and 2 from its loop start; 1,568 ordinary bars):
+# an impact puts more of the bar's energy in its first beat than 99% of the songs' bars do (1.81 times the bar's mean);
+# a crash is over 2 dB brighter (5-16 kHz) than the song there; a boom's low peak (under 150 Hz) over 2.5 dB above the
+# song's; a hit's attack (spectral flux) stronger than any in the song there; a peak over 2.5 dB above the song's
+# loudest; a riser ramps up (normalised slope over 0.4 with R^2 over 0.4: the songs' bars' 90th percentile). 111 of 467
+# (24%) went past one; the player skips them, and `music fills` keeps no new one that does.
+ACCENT = dict(head=1.81, hf=2.0, lf=2.5, flux=1.0, peak=2.5, ramp=0.4)
+
+
+def _accent(y: np.ndarray, ctx: np.ndarray) -> dict:
+    """How a fill (the bar, mono or stereo) stands against its song's bars around the loop point: its measures, and
+    which of them go past what the song does (`stinger`: the kinds, empty when it doesn't)."""
+    def feats(x):
+        m = x.mean(axis=1) if x.ndim > 1 else x
+        n, hop, w = 2048, 512, np.hanning(2048)
+        S = np.array([np.abs(np.fft.rfft(m[i:i + n] * w)) for i in range(0, len(m) - n, hop)])
+        f = np.fft.rfftfreq(n, 1 / SR)
+        P2, L = S ** 2, np.log(S + 1e-6)
+        env = np.sqrt(P2.sum(1) + 1e-12)
+        return dict(hf=10 * np.log10(P2[:, f >= 5000].sum(1).mean() + 1e-12), lf=10 * np.log10(P2[:, f <= 150].sum(1).max() + 1e-12),
+                    flux=float(np.maximum(0, np.diff(L, axis=0)).sum(1).max()), peak=20 * np.log10(env.max()), env=env)
+    a, c = feats(y), feats(ctx)
+    e = a["env"]
+    xs = np.arange(len(e))
+    fit = np.polyfit(xs, e, 1)
+    ramp = float(fit[0]) * len(e) / e.mean()
+    r2 = 1 - float(((e - np.polyval(fit, xs)) ** 2).sum()) / (float(((e - e.mean()) ** 2).sum()) + 1e-12)
+    m = dict(head=round(float(e[:len(e) // 4].mean() / e.mean()), 2), hf=round(a["hf"] - c["hf"], 1), lf=round(a["lf"] - c["lf"], 1),
+             flux=round(a["flux"] / (c["flux"] + 1e-9), 2), peak=round(a["peak"] - c["peak"], 1), ramp=round(ramp, 2), r2=round(r2, 2))
+    kinds = [k for k, over in (("impact", m["head"] > ACCENT["head"]), ("crash", m["hf"] > ACCENT["hf"]), ("boom", m["lf"] > ACCENT["lf"]),
+                               ("hit", m["flux"] > ACCENT["flux"]), ("peak", m["peak"] > ACCENT["peak"]),
+                               ("riser", m["ramp"] > ACCENT["ramp"] and m["r2"] > 0.4)) if over]
+    return dict(m, stinger=kinds)
+
+
+def fills(proj: P.Project, seeds: int = 4, bars: int = 1, only: list[str] | None = None, measure_only: bool = False) -> int:
     """Generated fills at each shipped track's mellow loop point (2026-10-21): SA3 inpaints `bars` bar(s) between the
     loop's end cue and its start cue (FILL_CTX bars kept either side: the bars before the end cue, then the start cue's
     bars), so each time round a song can end its loop on a different fill. With both ends kept, inpainting holds the
     grid (section probe, 2026-10-20: violinbed 17 of 18). The cue is the designer's (votes.json "cues") or the guess.
-    A take is kept when the fill and a bar either side hold 90 BPM, it rates at least the calm gate (Audiobox CE), and
-    its loudness is within 3 dB of the bars around it. work/clips/fills/<track>/<cue>.<seed>.ogg (the fill with 50 ms
+    A take is kept when the fill and a bar either side hold 90 BPM, it rates at least the calm gate (Audiobox CE), its
+    loudness is within 3 dB of the bars around it, and it doesn't act like a stinger (_accent: no impact, crash, boom,
+    hit, peak or riser past what the song does). With `measure_only`, nothing is made: the fills there are measured. work/clips/fills/<track>/<cue>.<seed>.ogg (the fill with 50 ms
     either side, for crossfades), listed in work/fills.json; existing takes are kept."""
     from ..engine import Engine
     import tempfile
@@ -185,7 +223,7 @@ def fills(proj: P.Project, seeds: int = 4, bars: int = 1, only: list[str] | None
     eng = None
     kept = tried = 0
     tmp = Path(tempfile.mkdtemp(prefix="fills_"))
-    for t in lib["tracks"]:
+    for t in ([] if measure_only else lib["tracks"]):
         if only and t["id"] not in only:
             continue
         m = measured.get(t["id"])
@@ -224,8 +262,10 @@ def fills(proj: P.Project, seeds: int = 4, bars: int = 1, only: list[str] | None
             dsp.write_wav(wav, around)
             ce = (quality.aesthetics([str(wav)])[0] or {}).get("CE")
             click = max(dsp.click_ratio(y, a0), dsp.click_ratio(y, a1))  # (where the inpainted bar meets the kept audio)
-            ok = c >= 0.8 and abs(ph) <= 0.04 and abs(loud - ref) <= 3.0 and (ce is None or ce >= quality.GATE.get("calm", 0)) and click <= dsp.CLICK
-            info = dict(seed=seed, grid=round(float(c), 2), loud=round(float(loud - ref), 1), ce=ce, click=click)
+            acc = _accent(y[a0:a1], np.concatenate([before[-2 * bar:], after[:2 * bar]]))
+            ok = (c >= 0.8 and abs(ph) <= 0.04 and abs(loud - ref) <= 3.0 and (ce is None or ce >= quality.GATE.get("calm", 0)) and click <= dsp.CLICK
+                  and not acc["stinger"])
+            info = dict(seed=seed, grid=round(float(c), 2), loud=round(float(loud - ref), 1), ce=ce, click=click, accent=acc)
             if ok:
                 rel = f"fills/{t['id']}/{key}.{seed}.ogg"
                 dsp.write(st.clips / rel, y[a0 - pad:a1 + pad])
@@ -239,18 +279,28 @@ def fills(proj: P.Project, seeds: int = 4, bars: int = 1, only: list[str] | None
         print(f"  {t['id']} (loop {ms}-{me}): {len(have) + len(made)} fills" + (f", {seed - len(made) - len(have)} rejected" if seed > len(made) else ""), flush=True)
     n = 0  # (each fill's loudness per beat, for the Mixer to level it at play time: fills step 2.3 dB in at the median, 37% over 3)
     beat, pad = bar // M["bar_beats"], int(0.05 * SR)
+    tracks, songs = {t["id"]: t for t in lib["tracks"]}, {}
     for tid, rec in index.items():
         for key, fl in rec.items():
             if key.endswith(".tried"):
                 continue
             for f in fl:
+                if "accent" not in f and (st.clips / f["file"]).exists() and tid in tracks:  # (a stinger in it? against its song)
+                    if tid not in songs:
+                        songs[tid] = dsp.decode(Path(proj.assets) / tracks[tid]["files"]["calm"])
+                    x, (ms, me) = songs[tid], map(int, key.split("-"))
+                    k = len(x) // bar
+                    ctx = np.concatenate([x[((me - 2) % k) * bar:((me - 2) % k + 2) * bar], x[((ms - 1) % k) * bar:((ms - 1) % k + 2) * bar]])
+                    f["accent"] = _accent(dsp.decode(st.clips / f["file"])[pad:-pad], ctx)
+                    n += 1
                 if ("beats" not in f or "click" not in f) and (st.clips / f["file"]).exists():
                     y = dsp.decode(st.clips / f["file"])
                     f["beats"] = _beats(y[pad:-pad], beat)
                     f["click"] = max(dsp.click_ratio(y, pad), dsp.click_ratio(y, len(y) - pad))  # (the Mixer skips one that clicks)
                     n += 1
     st.write(path, index, sort=True)
-    print(f"kept {kept} new fills of {tried} tried; measured {n} fills' beats")
+    flagged = sum(1 for rec in index.values() for key, fl in rec.items() if not key.endswith(".tried") for f in fl if (f.get("accent") or {}).get("stinger"))
+    print(f"kept {kept} new fills of {tried} tried; measured {n} fills; {flagged} act like stingers (the Mixer skips them)")
     return 0
 
 
