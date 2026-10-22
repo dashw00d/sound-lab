@@ -5,8 +5,9 @@
 // once forced), or goes through the glue (a rest: a taper into silence; or a pad). Each 4-bar phrase may vary: a
 // sibling at the same bars, stems (drums out, sparse, the battle drums in), a fill at the loop point.
 //
-// Drawing from the graph (Graph), it plays scenes instead: a scene for Scene bars, cutting from song to song inside it at
-// their seamless cuts, then a rest and the next scene, nearest a target energy that rises and falls in waves.
+// Drawing from the graph, it plays scenes instead, as the scene walk (scenewalk.ts, the same file a game gets as walk.js)
+// says: a scene for Scene bars, cutting from song to song inside it at their seamless cuts, then a rest and the next
+// scene, nearest a target energy that rises and falls in waves.
 //
 // A page can also pin the walk to one song (played as written, round its cues, until stopped), or give it a queue:
 // each song in turn, as written, for exactly Stay bars from its first phrase start, then straight into the next
@@ -16,6 +17,7 @@ import { LEN, pkey, type Judge, type Judged } from '../judge'
 import type { Prefs } from '../prefs'
 import type { Chunk, Part, Run } from '../types'
 import type { Graph } from './graph'
+import { SceneWalk, type Visit } from './scenewalk'
 
 export class Walk {
   run: Run | null = null
@@ -32,12 +34,10 @@ export class Walk {
   private ffw = 0
   private sinceGlue = 0
   private breath = 3
-  // (the graph: the scene playing, bars walked, bars heard of each song, the scenes lately)
+  // (the graph, and its walk: the scene playing, bars walked, bars heard of each song, the scenes lately)
   private graph: Graph | null = null
-  private scene: { fid: string; bars: number; played: string[] } | null = null
-  private gbars = 0
-  private heard = new Map<string, number>()
-  private scenes: string[] = []
+  private sw: SceneWalk | null = null
+  private visit: Visit | null = null
 
   private jd: Judge
   private prefs: () => Prefs
@@ -47,11 +47,7 @@ export class Walk {
    * files are decoded ahead, so a change of song never waits on them (a skip). */
   private upcoming(tid: string): string[] {
     if (this.queue) return [this.queue[(this.qi + 1) % this.queue.length].track]
-    if (this.graphOn && this.graph) {
-      const [lo, hi] = this.jd.loopFor(tid, this.jd.entryOf(tid)), clips = getVotes().clips, out: string[] = []
-      for (let e = lo; e <= hi && out.length < 2; e++) for (const c of this.graph.cutsAt(tid, e, clips)) if (!out.includes(c.to) && out.length < 2) out.push(c.to)
-      return out
-    }
+    if (this.graphOn && this.sw) return this.sw.cutsFrom(tid).slice(0, 2)
     return []
   }
 
@@ -61,30 +57,33 @@ export class Walk {
     this.ffw = opts.ffw ?? 0
     const queue = opts.queue?.length ? opts.queue : null, qi = queue ? (((opts.at ?? 0) % queue.length) + queue.length) % queue.length : 0
     Object.assign(this, { run: null, pendingEntry: queue ? queue[qi] : from, runs: 0, run0: null, sinceGlue: 0, breath: 3, pin: !!opts.pin && !!from, queue, qi })
-    if (!from) { this.recent = []; this.recentTracks = []; this.scene = null; this.gbars = 0; this.heard = new Map(); this.scenes = [] }
+    if (!from) { this.recent = []; this.recentTracks = [] }
+    if (this.graphOn) { const sw = this.scenes(); this.visit = null; if (!from) sw?.reset(); else sw?.enter(from.track, from.start) }
   }
-  setGraph(g: Graph | null) { this.graph = g }
+  setGraph(g: Graph | null) { this.graph = g; if (!g) this.sw = null }
+  /** The scene walk, on the graph as the votes stand now (a vote or a cue moved: the walk goes on in the new one). */
+  private scenes(): SceneWalk | null {
+    if (!this.graph) return null
+    const v = getVotes(), d = this.graph.data(v.clips, v.cues)
+    if (!this.sw) this.sw = new SceneWalk(d, () => {
+      const pr = this.prefs()
+      return { stay: pr.stay, sceneBars: pr.sceneBars, waveBars: (pr.wave * 60) / this.jd.barS(), restBars: pr.glueBars, avoid: 4 }
+    })
+    else this.sw.setData(d)
+    return this.sw
+  }
   /** The song playing is done: the walk moves on at its next chance (a phrase end; in the graph, at once). */
-  hurry() { if (this.run) this.run.played = Math.max(this.run.played!, 999) }
+  hurry() { if (this.run) this.run.played = Math.max(this.run.played!, 999); this.sw?.hurry() }
   get graphOn() { return this.prefs().scope === 'graph' && !!this.graph && !this.pin && !this.queue }
   /** Where the graph is: the scene, the energy aimed at, and the song's. */
-  graphState() {
-    const g = this.graph, r = this.run
-    if (!this.graphOn || !g || !this.scene) return null
-    return { scene: this.scene.fid, bars: this.scene.bars, target: g.target(this.gbars, this.period()), energy: r ? g.energy(r.track) : null }
-  }
-  private period() { return (this.prefs().wave * 60) / this.jd.barS() }
+  graphState() { return this.graphOn ? this.sw?.state() ?? null : null }
   /** What the walk draws from: the set's parts, or every song's phrase starts. */
   pool(): Part[] { return this.prefs().scope === 'set' ? this.prefs().set : this.jd.libEntries() }
 
   pickEntry(fromTrack: string | null): Part | null {
     if (this.graphOn) {  // (skip: the next scene)
-      const g = this.graph!, clips = getVotes().clips, t = g.target(this.gbars, this.period())
-      const fid = g.pickScene(t, [...this.scenes.slice(-4), ...(this.scene ? [this.scene.fid] : [])], this.heard, clips)
-      const m = fid ? g.pickMember(fid, t, this.heard, clips) : null
-      if (!fid || !m) return null
-      this.scene = { fid, bars: 0, played: [] }; this.scenes.push(fid)
-      return { track: m, start: this.jd.entryOf(m) }
+      const p = this.scenes()?.skip()
+      return p ? { track: p.song, start: p.start } : null
     }
     const P = this.pool(), pr = this.prefs()
     if (!P.length) return null
@@ -140,44 +139,19 @@ export class Walk {
     }
   }
 
-  /** The graph's next chunk: a scene's songs, cut into each other, then a rest and the next scene. */
-  private nextGraph(depth = 0): Chunk | null {
-    const g = this.graph!, pr = this.prefs(), clips = getVotes().clips, tgt = () => g.target(this.gbars, this.period())
-    if (depth > 4) return null
-    if (!this.run) {
-      if (!this.scene || !this.pendingEntry) {
-        const p = this.pendingEntry && this.scene ? this.pendingEntry : this.pickEntry(null)
-        this.pendingEntry = null
-        if (!p) return null
-        this.startRun(p)
-      } else { const p = this.pendingEntry; this.pendingEntry = null; this.startRun(p) }
+  /** The graph's next chunk: the scene walk's next step, a song's visit as a run (one block, rated once), or a rest. */
+  private nextGraph(): Chunk | null {
+    const s = this.scenes()?.next()
+    if (!s) return null
+    if (s.kind === 'rest') { this.run = null; this.visit = null; return { kind: 'rest', bar: 1, bars: s.bars, track: s.after } }
+    if (this.visit?.id !== s.visit.id || !this.run) {  // (a new visit: a run of its own)
+      this.visit = s.visit
+      this.startRun({ track: s.song, start: s.visit.entry })
+      Object.assign(this.run!, { lo: s.visit.lo, hi: s.visit.hi })
     }
     const r = this.run!
-    const sc = this.scene!
-    if (!sc.played.includes(r.track)) sc.played.push(r.track)
-    // (a song plays its loop at most once before the walk looks for a way on: a 6-bar loop under Stay 12 played three
-    // times over is the same thing 18 bars running, 2026-10-21; the graph never repeats a loop)
-    const loopLen = r.hi! - r.lo! + 1, stay = Math.min(pr.stay, loopLen), most = Math.max(stay, Math.min(stay + LEN, loopLen))
-    if (sc.bars >= pr.sceneBars) {  // (the scene's done: at a phrase end, or 8 bars on at most, a rest, then the next)
-      if (r.played! >= Math.min(stay, LEN) && (this.phraseEnd(r) || sc.bars >= pr.sceneBars + 8 || r.played! >= most)) {
-        this.run = null; this.scene = null
-        return { kind: 'rest', bar: 1, bars: pr.glueBars, track: r.track }
-      }
-    } else if (r.played! >= stay) {
-      // (a seamless cut into a member this scene hasn't played, toward the target energy and the least heard)
-      const t = tgt(), cut = g.cutsAt(r.track, r.lastBar!, clips).filter(c => !sc.played.includes(c.to))
-        .map(c => ({ c, k: Math.abs(g.energy(c.to) - t) + 0.05 * Math.log1p(this.heard.get(c.to) ?? 0) + 0.1 * Math.random() })).sort((a, b) => a.k - b.k)[0]?.c
-      if (cut) { this.startRun({ track: cut.to, start: cut.bar }); return this.nextGraph(depth + 1) }
-      if (this.phraseEnd(r) || r.played! >= most) {  // (no cut: another member at a phrase end, or before a bar repeats)
-        const m = g.pickMember(sc.fid, t, this.heard, clips, r.track, sc.played)
-        if (m) { this.startRun({ track: m, start: this.jd.entryOf(m) }); return this.nextGraph(depth + 1) }
-      }
-    }
-    if (r.bar! > r.hi!) { r.bar = r.lo; r.passes!++ }
-    const len = r.played! < stay ? Math.min(LEN - (r.played! % LEN), stay - r.played!, r.hi! - r.bar! + 1) : 1
-    const c: Chunk = { kind: 'part', at: r.played!, track: r.track, bar: r.bar!, bars: len, variant: 'full', run: r, entry: r.entry, first: r.first }
-    r.first = false; r.bar! += len; r.played! += len; r.lastBar = c.bar + len - 1
-    this.scene!.bars += len; this.gbars += len; this.heard.set(r.track, (this.heard.get(r.track) ?? 0) + len)
+    const c: Chunk = { kind: 'part', at: s.at, track: s.song, bar: s.bar, bars: s.bars, variant: 'full', run: r, entry: r.entry, first: s.first }
+    r.first = false; r.bar = s.bar + s.bars; r.played = s.at + s.bars; r.lastBar = s.bar + s.bars - 1
     return c
   }
 
