@@ -14,7 +14,7 @@ from ..store import Store
 JOIN_WEAK = 0.75  # (the Mixer's threshold for a straight transition: web/js/mixer.js WEAK)
 
 
-JOIN_FEATURES = ("level_a", "entry_phrase", "attack_b", "held_a", "rec_a", "rec_b")
+JOIN_FEATURES = ("level_a", "entry_phrase", "attack_b", "held_a", "rec_a", "rec_b")  # (drums_a measured, not used: below)
 
 
 def join_features(m: dict, a: str, e: int, b: str, s: int) -> dict:
@@ -25,12 +25,19 @@ def join_features(m: dict, a: str, e: int, b: str, s: int) -> dict:
       entry_phrase  1 when b is entered on a phrase start of its own grid
       attack_b      how clearly b starts: the onset at its entry beat against b's median busyness (log)
       held_a        a's last beat's busyness against the onset at a's next downbeat (log): high where a wasn't about
-                    to hit a strong beat itself, so leaving there steps on nothing"""
+                    to hit a strong beat itself, so leaving there steps on nothing
+      drums_a       a's calm drums building into the cut: their loudness in the bar after the exit less the bar before
+                    (dB; music stems; 0 for a song without stems). Drums fading out of a song are disliked (2026-10-21,
+                    MODELS_LOG "scouting": AUC 0.60, nearly independent of level_a). Not in JOIN_FEATURES: with the song
+                    records (rec_a, rec_b) in, it adds 0.003 AUC (0.711 -> 0.714 on 344 votes, leave-one-out); a song
+                    whose drums fade at its exit already has a bad record. Kept to try again with more votes."""
     A, B = m[a], m[b]
     ba, n = A["beats"]["calm"], len(A["beats"]["calm"])
     oa, ob = A["onset"], B["onset"]
     ia = [((e - 1) * 4 + k) % n for k in range(4)]
+    dr = (A.get("stem_loud") or {}).get("calm.drums")
     return dict(level_a=float(np.mean([ba[i] for i in ia]) - np.median(ba)),
+                drums_a=float(dr[e % len(dr)] - dr[(e - 2) % len(dr)]) if dr else 0.0,
                 entry_phrase=float((((s - B["phrase"]["start"]) % 4) + 4) % 4 == 0),
                 attack_b=float(np.log(ob["attack"][((s - 1) * 4) % len(ob["attack"])] / np.median(ob["busy"]))),
                 held_a=float(np.log(oa["busy"][ia[-1]] / (oa["attack"][(e * 4) % len(oa["attack"])] + 1e-6))))
@@ -61,6 +68,9 @@ def fit_joins(proj: P.Project) -> int:
     from .. import candidates  # (votes on new takes' transitions, heard in the Mixer before they shipped)
 
     measured = Store.read(proj.work / "songs.json", {}) | candidates.measures(proj)
+    for i, x in Store.read(proj.work / "stems.json", {}).items():  # (the calm drums per bar: drums_a)
+        if i in measured and x.get("loud"):
+            measured[i] = dict(measured[i], stem_loud=x["loud"])
     rows, ys, songs = [], [], []
     for k, v in Store(proj).votes()["clips"].items():
         if not k.startswith("join_"):

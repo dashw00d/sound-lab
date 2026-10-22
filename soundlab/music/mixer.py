@@ -39,6 +39,15 @@ def _stem_gains(proj: P.Project, st: "Store", t: dict, files: dict) -> dict:
     return out
 
 
+def _stem_loud(st: "Store", files: dict, M: dict) -> dict:
+    """The calm drum stem's loudness per bar (dB, RMS), for the taste model's drums_a (join_features)."""
+    if "calm.drums" not in files:
+        return {}
+    x = dsp.decode(st.clips / files["calm.drums"])
+    m, bar = x.mean(axis=1), int(round(M["bar_beats"] * 60.0 / M["bpm"] * dsp.SR))
+    return {"calm.drums": [round(float(20 * np.log10(np.sqrt(np.mean(m[k * bar:(k + 1) * bar] ** 2)) + 1e-9)), 2) for k in range(M["bars"])]}
+
+
 def stems(proj: P.Project, force: bool = False) -> int:
     """Stems of every shipped track, for the Mixer's variation over repeats (2026-10-21): Demucs (htdemucs) splits the
     calm level into drums, bass and the rest ("other": melody and harmony together, with vocals folded in), and the
@@ -61,6 +70,8 @@ def stems(proj: P.Project, force: bool = False) -> int:
             index[t["id"]] = old[t["id"]]
             if "gain" not in index[t["id"]]:  # (made before the variations were level-matched)
                 index[t["id"]]["gain"] = _stem_gains(proj, st, t, index[t["id"]]["files"])
+            if "loud" not in index[t["id"]]:  # (made before the taste model read the drums)
+                index[t["id"]]["loud"] = _stem_loud(st, index[t["id"]]["files"], proj.music)
         else:
             todo.append((t, sig))
     print(f"{len(todo)} tracks to split ({len(index)} unchanged)", flush=True)
@@ -85,7 +96,7 @@ def stems(proj: P.Project, force: bool = False) -> int:
                         rel = f"stems/{t['id']}/{lv}.{k}.ogg"
                         dsp.write(st.clips / rel, x)
                         files[f"{lv}.{k}"] = rel
-                index[t["id"]] = dict(sig=sig, files=files, gain=_stem_gains(proj, st, t, files))
+                index[t["id"]] = dict(sig=sig, files=files, gain=_stem_gains(proj, st, t, files), loud=_stem_loud(st, files, proj.music))
         st.write(path, index, sort=True)
         print(f"  split {min(i + 12, len(todo))} of {len(todo)}", flush=True)
     st.write(path, index, sort=True)

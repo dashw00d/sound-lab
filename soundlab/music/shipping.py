@@ -124,6 +124,7 @@ def library(proj: P.Project) -> dict:
         if t["id"] in stem_index:
             t["stems"] = stem_index[t["id"]]["files"]
             t["stem_gain"] = stem_index[t["id"]].get("gain", {})  # (each variation's gain back to the full level, dB)
+            t["stem_loud"] = stem_index[t["id"]].get("loud", {})  # (the calm drums' loudness per bar: the taste model's drums_a)
         if t["id"] in fill_index:
             t["fills"] = {k: [dict(file=f["file"], bars=f["bars"], seed=f["seed"], beats=f.get("beats"), click=f.get("click")) for f in v] for k, v in fill_index[t["id"]].items()
                           if not k.endswith(".tried") and v}

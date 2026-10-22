@@ -525,8 +525,8 @@
     else if (!script) X.tape = [];
     X.replay = null;
     if (script) X.sess = null;
-    if (!script || !script.some(c => c.rev != null)) X.rv.cur = null;
     else if (!from || !X.sess) X.sess = { id: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 19).replace("T", " "), rec: new Map(), stars: new Map(), likes: new Map() };
+    if (!script || !script.some(c => c.rev != null)) X.rv.cur = null;
     if (Lab.actx.state === "suspended") await Lab.actx.resume();
     Lab.stop(); halt();
     if (!script && !pool().length) { Lab.toast("Add some parts first"); return; }
