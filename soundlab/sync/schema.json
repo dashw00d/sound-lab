@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "soundlab-music/1",
+  "title": "Sound Lab music manifest",
+  "description": "The music Sound Lab syncs into a game (soundlab.json): the grid, how to play, each song's audio and levels, and the music graph the walk (walk.js) walks. See README.md.",
+  "type": "object",
+  "required": ["format", "project", "made", "grid", "states", "play", "songs", "walk"],
+  "properties": {
+    "format": { "const": "soundlab-music/1" },
+    "project": { "type": "string" },
+    "made": { "type": "string", "description": "When the music last changed (ISO 8601, local time)" },
+    "grid": {
+      "type": "object",
+      "required": ["bpm", "beatsPerBar", "barSeconds", "bars"],
+      "properties": {
+        "bpm": { "type": "number" },
+        "beatsPerBar": { "type": "integer" },
+        "barSeconds": { "type": "number" },
+        "bars": { "type": "integer", "description": "Each file's length in bars" }
+      }
+    },
+    "states": {
+      "type": "object",
+      "description": "The level each state plays",
+      "required": ["mellow", "intense"],
+      "properties": { "mellow": { "type": "string" }, "intense": { "type": "string" } }
+    },
+    "play": {
+      "type": "object",
+      "required": ["stay", "sceneBars", "waveBars", "restBars", "avoid", "join", "step", "stateChange", "matchLevels", "bassSwap", "rest"],
+      "properties": {
+        "stay": { "type": "integer", "description": "Bars a song plays at least before the walk looks for a way on" },
+        "sceneBars": { "type": "integer", "description": "Bars in a scene before it rests and moves on" },
+        "waveBars": { "type": "number", "description": "Bars in one wave of the target energy, chill to less chill and back" },
+        "restBars": { "type": "integer", "description": "Bars of silence between scenes" },
+        "avoid": { "type": "integer", "description": "The next scene is never one of the last this many" },
+        "join": { "$ref": "#/$defs/fade", "description": "A new song: its crossfade, centred on the bar line" },
+        "step": { "$ref": "#/$defs/fade", "description": "Within a song, where the next bar doesn't follow on (round its loop)" },
+        "stateChange": {
+          "type": "object", "required": ["beats", "curve"],
+          "properties": { "beats": { "type": "number" }, "curve": { "const": "equal-power" } }
+        },
+        "matchLevels": {
+          "type": "object", "required": ["on", "withinDb", "easeBars"],
+          "properties": { "on": { "type": "boolean" }, "withinDb": { "type": "number" }, "easeBars": { "type": "number" } }
+        },
+        "bassSwap": {
+          "type": "object", "required": ["on", "hz"],
+          "properties": { "on": { "type": "boolean" }, "hz": { "type": "number" } }
+        },
+        "rest": {
+          "type": "object", "required": ["tail"],
+          "properties": { "tail": { "enum": ["taper", "ring", "echo"] } }
+        }
+      }
+    },
+    "songs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["files", "gainDb", "loudness", "scene"],
+        "properties": {
+          "files": { "$ref": "#/$defs/perState", "description": "Each state's audio, relative to this folder" },
+          "gainDb": { "$ref": "#/$defs/perState", "description": "Each state's level trim, dB" },
+          "loudness": { "type": "object", "description": "Each state's loudness per beat, dB (null when unmeasured)" },
+          "scene": { "type": "string" },
+          "lead": { "type": ["string", "null"] },
+          "context": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "walk": {
+      "type": "object",
+      "required": ["bars", "songs", "scenes", "cuts"],
+      "properties": {
+        "bars": { "type": "integer" },
+        "songs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["loop", "entry", "phrase", "energy"],
+            "properties": {
+              "loop": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2, "description": "The bars it loops between, 1-based, inclusive" },
+              "entry": { "type": "integer", "description": "Where it's entered on its own" },
+              "phrase": { "type": ["integer", "null"], "description": "The bar its 4-bar phrases start on" },
+              "energy": { "type": "number", "description": "How un-chill it is" }
+            }
+          }
+        },
+        "scenes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object", "required": ["members"],
+            "properties": { "members": { "type": "array", "items": { "type": "string" } } }
+          }
+        },
+        "cuts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "object", "required": ["to", "after", "start"],
+              "properties": {
+                "to": { "type": "string" },
+                "after": { "type": "integer", "description": "After this song's bar" },
+                "start": { "type": "integer", "description": "The other song from its bar" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "fade": {
+      "type": "object", "required": ["seconds", "curve", "centred"],
+      "properties": { "seconds": { "type": "number" }, "curve": { "enum": ["equal-power", "linear"] }, "centred": { "type": "boolean" } }
+    },
+    "perState": {
+      "type": "object", "required": ["mellow", "intense"],
+      "properties": { "mellow": {}, "intense": {} }
+    }
+  }
+}

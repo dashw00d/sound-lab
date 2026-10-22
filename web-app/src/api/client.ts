@@ -1,6 +1,6 @@
 // The API, typed: reads, and the one way to change a decision (POST /api/vote), as the old pages do (core.js Lab.vote).
 import type { Library } from '../mixer/types'
-import type { Families, Mixes, ProjectInfo, Stamp, Votes } from './types'
+import type { Families, Mixes, ProjectInfo, Stamp, SyncPlan, Votes } from './types'
 
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, init)
@@ -26,6 +26,10 @@ export const api = {
     if (!r.ok) throw new Error(((await r.json().catch(() => null)) as { error?: string } | null)?.error ?? String(r.status))
     return r.json() as Promise<Mixes>
   },
+  /** What a sync into the game's folder would write (link: point at the game's own copies of the audio). */
+  syncPlan: (link: boolean) => json<SyncPlan>(`/api/sync?link=${link ? 1 : 0}`),
+  /** Sync the music into the game's folder: what the plan showed. Returns the plan after (all the same). */
+  sync: (link: boolean) => post<SyncPlan>('/api/sync', { link }),
   /** A thumb or answer: value 1, -1, or 0 to clear it. Returns the votes as saved. */
   vote: (clip: string, value: number) => post<Votes>('/api/vote', { clip, value }),
 }

@@ -51,6 +51,7 @@ class Project:
     music: dict | None = None  # the meshed music design (soundlab/music/__init__.py)
     balance: dict | None = None  # the mix and how the code plays sounds (soundlab/balance.py)
     asset_uri: Callable[[Path], str] = lambda p: str(p)  # how the game names a file (e.g. res://...)
+    sync: Path | None = None  # the folder in the game the lab syncs its music to (soundlab/sync); default <root>/soundlab
 
     def path(self) -> str:
         return getattr(self, "_path", "")

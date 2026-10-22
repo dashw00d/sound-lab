@@ -73,3 +73,21 @@ export interface Families {
 
 /** data/mixes.json: the Mixer's saved sets of parts. */
 export type Mixes = Record<string, { parts: { track: string; start: number; bars: number }[]; at: string }>
+
+/** GET /api/sync: what a sync into the game's folder would write (soundlab/sync plan). */
+export interface SyncPlan {
+  folder: string
+  link: boolean
+  exists: boolean
+  /** When the music in the folder last changed (its manifest's `made`), or null: never synced. */
+  synced: string | null
+  rows: { path: string; kind: 'text' | 'audio'; state: 'new' | 'changed' | 'same' | 'remove' | 'missing'; bytes: number }[]
+  songs: number
+  scenes: number
+  cuts: number
+  changes: number
+  missing: number
+  bytes: number
+  write_bytes: number
+  readme: string
+}

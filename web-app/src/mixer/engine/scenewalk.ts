@@ -199,6 +199,12 @@ export class SceneWalk {
   }
 }
 
+/** The walk a synced manifest (soundlab.json) describes: its music, and its play settings. */
+export function fromManifest(m: { walk: WalkData; play: WalkSettings }, opts: { random?: () => number; memory?: WalkMemory } = {}): SceneWalk {
+  const p = m.play
+  return new SceneWalk(m.walk, { stay: p.stay, sceneBars: p.sceneBars, waveBars: p.waveBars, restBars: p.restBars, avoid: p.avoid }, opts)
+}
+
 /** A seeded random source (mulberry32), for a walk a game can repeat. */
 export function seeded(seed: number): () => number {
   let a = seed >>> 0

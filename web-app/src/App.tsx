@@ -5,11 +5,12 @@ import InboxPage, { useInboxCount } from './pages/inbox/InboxPage'
 import LibraryPage from './pages/library/LibraryPage'
 import { Shell } from './shell/Shell'
 
-// The app's sections (2026-10-21: Inbox, Library, Scenes, Sessions and the Mixer; sound effects, the mix and tuning
-// next). Scenes (the graph library), Sessions and the Mixer load when first opened.
+// The app's sections (2026-10-21: Inbox, Library, Scenes, Sessions, the Mixer, and the Game: the folder the lab syncs
+// into the game; sound effects, the mix and tuning next). Scenes (the graph library), Sessions and the Mixer load when first opened.
 const FamiliesPage = lazy(() => import('./pages/families/FamiliesPage'))
 const SessionsPage = lazy(() => import('./pages/sessions/SessionsPage'))
 const MixerPage = lazy(() => import('./pages/mixer/MixerPage'))
+const GamePage = lazy(() => import('./pages/game/GamePage'))
 
 export default function App() {
   const route = useRoute(), songs = useSongs().data, fams = useFamilies().data, inbox = useInboxCount(), project = useProject()?.name
@@ -20,6 +21,7 @@ export default function App() {
     { id: 'scenes', title: 'Scenes', count: fams ? Object.values(fams.families).filter(f => f.members.length > 1).length : null, view: () => <FamiliesPage /> },
     { id: 'sessions', title: 'Sessions', view: () => <SessionsPage /> },
     { id: 'mixer', title: 'Mixer', view: () => <MixerPage /> },
+    { id: 'game', title: 'Game', view: () => <GamePage /> },
   ]
   const page = pages.find(p => p.id === (route.section === 'families' ? 'scenes' : route.section)) ?? pages[0]
   return (

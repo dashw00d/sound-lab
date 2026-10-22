@@ -35,6 +35,7 @@ You make game audio with local models: Stable Audio 3 Medium (SA3) by default, a
 | `music candidates [--all] [--cpu]` | score the newest round's takes (every round's with `--all`) before the user hears them, by what their shipped songs say makes a song good: plays nice (the taste model's 80%+ transitions with the shipped songs, audio features only) and unique (unlike the shipped songs and the takes ranked above it: bar fingerprints and CLAP; the weaker of the two counts most), with its nearest shipped song and the takes that are probably the same piece; `--catchy W` adds catchiness (Basic Pitch notes; 0 by default); work/candidates.json, shown on the Music page as "Best first" and each take's rank, and the Mixer's "best 50". Report the ranks as measurements, not as a verdict. `--cpu` splits stems on the CPU while a generator holds the GPU | ~10 s per take |
 | `music promote [--apply]` | ship the liked music takes as tracks and write the game's music manifest | seconds |
 | `balance measure` | measure every shipped sound for the Balance page | ~1 min |
+| `sync [--apply] [--link]` | the music into the game's folder (the project's `sync`, default `<game root>/soundlab`), engine-agnostic: `soundlab.json` (the grid, the playback rules from the Mixer's settings, each song's files, gains and per-beat loudness, and the graph the walk walks: songs, scenes, cuts), `walk.js`/`walk.d.ts` (the scene walk, built from the Mixer's own `scenewalk.ts`), `README.md` (how to plug it in, any engine), the schema, and `music/` (each song's mellow and intense audio, retuned where the Mixer plays a retuned copy). A dry run without `--apply`; it writes only what differs and removes only audio it wrote before. `--link` points at audio the game already ships instead of copying it (only retuned copies go in the folder). The Game page shows the same and has the button | seconds; copying ~155 MB the first time |
 
 Run long jobs in the background, with output to a log. Only one generator at a time: the model needs about 12 GB of VRAM and two copies don't fit.
 
@@ -65,7 +66,7 @@ The project's `data` folder (tracked in the game's repo) holds:
 Rules:
 
 - Never edit or delete the user's votes, picks or notes. Generators keep takes the user has voted on.
-- Ship (`promote --apply`) only when the user asks. Run the dry run first and show what will change. Shipping overwrites the game's files: they're in the game's git, but say what you replaced.
+- Ship (`promote --apply`, `sync --apply`) only when the user asks. Run the dry run first and show what will change. Shipping overwrites the game's files: they're in the game's git, but say what you replaced.
 - Instrument pool: an instrument is in when one of its audition takes is picked or it is net 👍, and out when net 👎. Each music take draws one instrument per role from the pool, seeded.
 - Music shipping: liked takes (`mesh_<set>.<take>.<profile>` = 1) ship as tracks. A set with none liked ships its newest batch's takes not 👎, at the music's `default_profile` (older takes ship only when liked). With song groups (`music.groups`, Emberhold's since 2026-10-19), only liked takes ship, and the game's groups file (which group each track is in, and which groups each weather plays) is the user's, hand-edited: promote only adds new tracks to it at the default group. Never move a track between groups yourself.
 - Music levels: the project's `music.spine` names the level every other level is made from (default: the middle one), so a level can be added later (Emberhold's fourth, `battle`, 2026-10-19). After adding one, `music derive --profiles P --liked` gives the liked takes the new level.
@@ -98,6 +99,7 @@ Rules:
 | `work` | generated output: takes, the index, measurements (gitignored; e.g. the lab's `work/<project>`). Not a scratch folder that gets cleaned: unshipped takes and the index live only here |
 | `data` | authored data (tracked) |
 | `assets` | the game's audio root (served at `/shipped/`) |
+| `sync` | optional: the folder in the game `soundlab sync` writes (default `<root>/soundlab`) |
 | `sounds()` | returns `[Sound(name, kind "oneshot"/"loop", seconds, channels, prompt, out, core, palette, shipped)]` |
 
 Optional hooks (the defaults are simple):
