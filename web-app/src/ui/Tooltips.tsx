@@ -5,7 +5,7 @@
 //   "Back: this song from its start; twice: the one before (←)"  →  title "Back", the rest below, ← as a key
 //   "Only the melody and harmony cross over…" on a "Bass swap" button  →  title "Bass swap" (its label), the hint below
 // An element can say more with data-tip-* attributes: data-tip-title, data-tip-icon (an Icon name), data-tip-keys
-// ("Space,M"), data-tip-link (a href) and data-tip-link-label. Shown after a moment (at once while moving between
+// ("Space,M"), data-tip-link (a href) and data-tip-link-label. Shown after 0.65 s (0.09 s while moving between
 // hinted elements, as the system's do), above the element (below where there's no room), with an arrow to it; the
 // pointer can move into the card to follow its link.
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
@@ -103,7 +103,7 @@ export function Tooltips() {
       if (!text) return
       clearTimeout(hideTimer.current); clearTimeout(timer.current)
       const warm = shownRef.current || performance.now() - lastHidden.current < 450
-      timer.current = window.setTimeout(() => { setTip(read(el, text)); setShown(true) }, warm ? 30 : 420)
+      timer.current = window.setTimeout(() => { setTip(read(el, text)); setShown(true) }, warm ? 90 : 650)
     }
     const leave = (e: MouseEvent) => {
       const to = e.relatedTarget as Node | null
