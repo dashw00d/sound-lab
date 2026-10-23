@@ -6,6 +6,8 @@ export interface Votes {
   picks: Record<string, string>
   notes: Record<string, string>
   cues?: Record<string, { mellow?: [number, number]; intense?: [number, number] }>
+  /** When each clip vote was made (ISO, UTC): a song's latest thumb is its verdict (mixer/verdict.ts). */
+  at?: Record<string, string>
 }
 
 export interface ProjectInfo {
@@ -69,6 +71,8 @@ export interface Families {
   items: Record<string, FamilyItem>
   families: Record<string, Family>
   queue: QueueEntry[]
+  /** The ways between songs that aren't cuts (soundlab/music/bridges.py): per song, [after, to, start, fit]. */
+  bridges?: Record<string, [number, string, number, number][]>
 }
 
 /** data/mixes.json: the Mixer's saved sets of parts. */
@@ -90,7 +94,12 @@ export interface GameManifest {
   walk: { bars: number; songs: Record<string, { loop: [number, number]; entry: number; phrase: number | null; energy: number }>;
     scenes: Record<string, { members: string[] }>; cuts: Record<string, { to: string; after: number; start: number }[]> }
 }
-export interface SyncSong { id: string; kind: string; scene: string | null; bytes: number; missing: string[] }
+export interface SyncSong {
+  id: string; kind: string; scene: string | null; bytes: number; missing: string[]
+  /** Its latest thumb, wherever it was given: 1 in, -1 out, 0 not judged (soundlab/music/verdict.py); and that vote. */
+  verdict: number
+  by?: { key: string; at: string | null } | null
+}
 export interface SyncPlan {
   folder: string
   exists: boolean
@@ -104,6 +113,8 @@ export interface SyncPlan {
   changes: number
   in_game: (SyncSong & { at: string; kept: boolean; walked: boolean })[]
   ready: (SyncSong & { energy: number; lead: string | null })[]
+  /** Songs that would be ready but whose latest thumb is down: left out until a thumb up. */
+  out: (Omit<SyncSong, 'bytes' | 'missing'> & { energy: number; lead: string | null })[]
   /** New takes not kept (yet): the next batch, local. */
   local: number
   bytes: number

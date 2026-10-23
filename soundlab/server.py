@@ -18,7 +18,8 @@
   POST /api/data/share      copy the lab's data into the game's folder (the designer's button)
   POST /api/mixer           {settings}: save them
   GET  /api/votes           votes.json alone
-  GET  /api/families        every song sorted into families, and the queue of what to judge next (work/families.json)
+  GET  /api/families        every song sorted into families, and the queue of what to judge next (work/families.json),
+                            with the ways between songs that aren't cuts (bridges: music/bridges.py)
   POST /api/families/rebuild   sort the families again now (in the background; /api/stamp's "families" changes when done)
   GET  /api/streams         the Mixer's listening sessions (data/streams.json), for the review of low-rated blocks
   POST /api/review          {stream, block, piece, mode, note?}: the piece the designer marked as what spoiled a block
@@ -52,7 +53,7 @@ import re
 import sys
 import threading
 import traceback
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -304,9 +305,12 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
             elif url == "/api/votes":  # (the decisions alone, without the index: what the new app's pages poll)
                 self.send_json(st.votes())
             elif url == "/api/families":
+                from .music import bridges
                 f = Store.read(proj.work / "families.json", {})
                 for it in f.get("items", {}).values():
                     it.pop("feat", None)  # (the measurements stay on the server)
+                with LOCK:  # (the ways that aren't cuts, for the graph's scene changes: made again when they're stale)
+                    f["bridges"] = bridges.bridges(proj) if proj.music else {}
                 self.send_json(f)
             elif url == "/api/streams":
                 self.send_json(dict(streams=Store.read(st.streams_path, {}), reviews=Store.read(st.reviews_path, [])))
@@ -515,11 +519,14 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
             msg = self.body()
             with LOCK:
                 v = st.votes()
-                if "clip" in msg:
+                if "clip" in msg:  # (with when: a song's latest thumb is its verdict, music/verdict.py)
+                    at = v.setdefault("at", {})
                     if msg.get("value"):
                         v["clips"][msg["clip"]] = int(msg["value"])
+                        at[msg["clip"]] = datetime.now(timezone.utc).isoformat(timespec="seconds")
                     else:
                         v["clips"].pop(msg["clip"], None)
+                        at.pop(msg["clip"], None)
                 if "pick" in msg:
                     if msg["pick"]:
                         v["picks"][msg["sound"]] = msg["pick"]

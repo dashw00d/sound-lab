@@ -1,0 +1,46 @@
+{
+ "all": {
+  "n": 331,
+  "liked": 167,
+  "auc_join": 0.5813860084708632,
+  "auc_taste": 0.8372279830582737,
+  "auc_both": 0.8420110997517161,
+  "ok_rule": {
+   "passed": 156,
+   "liked_of_passed": 121,
+   "liked_of_rest": 46
+  }
+ },
+ "same scene": {
+  "n": 67,
+  "liked": 43,
+  "auc_join": 0.6191860465116279,
+  "auc_taste": 0.7306201550387597,
+  "auc_both": 0.7771317829457365,
+  "ok_rule": {
+   "passed": 32,
+   "liked_of_passed": 26,
+   "liked_of_rest": 17
+  }
+ },
+ "across scenes": {
+  "n": 264,
+  "liked": 124,
+  "auc_join": 0.5706797235023041,
+  "auc_taste": 0.8627304147465438,
+  "auc_both": 0.8561059907834101,
+  "ok_rule": {
+   "passed": 124,
+   "liked_of_passed": 95,
+   "liked_of_rest": 29
+  }
+ },
+ "ways": {
+  "songs": 98,
+  "ends": 802,
+  "scenes": 43,
+  "median_scenes_reachable": 8.0,
+  "share_with_none": 0.08977556109725686,
+  "share_5plus": 0.6870324189526185
+ }
+}

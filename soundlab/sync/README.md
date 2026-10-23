@@ -19,6 +19,8 @@ Every song is a {{bars}}-bar loop on one grid: {{bpm}} BPM, {{beats}} beats a ba
 
 Songs that could pass as sections of one long piece form a **scene**. Inside a scene, songs **cut** into each other seamlessly: after song A's bar e, song B from its bar s. The walk plays a scene for about {{scene_bars}} bars, moving from song to song at those cuts. Each song plays at least {{stay}} bars (or one pass of its loop, if that's shorter) and never goes round its loop twice. Then the next scene: {{between_words}}. The scenes follow a slow wave of energy, from chill to less chill and back over {{wave_bars}} bars, and the walk prefers what it has heard least.
 
+The designer's votes are already in the music: songs they thumbed down last aren't here, transitions they thumbed down are never taken, and the ones they thumbed up are marked `liked` and taken first. Where a scene changes, or a song has no cut on, the walk takes a **bridge**: a transition the lab judged likely to please the designer, from the bar the song stopped on into another song's phrase start.
+
 The game decides two things: when music plays (the walk never ends), and whether it's mellow or intense, which can change at any moment.
 
 ## Plugging it in
@@ -97,8 +99,8 @@ A song's two levels always play together, sample-aligned. To change state, cross
    - the song has played at least min(stay, 4) bars;
    - it's at a phrase end, or the scene has had sceneBars + 8 bars, or the song has played `most` bars.
 
-   When the scene ends, return `{ kind: "rest", bars: play.restBars }`. The next call enters a new scene.
-4. Otherwise, once the song has played `stay` bars, look for a cut after its last bar (`walk.cuts[song]` entries with `after` equal to that bar) into a song the scene hasn't played yet. Choose the lowest cost = |energy − target| + 0.05 ln(1 + heard) + 0.1 r. If one is found, start its visit at the cut's `start` and go back to step 2. If not, and the song is at a phrase end or has played `most` bars, move to another member of the scene (pick member, below) from its entry.
+   When the scene ends, remember the song and its last bar (where the scene stopped), and return `{ kind: "rest", bars: play.restBars }`. The next call enters a new scene.
+4. Otherwise, once the song has played `stay` bars, look for a cut after its last bar (`walk.cuts[song]` entries with `after` equal to that bar) into a song the scene hasn't played yet. Choose the lowest cost = |energy − target| + 0.05 ln(1 + heard) + 0.1 r, less 0.1 for a `liked` cut. If one is found, start its visit at the cut's `start` and go back to step 2. If not, and the song is at a phrase end or has played `most` bars, take the best bridge (below) after its last bar into a member of the scene that the scene hasn't played and that isn't the song playing; start its visit at the bridge's `start` and go back to step 2. With no bridge, move to another member of the scene (pick member, below) from its entry.
 5. If the next bar is past `hi`, go back to `lo`.
 6. Play the next bars:
    - while played < stay: min(4 − played mod 4, stay − played, hi − bar + 1) bars;
@@ -108,7 +110,9 @@ A song's two levels always play together, sample-aligned. To change state, cross
 
 **Phrase end:** (last bar − `phrase`) mod 4 = 3. For a song with no `phrase`, the test is bars played mod 4 = 0.
 
-**Entering a scene:** take the scenes with members, leaving out the last `play.avoid` scenes and the current one (unless nothing else is left). The cost of a scene is |mean energy of its members − target| + 0.02 ln(1 + mean heard) + 0.15 r. Take one of the three cheapest at random. Its first song is chosen by pick member.
+**Entering a scene:** take the scenes with members, leaving out the last `play.avoid` scenes and the current one (unless nothing else is left). The cost of a scene is |mean energy of its members − target| + 0.02 ln(1 + mean heard) + 0.15 r; sort them, cheapest first. If the last scene stopped somewhere (or a skip leaves a song playing), take the best bridge after that song's last bar into a member of one of the six cheapest, and enter it there. With none, take one of the three cheapest at random, and its first song by pick member, from its entry.
+
+**Best bridge:** of `walk.bridges[song]`, the entries with that `after`, a song the manifest has, and one of the allowed scenes (or members), the highest fit + 0.1 for a `liked` one + 0.1 r. Draw r for each candidate in order.
 
 **Pick member:** take the members the scene hasn't played (or all of them, if it has played them all), other than the song playing. Choose the lowest cost = |energy − target| + 0.05 ln(1 + heard) + 0.1 r.
 
@@ -130,7 +134,7 @@ A song's two levels always play together, sample-aligned. To change state, cross
 | `play` | how to play: `stay`, `sceneBars`, `waveBars`, `restBars` and `avoid` for the walk; `join`, `step` and `stateChange` crossfades; `matchLevels`; `bassSwap`; `betweenScenes`; `rest.tail` |
 | `songs[id].glue` | the song's pad for a scene change (`glues/<id>.ogg`), or null |
 | `songs[id]` | `files` (each state's audio, relative to this folder); `gainDb` (each state's level trim); `loudness` (each state's per-beat loudness, dB); `scene`; `lead` (its lead instrument); `context` |
-| `walk` | what `walk.js` walks: `bars`; `songs[id]` with `loop` [first bar, last bar], `entry`, `phrase` (the bar its 4-bar phrases start on, or null) and `energy`; `scenes[id].members`; `cuts[id]` as a list of `{ to, after, start }` |
+| `walk` | what `walk.js` walks: `bars`; `songs[id]` with `loop` [first bar, last bar], `entry`, `phrase` (the bar its 4-bar phrases start on, or null) and `energy`; `scenes[id].members`; `cuts[id]` as a list of `{ to, after, start, liked? }`; `bridges[id]` as a list of `{ to, after, start, fit, liked? }` (`fit`: the chance the designer likes it, 0.5 to 1) |
 
 ## Engines
 

@@ -3,6 +3,11 @@
 // writes it again. No dependencies: an ES module any JavaScript runs, and the algorithm to port (see README.md).
 /** Bars in a phrase. */
 export declare const LEN = 4;
+/** What a transition the designer thumbed up is worth, against the energy aimed at (a cut) or the fit (a bridge). */
+export declare const LIKED = 0.1;
+/** The scenes nearest the energy aimed at that a scene change looks for a way into (2026-10-23: from the three it picks
+ * among by chance, 40% of scene changes found one; from six, 59%, and the music kept as near the energy aimed at). */
+export declare const WAY_SCENES = 6;
 export interface WalkSong {
     /** The bars it loops between (1-based, inclusive): its mellow cues. */
     loop: [number, number];
@@ -13,11 +18,21 @@ export interface WalkSong {
     /** How un-chill it is (the library's own scale: higher is busier, brighter, more percussive). */
     energy: number;
 }
-/** A seamless cut: after this song's bar `after`, the song `to` from its bar `start`. */
+/** A seamless cut: after this song's bar `after`, the song `to` from its bar `start`; `liked`: the designer thumbed it up. */
 export interface WalkCut {
     to: string;
     after: number;
     start: number;
+    liked?: boolean;
+}
+/** A way in that isn't a seamless cut: after this song's bar `after` (a phrase end), the song `to` from its bar `start`
+ * (a phrase start); `fit` is the chance the designer likes it (0.5 to 1), `liked` that they thumbed it up. */
+export interface WalkBridge {
+    to: string;
+    after: number;
+    start: number;
+    fit: number;
+    liked?: boolean;
 }
 export interface WalkData {
     /** Bars in each song's file (the loop is inside them). */
@@ -27,6 +42,8 @@ export interface WalkData {
         members: string[];
     }>;
     cuts: Record<string, WalkCut[]>;
+    /** The ways in that aren't cuts, for a scene change and for a song with no cut on (none: the walk enters by energy). */
+    bridges?: Record<string, WalkBridge[]>;
 }
 export interface WalkSettings {
     /** Bars a song plays at least before the walk looks for a way on. */
@@ -80,6 +97,8 @@ export declare class SceneWalk {
     private heard;
     private scenes;
     private visits;
+    /** Where the last scene stopped (its song and last bar): the next scene is entered from there. */
+    private left;
     constructor(data: WalkData, settings: WalkSettings | (() => WalkSettings), opts?: {
         random?: () => number;
         memory?: WalkMemory;
@@ -124,6 +143,9 @@ export declare class SceneWalk {
     /** The next scene: the nearest the target energy (its members' mean), a little against those heard more, never one of
      * the last few; one of the best three, so no two walks are the same. Its first song: nearest the target, heard least. */
     private enterScene;
+    /** The best way from song `a` past its bar `after` into a song of one of the scenes `fids` (not one of `not`): the
+     * likeliest to please, a liked one first. Null when there's none. */
+    private wayInto;
     /** A member to play: one the scene hasn't played if there is one, nearest the target energy, heard least, not `not`. */
     private pickMember;
 }

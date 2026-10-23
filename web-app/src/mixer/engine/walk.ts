@@ -16,7 +16,7 @@ import { getVotes } from '../../state/votes'
 import { LEN, pkey, type Judge, type Judged } from '../judge'
 import type { Prefs } from '../prefs'
 import type { Chunk, Part, Run } from '../types'
-import { withoutDisliked, type Graph } from './graph'
+import { withVotes, type Graph } from './graph'
 import { SceneWalk, type Step, type Visit, type WalkData, type WalkSettings } from './scenewalk'
 
 /** The stems a phrase may vary to: only the song's own (2026-10-22, the designer: "stems should originate from the same
@@ -72,13 +72,13 @@ export class Walk {
   /** The scene walk, on the graph as the votes stand now (a vote or a cue moved: the walk goes on in the new one); as the
    * game, on the game's. */
   private scenes(): SceneWalk | null {
-    if (this.game) {  // (a cut thumbed down while it plays: never taken from then on)
+    if (this.game) {  // (a transition voted while it plays: thumbed down, never taken from then on; up, taken first)
       const g = this.game, clips = getVotes().clips
-      if (g.clips !== clips) { g.clips = clips; const d = withoutDisliked(g.data, clips); if (this.sw) this.sw.setData(d); else this.sw = new SceneWalk(d, () => g.settings) }
+      if (g.clips !== clips) { g.clips = clips; const d = withVotes(g.data, clips); if (this.sw) this.sw.setData(d); else this.sw = new SceneWalk(d, () => g.settings) }
       return this.sw
     }
     if (!this.graph) return null
-    const v = getVotes(), d = this.graph.data(v.clips, v.cues)
+    const v = getVotes(), d = this.graph.data(v.clips, v.cues, v.at)
     if (!this.sw) this.sw = new SceneWalk(d, () => {
       const pr = this.prefs()
       return { stay: pr.stay, sceneBars: pr.sceneBars, waveBars: (pr.wave * 60) / this.jd.barS(), restBars: pr.glueBars, avoid: 4 }

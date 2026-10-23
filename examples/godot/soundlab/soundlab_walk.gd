@@ -2,15 +2,19 @@
 ## lab's own web-app/src/mixer/engine/scenewalk.ts), so a Godot game makes the choices the lab's Mixer makes; with the
 ## same seed it walks the same steps (test_walk.gd checks it against walk.js). Give it the manifest a sync wrote
 ## (soundlab.json) and ask it for the next step: {kind: "part", song, bar, bars, visit, first, at} or {kind: "rest", bars,
-## after}. See the sync folder's README.md for what it does.
+## after}. See the sync folder's README.md for what it does. The designer's votes are in the manifest's music: no
+## transition they thumbed down, the ones they thumbed up marked liked and taken first, and the ways into the next scene.
 class_name SoundLabWalk
 extends RefCounted
 
 const LEN := 4  ## bars in a phrase
+const LIKED := 0.1  ## what a transition the designer thumbed up is worth, against the energy aimed at or the fit
+const WAY_SCENES := 6  ## the scenes nearest the energy aimed at that a scene change looks for a way into
 
 var _songs: Dictionary
 var _scenes: Dictionary
 var _cuts: Dictionary
+var _bridges: Dictionary  ## the ways in that aren't cuts: for a scene change, and a song with no cut on
 var _file_bars: int
 var _stay: int
 var _scene_bars: int
@@ -27,6 +31,7 @@ var _bars := 0
 var _heard := {}
 var _scene_list: Array = []
 var _visits := 0
+var _left = null  # {song, bar}: where the last scene stopped, the next one is entered from there
 
 
 ## The walk a synced manifest describes. `random`: a Callable returning a float in [0, 1), e.g. SoundLabWalk.seeded(7);
@@ -47,7 +52,7 @@ func _randf() -> float:
 
 ## New music (a new sync): the walk goes on where it is.
 func set_data(data: Dictionary) -> void:
-	_songs = data.songs; _scenes = data.scenes; _cuts = data.cuts; _file_bars = int(data.bars)
+	_songs = data.songs; _scenes = data.scenes; _cuts = data.cuts; _bridges = data.get("bridges", {}); _file_bars = int(data.bars)
 	var e: Array = []
 	for s in _songs.values():
 		e.append(float(s.energy))
@@ -58,7 +63,7 @@ func set_data(data: Dictionary) -> void:
 
 ## A fresh walk: nothing heard.
 func reset() -> void:
-	_run = null; _pending = null; _scene = null; _bars = 0; _heard = {}; _scene_list = []
+	_run = null; _pending = null; _scene = null; _left = null; _bars = 0; _heard = {}; _scene_list = []
 
 
 func remember(m: Dictionary) -> void:
@@ -126,6 +131,7 @@ func state():
 
 ## On to the next scene at once: its first song, which next() then plays.
 func skip():
+	_left = {song = _run.visit.song, bar = _run.last_bar} if _run != null else null
 	var p = _enter_scene()
 	if p != null:
 		_run = null; _pending = p
@@ -170,7 +176,7 @@ func next_step(depth := 0):
 	var most: int = maxi(stay, mini(stay + LEN, loop_len))
 	if sc.bars >= _scene_bars:
 		if r.played >= mini(stay, LEN) and (_phrase_end(r) or sc.bars >= _scene_bars + 8 or r.played >= most):
-			_run = null; _scene = null
+			_run = null; _scene = null; _left = {song = song, bar = r.last_bar}
 			return {kind = "rest", bars = _rest_bars, after = song}
 	elif r.played >= stay:
 		var t := target()
@@ -179,13 +185,17 @@ func next_step(depth := 0):
 		for c in cuts_at(song, r.last_bar):
 			if c.to in sc.played:
 				continue
-			var k := absf(energy(c.to) - t) + 0.05 * log(1.0 + float(_heard.get(c.to, 0))) + 0.1 * float(_rand.call())
+			var k := absf(energy(c.to) - t) + 0.05 * log(1.0 + float(_heard.get(c.to, 0))) + 0.1 * float(_rand.call()) - (LIKED if c.get("liked", false) else 0.0)
 			if k < best_k:
 				best_k = k; best = c
 		if best != null:
 			_start(best.to, int(best.start))
 			return next_step(depth + 1)
 		if _phrase_end(r) or r.played >= most:
+			var way = _way_into(song, r.last_bar, [sc.fid], sc.played + [song])
+			if way != null:
+				_start(way.to, int(way.start))
+				return next_step(depth + 1)
 			var m = _pick_member(sc.fid, t, song, sc.played)
 			if m != null:
 				_start(m, int(_songs[m].entry))
@@ -236,14 +246,32 @@ func _enter_scene():
 		costed.append({x = x, c = absf(e - t) + 0.02 * log(1.0 + h) + 0.15 * float(_rand.call())})
 	costed.sort_custom(func(a, b): return a.c < b.c)
 	var best: Array = costed.slice(0, 3)
-	if best.is_empty():
-		return null
-	var fid: String = best[int(floor(float(_rand.call()) * best.size()))].x.fid
-	var m = _pick_member(fid, t)
-	if m == null:
+	# (from where the last scene stopped: the best way into one of the WAY_SCENES nearest; with none, one of the three
+	# nearest by chance)
+	var way = null
+	if _left != null:
+		way = _way_into(_left.song, int(_left.bar), costed.slice(0, WAY_SCENES).map(func(b): return b.x.fid))
+	_left = null
+	var fid = scene_of(way.to) if way != null else (best[int(floor(float(_rand.call()) * best.size()))].x.fid if best.size() else null)
+	var m = way.to if way != null else (_pick_member(fid, t) if fid != null else null)
+	if fid == null or m == null:
 		return null
 	_scene = {fid = fid, bars = 0, played = []}; _scene_list.append(fid)
-	return {song = m, start = int(_songs[m].entry)}
+	return {song = m, start = int(way.start) if way != null else int(_songs[m].entry)}
+
+
+## The best way from song `a` past its bar `after` into a song of one of the scenes `fids` (not one of `not_songs`): the
+## likeliest to please, a liked one first; null when there's none.
+func _way_into(a: String, after: int, fids: Array, not_songs: Array = []):
+	var best = null
+	var best_k := -INF
+	for w in _bridges.get(a, []):
+		if int(w.after) != after or not _songs.has(w.to) or (w.to in not_songs) or not (scene_of(w.to) in fids):
+			continue
+		var k := float(w.fit) + (LIKED if w.get("liked", false) else 0.0) + 0.1 * float(_rand.call())
+		if k > best_k:
+			best_k = k; best = w
+	return best
 
 
 func _pick_member(fid: String, t: float, not_song = null, played: Array = []):

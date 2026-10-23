@@ -44,4 +44,4 @@ node examples/godot/walktest.mjs /path/to/soundlab 7 600 > js.txt
 cmp gd.txt js.txt
 ```
 
-On 2026-10-21, on a 138-song folder (27 scenes, 1,798 cuts), seeds 7, 42 and 2026 walked 600 identical steps each.
+On 2026-10-21, on a 138-song folder (27 scenes, 1,798 cuts), seeds 7, 42 and 2026 walked 600 identical steps each. On 2026-10-23, with liked cuts and bridges (scene changes and moves with no cut), on a 114-song folder (26 scenes, 923 cuts, 2,814 bridges), seeds 7, 42 and 2026 walked 600 identical steps each again.

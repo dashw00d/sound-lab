@@ -321,6 +321,47 @@
                 "start": {
                   "type": "integer",
                   "description": "The other song from its bar"
+                },
+                "liked": {
+                  "type": "boolean",
+                  "description": "The designer thumbed it up: taken first"
+                }
+              }
+            }
+          }
+        },
+        "bridges": {
+          "type": "object",
+          "description": "The ways in that aren't seamless cuts: for a scene change, and a song with no cut on",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "to",
+                "after",
+                "start",
+                "fit"
+              ],
+              "properties": {
+                "to": {
+                  "type": "string"
+                },
+                "after": {
+                  "type": "integer",
+                  "description": "After this song's bar (a phrase end)"
+                },
+                "start": {
+                  "type": "integer",
+                  "description": "The other song from its bar (a phrase start)"
+                },
+                "fit": {
+                  "type": "number",
+                  "description": "The chance the designer likes it (0.5 to 1)"
+                },
+                "liked": {
+                  "type": "boolean",
+                  "description": "The designer thumbed it up: taken first"
                 }
               }
             }

@@ -8,9 +8,19 @@
 // for a while, cutting from song to song at their seamless cuts (after A's bar e, B from its bar s), each song at least
 // Stay bars and at most one pass round its loop; then a rest, and the next scene: the one nearest a target energy that
 // rises from chill to less chill and back as a slow wave, never one of the last few, and the songs heard least.
+//
+// The designer's votes are in its music (2026-10-23, "lets have the votes effect whats in the game"): a transition they
+// thumbed down isn't there, one they thumbed up is marked liked and taken first. Where a scene changes, or a song has no
+// cut on into its own scene, the walk takes a way in (a bridge: a transition the lab judged likely to please them, from
+// the bar the song stopped on into another song's phrase start), the best of those into the scenes it may go to next.
 
 /** Bars in a phrase. */
 export const LEN = 4
+/** What a transition the designer thumbed up is worth, against the energy aimed at (a cut) or the fit (a bridge). */
+export const LIKED = 0.1
+/** The scenes nearest the energy aimed at that a scene change looks for a way into (2026-10-23: from the three it picks
+ * among by chance, 40% of scene changes found one; from six, 59%, and the music kept as near the energy aimed at). */
+export const WAY_SCENES = 6
 
 export interface WalkSong {
   /** The bars it loops between (1-based, inclusive): its mellow cues. */
@@ -22,14 +32,19 @@ export interface WalkSong {
   /** How un-chill it is (the library's own scale: higher is busier, brighter, more percussive). */
   energy: number
 }
-/** A seamless cut: after this song's bar `after`, the song `to` from its bar `start`. */
-export interface WalkCut { to: string; after: number; start: number }
+/** A seamless cut: after this song's bar `after`, the song `to` from its bar `start`; `liked`: the designer thumbed it up. */
+export interface WalkCut { to: string; after: number; start: number; liked?: boolean }
+/** A way in that isn't a seamless cut: after this song's bar `after` (a phrase end), the song `to` from its bar `start`
+ * (a phrase start); `fit` is the chance the designer likes it (0.5 to 1), `liked` that they thumbed it up. */
+export interface WalkBridge { to: string; after: number; start: number; fit: number; liked?: boolean }
 export interface WalkData {
   /** Bars in each song's file (the loop is inside them). */
   bars: number
   songs: Record<string, WalkSong>
   scenes: Record<string, { members: string[] }>
   cuts: Record<string, WalkCut[]>
+  /** The ways in that aren't cuts, for a scene change and for a song with no cut on (none: the walk enters by energy). */
+  bridges?: Record<string, WalkBridge[]>
 }
 export interface WalkSettings {
   /** Bars a song plays at least before the walk looks for a way on. */
@@ -66,6 +81,8 @@ export class SceneWalk {
   private heard = new Map<string, number>()
   private scenes: string[] = []
   private visits = 0
+  /** Where the last scene stopped (its song and last bar): the next scene is entered from there. */
+  private left: { song: string; bar: number } | null = null
 
   constructor(data: WalkData, settings: WalkSettings | (() => WalkSettings), opts: { random?: () => number; memory?: WalkMemory } = {}) {
     this.settings = typeof settings === 'function' ? settings : () => settings
@@ -81,7 +98,7 @@ export class SceneWalk {
     this.hi = e.length ? e[Math.floor(e.length * 0.9)] : 1
   }
   /** A fresh walk: nothing heard. */
-  reset() { this.run = null; this.pending = null; this.scene = null; this.bars = 0; this.heard = new Map(); this.scenes = [] }
+  reset() { this.run = null; this.pending = null; this.scene = null; this.left = null; this.bars = 0; this.heard = new Map(); this.scenes = [] }
   remember(m: WalkMemory) { this.heard = new Map(Object.entries(m.heard)); this.scenes = [...m.scenes]; this.bars = m.bars }
   memory(): WalkMemory { return { heard: Object.fromEntries(this.heard), scenes: this.scenes.slice(-16), bars: this.bars } }
 
@@ -107,6 +124,7 @@ export class SceneWalk {
 
   /** On to the next scene at once (skip): its first song, which next() then plays. */
   skip(): { song: string; start: number } | null {
+    this.left = this.run ? { song: this.run.visit.song, bar: this.run.lastBar } : null
     const p = this.enterScene()
     if (p) { this.run = null; this.pending = p }
     return p
@@ -142,15 +160,17 @@ export class SceneWalk {
     const loopLen = r.visit.hi - r.visit.lo + 1, stay = Math.min(st.stay, loopLen), most = Math.max(stay, Math.min(stay + LEN, loopLen))
     if (sc.bars >= st.sceneBars) {  // (the scene's done: at a phrase end, or 8 bars on at most, a rest, then the next)
       if (r.played >= Math.min(stay, LEN) && (this.phraseEnd(r) || sc.bars >= st.sceneBars + 8 || r.played >= most)) {
-        this.run = null; this.scene = null
+        this.run = null; this.scene = null; this.left = { song, bar: r.lastBar }
         return { kind: 'rest', bars: st.restBars, after: song }
       }
     } else if (r.played >= stay) {
-      // (a seamless cut into a member this scene hasn't played, toward the target energy and the least heard)
+      // (a seamless cut into a member this scene hasn't played, toward the target energy and the least heard; a liked one first)
       const t = this.target(), cut = this.cutsAt(song, r.lastBar).filter(c => !sc.played.includes(c.to))
-        .map(c => ({ c, k: Math.abs(this.energy(c.to) - t) + 0.05 * Math.log1p(this.heard.get(c.to) ?? 0) + 0.1 * this.rand() })).sort((a, b) => a.k - b.k)[0]?.c
+        .map(c => ({ c, k: Math.abs(this.energy(c.to) - t) + 0.05 * Math.log1p(this.heard.get(c.to) ?? 0) + 0.1 * this.rand() - (c.liked ? LIKED : 0) })).sort((a, b) => a.k - b.k)[0]?.c
       if (cut) { this.start(cut.to, cut.start); return this.next(depth + 1) }
-      if (this.phraseEnd(r) || r.played >= most) {  // (no cut: another member at a phrase end, or before a bar repeats)
+      if (this.phraseEnd(r) || r.played >= most) {  // (no cut: a way on into a member it hasn't played, else another member)
+        const way = this.wayInto(song, r.lastBar, [sc.fid], [...sc.played, song])
+        if (way) { this.start(way.to, way.start); return this.next(depth + 1) }
         const m = this.pickMember(sc.fid, t, song, sc.played)
         if (m) { this.start(m, this.data.songs[m].entry); return this.next(depth + 1) }
       }
@@ -184,12 +204,22 @@ export class SceneWalk {
       const e = x.ms.reduce((a, m) => a + this.energy(m), 0) / x.ms.length, h = x.ms.reduce((a, m) => a + (this.heard.get(m) ?? 0), 0) / x.ms.length
       return Math.abs(e - t) + 0.02 * Math.log1p(h) + 0.15 * this.rand()
     }
-    const best = from.map(x => ({ x, c: cost(x) })).sort((a, b) => a.c - b.c).slice(0, 3)
-    const fid = best.length ? best[Math.floor(this.rand() * best.length)].x.fid : null
-    const m = fid ? this.pickMember(fid, t) : null
+    const ranked = from.map(x => ({ x, c: cost(x) })).sort((a, b) => a.c - b.c), best = ranked.slice(0, 3)
+    // (from where the last scene stopped: the best way into one of the WAY_SCENES nearest; with none, one of the three
+    // nearest by chance, from its first song's entry)
+    const left = this.left, way = left ? this.wayInto(left.song, left.bar, ranked.slice(0, WAY_SCENES).map(b => b.x.fid)) : null
+    this.left = null
+    const fid = way ? this.sceneOf(way.to) : best.length ? best[Math.floor(this.rand() * best.length)].x.fid : null
+    const m = way ? way.to : fid ? this.pickMember(fid, t) : null
     if (!fid || !m) return null
     this.scene = { fid, bars: 0, played: [] }; this.scenes.push(fid)
-    return { song: m, start: this.data.songs[m].entry }
+    return { song: m, start: way ? way.start : this.data.songs[m].entry }
+  }
+  /** The best way from song `a` past its bar `after` into a song of one of the scenes `fids` (not one of `not`): the
+   * likeliest to please, a liked one first. Null when there's none. */
+  private wayInto(a: string, after: number, fids: string[], not: string[] = []): WalkBridge | null {
+    const ways = (this.data.bridges?.[a] ?? []).filter(w => w.after === after && this.data.songs[w.to] && !not.includes(w.to) && fids.includes(this.sceneOf(w.to) ?? ''))
+    return ways.map(w => ({ w, k: w.fit + (w.liked ? LIKED : 0) + 0.1 * this.rand() })).sort((x, y) => y.k - x.k)[0]?.w ?? null
   }
   /** A member to play: one the scene hasn't played if there is one, nearest the target energy, heard least, not `not`. */
   private pickMember(fid: string, target: number, not?: string, played: string[] = []): string | null {

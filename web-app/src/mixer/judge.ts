@@ -5,6 +5,7 @@
 import type { Votes } from '../api/types'
 import { beatsOf } from './buffers'
 import { db, med } from './curves'
+import { verdict } from './verdict'
 import type { Prefs } from './prefs'
 import type { Chunk, Level, Library, Part, Track } from './types'
 
@@ -108,12 +109,12 @@ export class Judge {
     const t = this.track(tid), lv = this.prefs().intense
     return t?.family ? t.family.members.filter(m => { const x = this.track(m); return m !== tid && !!x?.measure?.feat && !!x.files.calm && !!x.files[lv] }) : []
   }
-  /** Everything: each song's phrase starts inside its mellow cues (mellows thumbed down left out). */
+  /** Everything: each song's phrase starts inside its mellow cues (songs whose latest thumb is down left out). */
   libEntries(): Part[] {
-    const out: Part[] = [], clips = this.votes().clips, lv = this.prefs().intense
+    const out: Part[] = [], { clips, at } = this.votes(), lv = this.prefs().intense
     for (const t of this.lib.tracks) {
       const m = t.measure
-      if (!m?.feat || !this.active(t) || !t.files.calm || !t.files[lv] || (clips[`song_${t.id}.mellow`] || 0) < 0) continue
+      if (!m?.feat || !this.active(t) || !t.files.calm || !t.files[lv] || verdict(t.id, t.key, t.take, clips, at) < 0) continue
       const [lo, hi] = this.cueOf(t.id), ph = m.phrase, s0 = ph && ph.contrast >= 0.08 ? ph.start : lo, starts: number[] = []
       for (let b = lo; b + LEN - 1 <= hi; b++) if ((((b - s0) % LEN) + LEN) % LEN === 0) starts.push(b)
       ;(starts.length ? starts : [lo]).forEach(b => out.push({ track: t.id, start: b }))

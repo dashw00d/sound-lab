@@ -33,6 +33,8 @@ from pathlib import Path
 
 from .. import project as P
 from ..music.shipping import library
+from ..music.bridges import bridges, with_votes
+from ..music.verdict import latest
 from ..store import Store
 
 FORMAT = "soundlab-music/1"
@@ -90,7 +92,7 @@ class _Lab:
         st, lib = Store(proj), library(proj)
         self.proj, self.lib = proj, lib
         votes = st.votes()
-        self.clips, self.cues = votes.get("clips", {}), votes.get("cues", {})
+        self.clips, self.cues, self.at = votes.get("clips", {}), votes.get("cues", {}), votes.get("at", {})
         self.prefs = DEFAULTS | {k: v for k, v in Store.read(st.mixer_settings_path, {}).items() if k in DEFAULTS}
         self.F = Store.read(proj.work / "families.json", {"items": {}, "families": {}})
         self.N, self.bpm, self.bar_beats = lib["bars"], lib["bpm"], lib["bar_beats"]
@@ -162,16 +164,23 @@ class _Lab:
     def kind(self, sid: str) -> str:
         return "shipped" if sid in self.tracks else (self.F["items"].get(sid) or {}).get("kind", "candidate")
 
+    def latest(self, sid: str) -> tuple[str, int, str | None] | None:
+        """The thumb that decides the song: (vote key, 1 or -1, when) (music/verdict.py)."""
+        t, it = self.tracks.get(sid) or {}, self.F["items"].get(sid) or {}
+        return latest(sid, t.get("key") or it.get("set"), t.get("take") or it.get("take"), self.clips, self.at)
+
+    def verdict(self, sid: str) -> int:
+        """The song's latest thumb, wherever it was given: 1 in, -1 out, 0 not judged."""
+        t = self.latest(sid)
+        return t[1] if t else 0
+
     def bad(self, sid: str) -> bool:
-        return self.clips.get(f"ok_{sid}", 0) < 0
+        """Thumbed down last: out of the walk (and not shipped)."""
+        return self.verdict(sid) < 0
 
     def kept(self, sid: str) -> bool:
-        """A new take the designer kept: Keep, a new family, belongs with a scene, or liked on the Music page."""
-        it = self.F["items"].get(sid) or {}
-        c = self.clips
-        return (c.get(f"ok_{sid}", 0) > 0 or c.get(f"novel_{sid}", 0) > 0 or c.get(f"novel_{it.get('set')}.{it.get('take')}", 0) > 0
-                or any(k.startswith(f"link_{sid}|") and v > 0 for k, v in c.items())
-                or any(k.startswith(f"mesh_{it.get('set')}.{it.get('take')}.") and v > 0 for k, v in c.items()))
+        """A new take the designer kept: its latest thumb up (Keep, a new family, belongs with a scene, liked)."""
+        return self.verdict(sid) > 0
 
     def walkable(self, sid: str) -> bool:
         return sid in self.scene_of and (self.F["items"].get(sid) or {}).get("energy") is not None and not self.bad(sid)
@@ -181,7 +190,8 @@ def manifest(proj: P.Project, lab: _Lab | None = None, preview: list[str] | None
     """The manifest, for the songs whose audio is in the folder. The walk's music is made as the Mixer makes it
     (web-app/src/mixer/engine/graph.ts Graph.data): a scene's members that aren't bad takes, each one's loop (the
     designer's mellow cues, else the guessed ones), entry (its first phrase start in the loop), phrase and energy, and the
-    cuts that land inside the other song's loop with a phrase's room, less any the designer thumbed down.
+    cuts that land inside the other song's loop with a phrase's room, less any the designer thumbed down; and the ways
+    that aren't cuts (music/bridges.py), the votes laid over them.
 
     `preview`: the manifest the game would have with these songs shipped too, written nowhere, its files the player's
     URLs (2026-10-23, the designer: "is there a 'Play exactly what you would hear in game' option?"): the Game page plays
@@ -210,12 +220,18 @@ def manifest(proj: P.Project, lab: _Lab | None = None, preview: list[str] | None
             songs[m] = dict(files=have[m], glue=glue, gainDb={s: L.trim(m, s) for s in L.states},
                             loudness={"mellow": L.beats(m, "calm"), "intense": L.beats(m, "battle")},
                             scene=fid, lead=it.get("lead"), context=it.get("context"))
-    for a in walk_songs:
-        at = [dict(to=b, after=e, start=s) for b, c in (L.F["items"][a].get("cuts") or {}).items() if b in walk_songs
+    for a in walk_songs:  # (a transition thumbed down: never taken; one thumbed up: taken first)
+        at = [dict(to=b, after=e, start=s, **({"liked": True} if L.clips.get(f"join_{a}@{e}>{b}|{s}", 0) > 0 else {}))
+              for b, c in (L.F["items"][a].get("cuts") or {}).items() if b in walk_songs
               for e, s in c.get("at", []) if s >= walk_songs[b]["loop"][0] and s + LEN - 1 <= walk_songs[b]["loop"][1]
-              and L.clips.get(f"join_{a}@{e}>{b}|{s}", 0) >= 0]  # (a transition thumbed down: never taken)
+              and L.clips.get(f"join_{a}@{e}>{b}|{s}", 0) >= 0]
         if at:
             cuts[a] = at
+    # (the ways that aren't cuts: into the next scene, or on in a scene where there's no cut; music/bridges.py)
+    is_cut = {(a, c["after"], c["to"], c["start"]) for a, cs in cuts.items() for c in cs}
+    ways = {a: [w for w in ws if (a, w["after"], w["to"], w["start"]) not in is_cut]
+            for a, ws in with_votes(bridges(proj), L.clips, set(walk_songs)).items()}
+    ways = {a: ws for a, ws in ways.items() if ws}
     p, bar_s = L.prefs, 60 / L.bpm * L.bar_beats
     join = {"tight": 2 * XF, "beat": 60 / L.bpm, "two": 2 * 60 / L.bpm}[p["joins"]]
     return dict(
@@ -233,7 +249,7 @@ def manifest(proj: P.Project, lab: _Lab | None = None, preview: list[str] | None
             rest=dict(tail=p["tail"]),
         ),
         songs=songs,
-        walk=dict(bars=L.N, songs=walk_songs, scenes=scenes, cuts=cuts),
+        walk=dict(bars=L.N, songs=walk_songs, scenes=scenes, cuts=cuts, bridges=ways),
     )
 
 
@@ -287,21 +303,25 @@ def plan(proj: P.Project) -> dict:
     size = lambda files: sum((out / f).stat().st_size for f in files.values() if (out / f).is_file())
     in_game = [dict(id=sid, kind=s.get("kind"), scene=L.scene_of.get(sid), at=s.get("at"), kept=s.get("kept", True),
                     bytes=size(s["files"]), missing=[f for f in s["files"].values() if not (out / f).is_file()],
-                    walked=sid in man["walk"]["songs"]) for sid, s in ship.items()]
-    ready, local = [], 0
+                    walked=sid in man["walk"]["songs"], verdict=L.verdict(sid)) for sid, s in ship.items()]
+    ready, left_out, local = [], [], 0
     for sid in sorted(set(L.tracks) | set(L.F["items"])):
-        if sid in ship or not L.walkable(sid) or not (urls := L.urls(sid)):
+        if sid in ship or sid not in L.scene_of or (L.F["items"].get(sid) or {}).get("energy") is None or not (urls := L.urls(sid)):
             continue
-        if L.kind(sid) != "shipped" and not L.kept(sid):
-            local += 1  # (not judged yet, or not kept: the next batch's)
+        by = L.latest(sid)
+        row = dict(id=sid, kind=L.kind(sid), scene=L.scene_of[sid], energy=L.F["items"][sid]["energy"], lead=(L.F["items"][sid] or {}).get("lead"),
+                   verdict=by[1] if by else 0, by=dict(key=by[0], at=by[2]) if by else None)
+        if by and by[1] < 0:
+            left_out.append(row)  # (thumbed down last: left out, until a thumb up)
+            continue
+        if L.kind(sid) != "shipped" and not by:
+            local += 1  # (not judged yet: the next batch's)
             continue
         srcs = [_source(proj, u) for u in urls.values()]
-        ready.append(dict(id=sid, kind=L.kind(sid), scene=L.scene_of[sid], energy=L.F["items"][sid]["energy"],
-                          lead=(L.F["items"][sid] or {}).get("lead"), bytes=sum(p.stat().st_size for p in srcs if p.is_file()),
-                          missing=[str(p) for p in srcs if not p.is_file()]))
+        ready.append(row | dict(bytes=sum(p.stat().st_size for p in srcs if p.is_file()), missing=[str(p) for p in srcs if not p.is_file()]))
     return dict(folder=str(out), exists=out.exists(), synced=old.get("made"), rows=rows, texts=texts,
                 songs=len(man["walk"]["songs"]), scenes=len(man["walk"]["scenes"]), cuts=sum(len(v) for v in man["walk"]["cuts"].values()),
-                changes=sum(1 for r in rows if r["state"] != "same"), in_game=in_game, ready=ready, local=local,
+                changes=sum(1 for r in rows if r["state"] != "same"), in_game=in_game, ready=ready, out=left_out, local=local,
                 bytes=sum(s["bytes"] for s in in_game))
 
 

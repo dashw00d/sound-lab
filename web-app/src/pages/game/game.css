@@ -69,7 +69,14 @@ button.gm-sh { border: 0; background: none; padding: 0; color: var(--faint); cur
 .gm-sc-h .sw { width: 9px; height: 9px; border-radius: 3px; flex: none; }
 .gm-sc-h .dim { color: var(--faint); font-size: 12px; } .gm-sc-h .n { margin-left: auto; font: 500 11px var(--mono); color: var(--faint); }
 .gm-song { display: grid; grid-template-columns: 16px 26px minmax(120px, 1fr) 84px 54px 64px; gap: 10px; align-items: center; padding: 5px 12px; font-size: 12.5px; transition: opacity .15s; }
-.gm-song.in { grid-template-columns: 26px minmax(120px, 1fr) auto 64px; }
+.gm-song { grid-template-columns: 16px 26px minmax(120px, 1fr) 84px 52px 54px 64px; }
+.gm-song.in { grid-template-columns: 26px minmax(120px, 1fr) auto 52px 64px; }
+.gm-song.left { grid-template-columns: 26px minmax(120px, 1fr) auto 52px; }
+.gm-th { display: inline-flex; gap: 2px; }
+.gm-th button { width: 24px; height: 24px; border-radius: 7px; border: 0; background: none; color: var(--ghost); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.gm-th button:hover { background: var(--hover); color: var(--dim); } .gm-th .i { width: 12px; height: 12px; }
+.gm-th button.on.up { color: var(--good); } .gm-th button.on.down { color: var(--bad); }
+.gm-th button.on { cursor: default; } .gm-th button.on:hover { background: none; }
 .gm-song:hover { background: rgba(255, 255, 255, .02); }
 .gm-song.out { opacity: .42; }
 .gm-song.playing { background: var(--accent-soft); }

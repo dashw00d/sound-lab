@@ -12,6 +12,7 @@ import { useEngine } from '../../player/hooks'
 import { usePlayer } from '../../player/store'
 import { Icon } from '../../shell/Icon'
 import { toast } from '../../shell/toast'
+import { vote } from '../../state/votes'
 import { Energy } from '../../ui/Energy'
 import { Split } from '../../ui/Split'
 import { colour, hue } from '../families/model'
@@ -20,6 +21,10 @@ import './game.css'
 const mb = (b: number) => (!b ? '0 MB' : b >= 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1e3))} KB`)
 const STATE = { new: 'new', changed: 'changed', same: 'in sync', remove: 'to remove' } as const
 const KIND: Record<string, string> = { shipped: 'promoted', candidate: 'kept take', trial: 'trial take', extension: 'extension' }
+/** Where the vote that decides a song was given (soundlab/music/verdict.py's keys). */
+const WHERE = (k: string) => k.startsWith('mesh_') ? 'the Music page' : k.endsWith('.mellow') ? 'the Songs page (mellow)' : k.endsWith('.intense') ? 'the Songs page (intense)'
+  : k.startsWith('ok_') ? 'Families or here' : k.startsWith('novel_') ? 'the Trial page' : k.startsWith('link_') ? 'Families (belongs with)' : 'a vote'
+const day = (s: string | null | undefined) => (s ? new Date(s).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'just now')
 /** day.any.war.k3.close → war k3 · day */
 const nameOf = (id: string) => { const p = id.split('.'); return p.length >= 4 ? { title: `${p[2]} ${p[3]}`, sub: p[0] } : { title: id, sub: '' } }
 const bySceneOf = <T extends SyncSong>(xs: T[]) => {
@@ -57,6 +62,18 @@ export default function GamePage() {
     try { m.playGame(await api.syncPreview(chosen.map(r => r.id))) } catch (e) { toast(`Couldn't play it as the game: ${e}`, 'x') }
     setLoading(false)
   }
+  // (a song's thumb, binary: its latest thumb anywhere decides, so a thumb down here replaces an earlier thumb up)
+  const thumb = async (id: string, v: 1 | -1) => {
+    try { await vote(`ok_${id}`, v); await load(); toast(v > 0 ? 'In: it ships, and the walk plays it' : "Out: it won't ship, and the walk leaves it out", v > 0 ? 'up' : 'down') }
+    catch (e) { toast(`Couldn't save the thumb: ${e}`, 'x') }
+  }
+  const Thumbs = ({ id, v }: { id: string; v: number }) => (
+    <span className="gm-th">
+      <button className={v > 0 ? 'on up' : ''} title={v > 0 ? 'In: its latest thumb is up' : 'Thumb up: in the game (it replaces any thumb down, wherever it was given)'} onClick={() => v <= 0 && void thumb(id, 1)}><Icon name="up" /></button>
+      <button className={v < 0 ? 'on down' : ''} title={v < 0 ? 'Out: its latest thumb is down' : 'Thumb down: out of the game (it replaces any thumb up, wherever it was given)'} onClick={() => v >= 0 && void thumb(id, -1)}><Icon name="down" /></button>
+    </span>
+  )
+  const [showOut, setShowOut] = useState(false)
   const toggle = (ids: string[], on: boolean) => setLeft(s => { const n = new Set(s); for (const i of ids) { if (on) n.delete(i); else n.add(i) } return n })
   const ship = async () => {
     setBusy('ship')
@@ -136,6 +153,7 @@ export default function GamePage() {
                           <button className="gm-play" title={playing ? 'Stop' : 'Hear it'} onClick={() => play(r.id)}><Icon name={playing ? 'stop' : 'play'} /></button>
                           <span className="nm"><b>{n.title}</b><span>{n.sub}</span></span>
                           <span className={`gm-kind k-${r.kind}`}>{KIND[r.kind] ?? r.kind}</span>
+                          <Thumbs id={r.id} v={r.verdict} />
                           <Energy value={r.energy} />
                           <span className="gm-size">{r.missing.length ? <span className="bad">missing</span> : mb(r.bytes)}</span>
                         </div>
@@ -158,6 +176,27 @@ export default function GamePage() {
           )}
         </section>
 
+        {plan.out.length > 0 && (
+          <section className="gm-sec">
+            <button className="gm-sh link" title={showOut ? 'Hide the songs left out' : 'Show the songs left out: their latest thumb is down'} onClick={() => setShowOut(o => !o)}><span className="lbl">Left out · {plan.out.length} thumbed down</span><Icon name={showOut ? 'up' : 'down'} /></button>
+            {showOut && (
+              <div className="gm-batch">
+                {plan.out.map(r => {
+                  const n = nameOf(r.id)
+                  return (
+                    <div key={r.id} className="gm-song left">
+                      <button className="gm-play" title="Hear it" onClick={() => play(r.id)}><Icon name="play" /></button>
+                      <span className="nm"><b>{n.title}</b><span>{n.sub}</span></span>
+                      <span className="gm-kind">{r.by ? `👎 on ${WHERE(r.by.key)} · ${day(r.by.at)}` : 'thumbed down'}</span>
+                      <Thumbs id={r.id} v={r.verdict} />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
         <section className="gm-sec">
           <button className="gm-sh link" title={showIn ? 'Hide the songs in the game' : 'Show the songs in the game, by scene'} onClick={() => setShowIn(o => !o)}><span className="lbl">In the game · {plan.in_game.length} songs</span><Icon name={showIn ? 'up' : 'down'} /></button>
           {lost.length > 0 && <p className="gm-warn"><Icon name="flag" />{lost.length} shipped song{lost.length > 1 ? 's have' : ' has'} lost audio in the folder: ship {lost.length > 1 ? 'them' : 'it'} again</p>}
@@ -172,7 +211,8 @@ export default function GamePage() {
                       <div key={r.id} className={`gm-song in ${r.walked ? '' : 'out'}`}>
                         <button className="gm-play" title="Hear it" onClick={() => play(r.id)}><Icon name="play" /></button>
                         <span className="nm"><b>{n.title}</b><span>{n.sub}</span></span>
-                        <span className="gm-kind">{r.walked ? `shipped ${when(r.at)}` : 'not walked (a bad take now)'}</span>
+                        <span className="gm-kind">{r.walked ? `shipped ${when(r.at)}` : r.verdict < 0 ? 'not walked: thumbed down' : 'not walked'}</span>
+                        <Thumbs id={r.id} v={r.verdict} />
                         <span className="gm-size">{r.missing.length ? <span className="bad">audio gone</span> : mb(r.bytes)}</span>
                       </div>
                     )
