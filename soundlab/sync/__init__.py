@@ -177,14 +177,22 @@ class _Lab:
         return sid in self.scene_of and (self.F["items"].get(sid) or {}).get("energy") is not None and not self.bad(sid)
 
 
-def manifest(proj: P.Project, lab: _Lab | None = None) -> dict:
+def manifest(proj: P.Project, lab: _Lab | None = None, preview: list[str] | None = None) -> dict:
     """The manifest, for the songs whose audio is in the folder. The walk's music is made as the Mixer makes it
     (web-app/src/mixer/engine/graph.ts Graph.data): a scene's members that aren't bad takes, each one's loop (the
     designer's mellow cues, else the guessed ones), entry (its first phrase start in the loop), phrase and energy, and the
-    cuts that land inside the other song's loop with a phrase's room."""
+    cuts that land inside the other song's loop with a phrase's room.
+
+    `preview`: the manifest the game would have with these songs shipped too, written nowhere, its files the player's
+    URLs (2026-10-23, the designer: "is there a 'Play exactly what you would hear in game' option?"): the Game page plays
+    it. A song in the game already plays from the URL it was shipped from (the server finds it in the game's folder when
+    the lab no longer keeps it)."""
     L = lab or _Lab(proj)
     out, ship = folder(proj), shipped(proj)
     have = {sid: s["files"] for sid, s in ship.items() if all((out / f).is_file() for f in s["files"].values())}
+    if preview is not None:
+        have = {sid: ship[sid].get("local") or L.urls(sid) for sid in have}
+        have |= {sid: u for sid in preview if sid not in have and L.walkable(sid) and (u := L.urls(sid))}
     songs, scenes, cuts, walk_songs = {}, {}, {}, {}
     between = "straight" if L.prefs["glue"] == "off" else "pad" if L.prefs["glueKind"] == "pad" else "rest"  # (the Mixer's Between scenes)
     pads = between == "pad"
@@ -198,7 +206,8 @@ def manifest(proj: P.Project, lab: _Lab | None = None) -> dict:
             walk_songs[m] = dict(loop=L.cue(m), entry=L.entry(m), phrase=L.phrase(m), energy=it["energy"])
             gid = (L.tracks.get(m) or {}).get("glue")
             pad = pads and gid in L.lib.get("glues", {}) and L.clips.get(f"glue_{gid}", 0) >= 0
-            songs[m] = dict(files=have[m], glue=f"glues/{gid}.ogg" if pad else None, gainDb={s: L.trim(m, s) for s in L.states},
+            glue = None if not pad else f"/clips/{L.lib['glues'][gid]['file']}" if preview is not None else f"glues/{gid}.ogg"
+            songs[m] = dict(files=have[m], glue=glue, gainDb={s: L.trim(m, s) for s in L.states},
                             loudness={"mellow": L.beats(m, "calm"), "intense": L.beats(m, "battle")},
                             scene=fid, lead=it.get("lead"), context=it.get("context"))
     for a in walk_songs:

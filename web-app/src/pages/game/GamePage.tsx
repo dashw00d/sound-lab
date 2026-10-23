@@ -48,6 +48,15 @@ export default function GamePage() {
     if (!m.jd.track(id) && src) m.ensure(id, src as Record<string, string>)
     m.playSong(id)
   }
+  // (as the game: the manifest the game would have with the batch shipped, walked as the game walks it)
+  const [loading, setLoading] = useState(false), asGame = !!m?.playing && !!m.game
+  const playGame = async () => {
+    if (!m) return
+    if (asGame) { m.stop(); return }
+    setLoading(true)
+    try { m.playGame(await api.syncPreview(chosen.map(r => r.id))) } catch (e) { toast(`Couldn't play it as the game: ${e}`, 'x') }
+    setLoading(false)
+  }
   const toggle = (ids: string[], on: boolean) => setLeft(s => { const n = new Set(s); for (const i of ids) { if (on) n.delete(i); else n.add(i) } return n })
   const ship = async () => {
     setBusy('ship')
@@ -67,7 +76,7 @@ export default function GamePage() {
   if (!plan) return <div className="empty-state"><div className="lib-loading" /></div>
 
   const when = (s: string | null) => (s ? new Date(s).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : null)
-  const inBytes = plan.bytes, readyBytes = chosen.reduce((a, r) => a + r.bytes, 0), lost = plan.in_game.filter(s => s.missing.length)
+  const inBytes = plan.bytes, readyBytes = chosen.reduce((a, r) => a + r.bytes, 0), lost = plan.in_game.filter(s => s.missing.length), walked = plan.in_game.filter(s => s.walked).length
   return (
     <Split id="game" initial={600} max={800} left={
       <div className="gm">
@@ -85,6 +94,19 @@ export default function GamePage() {
           <div className="tile"><span className="lbl">Walked</span><b>{plan.scenes}<small> scenes</small></b><span className="sub">{plan.cuts} seamless cuts</span></div>
           <div className="tile hot"><span className="lbl">Ready to ship</span><b>{ready.length}<small> songs</small></b><span className="sub">{mb(ready.reduce((a, r) => a + r.bytes, 0))}</span></div>
           <div className="tile"><span className="lbl">Local</span><b>{plan.local}<small> takes</small></b><span className="sub">not kept yet</span></div>
+        </div>
+
+        <div className={`gm-hear ${asGame ? 'on' : ''}`}>
+          <button className="btn primary" disabled={loading || (!walked && !chosen.length)} onClick={() => void playGame()}
+            title={asGame ? 'Stop playing as the game' : "What the game would play once this batch ships: the songs in the game and the batch, walked scene by scene by the rules the game gets from your Mixer settings (Stay, Joins, Bass swap, Between scenes, Tail, Match levels), at the game's gains. None of the lab's extras: no bed, no siblings, stems or fills, no new takes outside the batch"}
+            data-tip-title="Play as the game" data-tip-icon="game">
+            <Icon name={loading ? 'refresh' : asGame ? 'stop' : 'play'} />{loading ? 'Loading…' : asGame ? 'Stop' : 'Play as the game'}
+          </button>
+          <div className="gm-hear-t">
+            <b>{asGame && m?.game ? `Playing as the game · ${m.game.songs} songs in ${m.game.scenes} scenes` : `Hear what the game would play: ${walked + chosen.length} songs`}</b>
+            <span>{asGame ? 'By its rules, with nothing the lab adds. Rate blocks and transitions on the timeline as usual; the session is marked as the game.'
+              : `${walked ? `the ${walked} in the game` : 'nothing in the game yet'}${chosen.length ? `${walked ? ' and' : ','} the ${chosen.length} ticked below` : ''}, by the game's rules (from your Mixer settings), with no bed, siblings, stems or fills`}</span>
+          </div>
         </div>
 
         <section className="gm-sec">

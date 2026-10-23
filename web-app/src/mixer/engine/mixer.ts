@@ -11,7 +11,7 @@ import { getVotes, vote } from '../../state/votes'
 import { joinKey, Judge, LEN, name, WEAK, XF } from '../judge'
 import { PartMatrix } from '../matrix'
 import { savePrefs, type Prefs } from '../prefs'
-import type { Families } from '../../api/types'
+import type { Families, GameManifest } from '../../api/types'
 import type { Block, Chunk, Level, Library, Part, Piece, ReviewItem, Run } from '../types'
 import { loadReview, reviewScript, VARIANT } from './review'
 import { Scheduler } from './scheduler'
@@ -62,13 +62,19 @@ export class Mixer {
   private listeners = new Set<() => void>()
 
   prefs: Prefs
+  /** Playing as the game (2026-10-23, the designer: "is there a 'Play exactly what you would hear in game' option?"): the
+   * manifest the game would have, walked by its rules, its gains and pads, and nothing the lab adds (no bed, no
+   * variations, no fills, no new takes). Its rules are laid over the settings while it plays, never saved. */
+  game: { man: GameManifest; over: Partial<Prefs>; songs: number; scenes: number } | null = null
+  /** The settings the engine plays by: yours, or yours under the game's rules while it plays as the game. */
+  private live = () => (this.game ? { ...this.prefs, ...this.game.over } : this.prefs)
 
   constructor(lib: Library, prefs: Prefs) {
     const has = new Set(lib.tracks.map(t => t.id))
     this.prefs = { ...prefs, set: prefs.set.filter(p => has.has(p.track)) }  // (a part of a song no longer shipped plays nothing; saved as is until a change)
-    this.jd = new Judge(lib, () => this.prefs, getVotes)
-    this.walk = new Walk(this.jd, () => this.prefs, ids => ids.forEach(id => this.preload(id)))
-    this.sched = new Scheduler(this.jd, () => this.prefs, () => this.playing)
+    this.jd = new Judge(lib, this.live, getVotes)
+    this.walk = new Walk(this.jd, this.live, ids => ids.forEach(id => this.preload(id)))
+    this.sched = new Scheduler(this.jd, this.live, () => this.playing)
   }
   get lib() { return this.jd.lib }
   get state(): Level { return this.sched.state }
@@ -162,12 +168,13 @@ export class Mixer {
    * keeping the history (skip); with `pin`, the walk stays in its song (no session). `tag`: what the page asked for. */
   async play(script: Chunk[] | null = null, from: Part | null = null, opts: { pin?: boolean; tag?: string; queue?: QueueItem[]; at?: number; ffw?: number; hold?: boolean } = {}) {
     ++this.gen
+    if (this.game && opts.tag !== 'game' && (script || opts.pin || opts.queue || !opts.hold)) this.leaveGame()
     const queue = !script && opts.queue?.length ? opts.queue : null, pin = !script && !queue && !!from && !!opts.pin
     if (!script && from && !pin) { let n = this.tape.length; while (n > 0 && !this.tape[n - 1].heard) n--; this.tape.length = n }
     else if (!script) this.tape = []
     this.replay = null
     if (script || pin || queue) this.sess = null
-    else if (!from || !this.sess) this.sess = new Session(() => this.prefs)
+    else if (!from || !this.sess) this.sess = new Session(this.live, () => !!this.game)
     if (!script?.some(c => c.rev != null)) this.review.cur = null
     if (!opts.hold) this.paused = false  // (a move within what plays keeps a pause: Back, skip, a seek, a jump)
     if (audio().state === 'suspended' && !this.paused) await audio().resume()
@@ -184,7 +191,29 @@ export class Mixer {
   private halt() {
     this.sched.halt(this.plan); this.plan = []; this.playing = false; clearInterval(this.timer)
   }
-  stop() { this.gen++; this.halt(); this.script = null; this.tag = null; if (this.paused) { this.paused = false; void audio().resume() } this.changed() }
+  stop() { this.gen++; this.halt(); this.script = null; this.tag = null; this.leaveGame(); if (this.paused) { this.paused = false; void audio().resume() } this.changed() }
+  /** Play as the game: `man`'s walk from its first scene, by its rules (see `game`). */
+  playGame(man: GameManifest) {
+    const P = man.play, joins = (['tight', 'beat', 'two'] as const)[[2 * XF, this.jd.beatS(), 2 * this.jd.beatS()].reduce((b, v, i, a) => (Math.abs(v - P.join.seconds) < Math.abs(a[b] - P.join.seconds) ? i : b), 0)]
+    const over: Partial<Prefs> = {
+      scope: 'graph', bed: 'off', vary: { siblings: false, stems: false, fills: false }, cands: 'off', intense: man.states.intense as Prefs['intense'],
+      stay: P.stay, sceneBars: P.sceneBars, wave: (P.waveBars * this.jd.barS()) / 60, glueBars: P.restBars, joins, tail: P.rest.tail,
+      match: P.matchLevels.on, bassSwap: P.bassSwap.on, even: true,
+      glue: P.betweenScenes === 'straight' ? 'off' : 'breaths', glueKind: P.betweenScenes === 'pad' ? 'pad' : 'rest',
+    }
+    const gain: Record<string, Record<Level, number>> = {}, loud: Record<string, Partial<Record<'calm' | 'battle', number[] | null>>> = {}, pads = new Set<string>()
+    for (const [id, sg] of Object.entries(man.songs)) {
+      this.ensure(id, { calm: sg.files.mellow, [man.states.intense]: sg.files.intense })  // (a new take: its files as the game gets them)
+      gain[id] = sg.gainDb; loud[id] = { calm: sg.loudness.mellow, battle: sg.loudness.intense }
+      if (sg.glue) pads.add(id)
+    }
+    this.stop()
+    this.game = { man, over, songs: Object.keys(man.walk.songs).length, scenes: Object.keys(man.walk.scenes).length }
+    this.jd.game = { gain, loud, pads }
+    this.walk.setGame({ data: man.walk, settings: { stay: P.stay, sceneBars: P.sceneBars, waveBars: P.waveBars, restBars: P.restBars, avoid: P.avoid } })
+    void this.play(null, null, { tag: 'game' })
+  }
+  private leaveGame() { if (!this.game) return; this.game = null; this.jd.game = null; this.walk.setGame(null) }
   pause() { if (!this.playing || this.paused) return; this.paused = true; void audio().suspend(); this.changed() }
   resume() { if (!this.paused) return; this.paused = false; void audio().resume(); this.changed() }
   togglePause() { if (this.paused) this.resume(); else this.pause() }

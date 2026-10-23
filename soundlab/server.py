@@ -12,6 +12,8 @@
                             batch ready to ship, and the README
   POST /api/sync            write the texts (manifest, walk, docs, schema) into the game's folder (the designer's button)
   POST /api/sync/ship       {ids, keep}: ship a batch into the game's folder (the designer's button)
+  POST /api/sync/preview    {ids}: the manifest the game would have with those songs shipped too, its files as URLs;
+                            nothing written (the Game page's "Play as the game")
   GET  /api/data            the lab's data files against the game's folder for them (soundlab/share)
   POST /api/data/share      copy the lab's data into the game's folder (the designer's button)
   POST /api/mixer           {settings}: save them
@@ -432,6 +434,14 @@ def make_handler(proj: P.Project, host: str = "127.0.0.1"):
                 from . import share
                 with LOCK:
                     self.send_json(share.share(proj))
+                return
+            if url == "/api/sync/preview":  # (what the game would play: written nowhere)
+                from . import sync
+                ids = self.body().get("ids", [])
+                if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
+                    raise HttpError(400, "ids: the songs to play as if shipped")
+                with LOCK:
+                    self.send_json(sync.manifest(proj, preview=ids))
                 return
             if url in ("/api/sync", "/api/sync/ship"):  # (into the game's folder: the designer's buttons, and nothing else)
                 from . import sync

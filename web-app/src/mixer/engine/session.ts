@@ -25,7 +25,9 @@ export class Session {
   readonly likes = new Map<string, number>()
   private saving = 0
   private prefs: () => Prefs
-  constructor(prefs: () => Prefs) { this.prefs = prefs }
+  /** Played as the game (the Game page): its rules, recorded with the settings. */
+  private asGame: () => boolean
+  constructor(prefs: () => Prefs, asGame: () => boolean = () => false) { this.prefs = prefs; this.asGame = asGame }
 
   /** Takes in a block once it has started: what it was, and the transition into the next. */
   record(b: Block, nb: Block | undefined, state: Level) {
@@ -81,7 +83,7 @@ export class Session {
         if (i < recs.length - 1) stream.push({ kind: 'transition', like: this.likes.get(id) || null, ...(r.join ? { join: r.join } : {}) })
       })
       const settings = { stay: P.stay, joins: P.joins, match: P.match, even: P.even, bassSwap: P.bassSwap, glue: P.glue, glueKind: P.glueKind,
-                         glueBars: P.glueBars, bed: P.bed, intense: P.intense, strict: P.strict, scope: P.scope, cands: P.cands, vary: P.vary, sceneBars: P.sceneBars, wave: P.wave }
+                         glueBars: P.glueBars, bed: P.bed, intense: P.intense, strict: P.strict, scope: P.scope, cands: P.cands, vary: P.vary, sceneBars: P.sceneBars, wave: P.wave, tail: P.tail, ...(this.asGame() ? { game: true } : {}) }
       try { await fetch('/api/stream', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: this.id, settings, stream }) }) }
       catch { toast("Couldn't save the ratings", 'x') }
     }, 400)

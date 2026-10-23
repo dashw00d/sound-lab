@@ -76,6 +76,20 @@ export type Mixes = Record<string, { parts: { track: string; start: number; bars
 
 /** GET /api/sync: the game's folder (soundlab/sync plan): its texts against the lab's, what's shipped into it, the batch
  * ready to ship. */
+/** POST /api/sync/preview: the manifest the game would have with a batch shipped too (soundlab/sync manifest), its files
+ * as the player's URLs. */
+export interface GameManifest {
+  states: { mellow: string; intense: string }
+  play: {
+    stay: number; sceneBars: number; waveBars: number; restBars: number; avoid: number
+    join: { seconds: number }; matchLevels: { on: boolean }; bassSwap: { on: boolean }
+    betweenScenes: 'straight' | 'pad' | 'rest'; rest: { tail: 'taper' | 'ring' | 'echo' }
+  }
+  songs: Record<string, { files: { mellow: string; intense: string }; glue: string | null; gainDb: { mellow: number; intense: number };
+    loudness: { mellow: number[] | null; intense: number[] | null }; scene: string }>
+  walk: { bars: number; songs: Record<string, { loop: [number, number]; entry: number; phrase: number | null; energy: number }>;
+    scenes: Record<string, { members: string[] }>; cuts: Record<string, { to: string; after: number; start: number }[]> }
+}
 export interface SyncSong { id: string; kind: string; scene: string | null; bytes: number; missing: string[] }
 export interface SyncPlan {
   folder: string

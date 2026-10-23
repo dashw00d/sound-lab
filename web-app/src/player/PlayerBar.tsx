@@ -74,7 +74,7 @@ function Bar({ m }: { m: Mixer }) {
             </div>
           </div>
           <div className="pb-now">
-            <span className="lbl">{snap.mode ? MODE[snap.mode] : 'Stopped'}{snap.paused ? ' · paused' : ''}{inQueue && queue && snap.qi != null ? ` · ${snap.qi + 1} of ${queue.length}` : ''}
+            <span className="lbl">{snap.mode === 'walk' && m.game ? <span className="pb-game" title={`Playing as the game: its manifest's ${m.game.songs} songs in ${m.game.scenes} scenes, by its rules, with nothing the lab adds (no bed, variations, fills or new takes). Stop ends it`} data-tip-title="As the game" data-tip-icon="game"><Icon name="game" />As the game</span> : snap.mode ? MODE[snap.mode] : 'Stopped'}{snap.paused ? ' · paused' : ''}{inQueue && queue && snap.qi != null ? ` · ${snap.qi + 1} of ${queue.length}` : ''}
               {queue && <button className="pb-clear" title="Clear the queue (Play then plays the walk)" onClick={() => m.setQueue(null)}>queue of {queue.length} <Icon name="x" /></button>}</span>
             <b>{snap.playing ? snap.now : queue ? `Space plays the queue: ${queue.length} songs` : 'Space plays the walk'}</b>
             {snap.playing && <small>next: {snap.next}</small>}

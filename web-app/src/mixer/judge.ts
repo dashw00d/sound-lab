@@ -25,6 +25,8 @@ export class Judge {
   readonly lib: Library
   readonly prefs: () => Prefs
   readonly votes: () => Votes
+  /** Playing as the game (the Game page): its manifest's gains, loudness and pads, so the levels are the game's own. */
+  game: { gain: Record<string, Record<Level, number>>; loud: Record<string, Partial<Record<'calm' | 'battle', number[] | null>>>; pads: Set<string> } | null = null
 
   constructor(lib: Library, prefs: () => Prefs, votes: () => Votes) {
     this.lib = lib; this.prefs = prefs; this.votes = votes
@@ -125,6 +127,7 @@ export class Judge {
     return t.src?.[level] ?? (t.files[level] ? '/shipped/' + t.files[level] : t.src?.calm ?? (t.files.calm ? '/shipped/' + t.files.calm : null))
   }
   glueOf(id: string | undefined): string | null {
+    if (this.game && (!id || !this.game.pads.has(id))) return null  // (as the game: only the pads its manifest has)
     const t = this.track(id)
     return t?.glue && this.lib.glues?.[t.glue] ? t.glue : null
   }
@@ -139,10 +142,13 @@ export class Judge {
   }
   /** A song's loudness per beat at a level: music trims' measure, else what the player measured from its file. */
   beatsOf(tid: string | undefined, lv: 'calm' | 'battle'): number[] | null {
+    const g = tid ? this.game?.loud[tid]?.[lv] : null
+    if (g?.length) return g
     const b = this.track(tid)?.measure?.beats?.[lv]
     return b?.length ? b : beatsOf(this.url(tid, lv))
   }
   trimDb(tid: string | undefined, st: Level): number {
+    if (this.game) return tid ? this.game.gain[tid]?.[st] ?? 0 : 0
     if (!this.prefs().even || !tid) return 0
     if (!this.refLevel) {
       const of = (s: Level) => { const v = this.lib.tracks.filter(t => !t.candidate).map(t => this.levelOf(t.id, s)).filter((x): x is number => x != null); return v.length ? med(v) : null }

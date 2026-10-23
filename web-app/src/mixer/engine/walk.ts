@@ -17,7 +17,7 @@ import { LEN, pkey, type Judge, type Judged } from '../judge'
 import type { Prefs } from '../prefs'
 import type { Chunk, Part, Run } from '../types'
 import type { Graph } from './graph'
-import { SceneWalk, type Step, type Visit } from './scenewalk'
+import { SceneWalk, type Step, type Visit, type WalkData, type WalkSettings } from './scenewalk'
 
 /** The stems a phrase may vary to: only the song's own (2026-10-22, the designer: "stems should originate from the same
  * source"). "pulse" laid the battle level's drums under calm, and those drums are the text-made percussion layer (taiko,
@@ -66,8 +66,13 @@ export class Walk {
     if (this.graphOn) { const sw = this.scenes(); this.visit = null; if (!from) sw?.reset(); else sw?.enter(from.track, from.start) }
   }
   setGraph(g: Graph | null) { this.graph = g; if (!g) this.sw = null }
-  /** The scene walk, on the graph as the votes stand now (a vote or a cue moved: the walk goes on in the new one). */
+  /** As the game (the Game page): the walk on the game's own graph and rules (its manifest's), or back to the lab's. */
+  private game: { data: WalkData; settings: WalkSettings } | null = null
+  setGame(g: { data: WalkData; settings: WalkSettings } | null) { this.game = g; this.sw = null; this.visit = null }
+  /** The scene walk, on the graph as the votes stand now (a vote or a cue moved: the walk goes on in the new one); as the
+   * game, on the game's. */
   private scenes(): SceneWalk | null {
+    if (this.game) return (this.sw ??= new SceneWalk(this.game.data, () => this.game!.settings))
     if (!this.graph) return null
     const v = getVotes(), d = this.graph.data(v.clips, v.cues)
     if (!this.sw) this.sw = new SceneWalk(d, () => {
@@ -79,7 +84,7 @@ export class Walk {
   }
   /** The song playing is done: the walk moves on at its next chance (a phrase end; in the graph, at once). */
   hurry() { if (this.run) this.run.played = Math.max(this.run.played!, 999); this.sw?.hurry() }
-  get graphOn() { return this.prefs().scope === 'graph' && !!this.graph && !this.pin && !this.queue }
+  get graphOn() { return this.prefs().scope === 'graph' && (!!this.graph || !!this.game) && !this.pin && !this.queue }
   /** Where the graph is: the scene, the energy aimed at, and the song's. */
   graphState() { return this.graphOn ? this.sw?.state() ?? null : null }
   /** What the walk draws from: the set's parts, or every song's phrase starts. */

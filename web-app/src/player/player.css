@@ -73,3 +73,5 @@
 .pb-now .lbl { display: flex; align-items: center; gap: 8px; }
 .pb-now .pb-clear { width: auto; height: 18px; padding: 0 6px 0 8px; border-radius: 99px; gap: 4px; display: inline-flex; font: 500 10px var(--mono); text-transform: none; letter-spacing: 0; color: var(--dim); }
 .pb-now .pb-clear .i { width: 10px; height: 10px; }
+.pb-now .pb-game { display: inline-flex; align-items: center; gap: 5px; height: 18px; padding: 0 8px 0 6px; border-radius: 99px; border: 1px solid var(--accent-line); background: var(--accent-soft); color: var(--text); }
+.pb-now .pb-game .i { width: 11px; height: 11px; color: var(--accent); }
