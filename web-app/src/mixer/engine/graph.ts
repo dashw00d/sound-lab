@@ -5,11 +5,17 @@
 // is the scene walk (scenewalk.ts, which a game gets as walk.js); this turns the lab's data into what it walks: the songs
 // it may play (one it can hear, not a bad take, a new take only when new takes are on), each one's loop, entry, phrase
 // and energy, the scenes' members, and the cuts that land inside the other song's loop with a part's room before its end
-// (2026-10-21: the designer flagged two blocks entered at bar 11 and 15, outside their loops). `soundlab sync` writes the
+// (2026-10-21: the designer flagged two blocks entered at bar 11 and 15, outside their loops), but none thumbed down
+// (2026-10-23: the walk had kept one, against "the walk won't take it again"). `soundlab sync` writes the
 // same for a game (soundlab/sync.py manifest), from the songs it ships.
 import type { Families } from '../../api/types'
 import { LEN, type Judge } from '../judge'
 import type { WalkData } from './scenewalk'
+
+/** The walk's music without the cuts thumbed down (the game's manifest, as you vote while it plays). */
+export function withoutDisliked(d: WalkData, clips: Record<string, number>): WalkData {
+  return { ...d, cuts: Object.fromEntries(Object.entries(d.cuts).map(([a, cs]) => [a, cs.filter(c => (clips[`join_${a}@${c.after}>${c.to}|${c.start}`] || 0) >= 0)])) }
+}
 
 export class Graph {
   readonly F: Families
@@ -42,7 +48,8 @@ export class Graph {
     for (const a of Object.keys(songs)) {
       const out = Object.entries(this.F.items[a]?.cuts ?? {}).flatMap(([b, c]) => {
         const s = songs[b]
-        return s ? c.at.filter(([, st]) => st >= s.loop[0] && st + LEN - 1 <= s.loop[1]).map(([after, start]) => ({ to: b, after, start })) : []
+        return s ? c.at.filter(([after, st]) => st >= s.loop[0] && st + LEN - 1 <= s.loop[1] && (clips[`join_${a}@${after}>${b}|${st}`] || 0) >= 0)
+          .map(([after, start]) => ({ to: b, after, start })) : []  // (a transition thumbed down: never taken)
       })
       if (out.length) cuts[a] = out
     }

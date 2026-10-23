@@ -181,7 +181,7 @@ def manifest(proj: P.Project, lab: _Lab | None = None, preview: list[str] | None
     """The manifest, for the songs whose audio is in the folder. The walk's music is made as the Mixer makes it
     (web-app/src/mixer/engine/graph.ts Graph.data): a scene's members that aren't bad takes, each one's loop (the
     designer's mellow cues, else the guessed ones), entry (its first phrase start in the loop), phrase and energy, and the
-    cuts that land inside the other song's loop with a phrase's room.
+    cuts that land inside the other song's loop with a phrase's room, less any the designer thumbed down.
 
     `preview`: the manifest the game would have with these songs shipped too, written nowhere, its files the player's
     URLs (2026-10-23, the designer: "is there a 'Play exactly what you would hear in game' option?"): the Game page plays
@@ -212,7 +212,8 @@ def manifest(proj: P.Project, lab: _Lab | None = None, preview: list[str] | None
                             scene=fid, lead=it.get("lead"), context=it.get("context"))
     for a in walk_songs:
         at = [dict(to=b, after=e, start=s) for b, c in (L.F["items"][a].get("cuts") or {}).items() if b in walk_songs
-              for e, s in c.get("at", []) if s >= walk_songs[b]["loop"][0] and s + LEN - 1 <= walk_songs[b]["loop"][1]]
+              for e, s in c.get("at", []) if s >= walk_songs[b]["loop"][0] and s + LEN - 1 <= walk_songs[b]["loop"][1]
+              and L.clips.get(f"join_{a}@{e}>{b}|{s}", 0) >= 0]  # (a transition thumbed down: never taken)
         if at:
             cuts[a] = at
     p, bar_s = L.prefs, 60 / L.bpm * L.bar_beats
