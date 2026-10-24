@@ -84,7 +84,7 @@ Rules:
 
 `examples/godot` is a Godot 4 reference for a sync folder: `soundlab/soundlab_walk.gd` is a line-for-line port of `web-app/src/mixer/engine/scenewalk.ts` (the walk the Mixer runs and the sync ships as `walk.js`), and `soundlab/soundlab_music.gd` plays a folder by its README's rules. When `scenewalk.ts` changes, change the port too and compare them (examples/godot/README.md "Keeping the port honest": `test_walk.gd` against `walktest.mjs`, which must print identical steps for a seed). `npm run build` in web-app makes `soundlab/sync/walk.js` from `scenewalk.ts`.
 
-Emberhold plays its sync folder itself (2026-10-23, branch `soundlab-music` until merged): `game/audio/SoundLabWalk.cs` is its C# port of the walk and `game/audio/SoundLabMusic.cs` its player (Emberhold's `tools/audio/README.md` "Music"). When `scenewalk.ts` changes, that port changes too; check it like the Godot one, with a scratch console project compiling `SoundLabWalk.cs` that prints `walktest.mjs`'s rows (2026-10-23: 2,000 identical steps for seeds 7, 42 and 2026). Shipping into the game writes Emberhold's `soundlab/` folder, which is in its git: commit it there.
+Emberhold plays its sync folder itself (2026-10-23, on its main): `game/audio/SoundLabWalk.cs` is its C# port of the walk and `game/audio/SoundLabMusic.cs` its player (Emberhold's `tools/audio/README.md` "Music"). When `scenewalk.ts` changes, that port changes too; check it like the Godot one, with a scratch console project compiling `SoundLabWalk.cs` that prints `walktest.mjs`'s rows (2026-10-23: 2,000 identical steps for seeds 7, 42 and 2026). Shipping into the game writes Emberhold's `soundlab/` folder, which is in its git: commit it there.
 
 ## What we've learned: MODELS_LOG.md
 
