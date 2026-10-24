@@ -230,7 +230,7 @@ def manifest(proj: P.Project, lab: _Lab | None = None, preview: list[str] | None
     # (the ways that aren't cuts: into the next scene, or on in a scene where there's no cut; music/bridges.py)
     is_cut = {(a, c["after"], c["to"], c["start"]) for a, cs in cuts.items() for c in cs}
     ways = {a: [w for w in ws if (a, w["after"], w["to"], w["start"]) not in is_cut]
-            for a, ws in with_votes(bridges(proj), L.clips, set(walk_songs)).items()}
+            for a, ws in with_votes(bridges(proj), L.clips, list(walk_songs)).items()}
     ways = {a: ws for a, ws in ways.items() if ws}
     p, bar_s = L.prefs, 60 / L.bpm * L.bar_beats
     join = {"tight": 2 * XF, "beat": 60 / L.bpm, "two": 2 * 60 / L.bpm}[p["joins"]]
@@ -270,6 +270,16 @@ def readme(proj: P.Project, man: dict) -> str:
     return text
 
 
+def _content(src: Path | str) -> dict | None:
+    """A manifest's content, without when it was made (the same music, written again, is the same)."""
+    try:
+        m = json.loads(src.read_text() if isinstance(src, Path) else src)
+    except (OSError, ValueError):
+        return None
+    m.pop("made", None)
+    return m
+
+
 def plan(proj: P.Project) -> dict:
     """Where the folder stands: its texts against the lab's (new, changed, the same), the songs in it (and any whose audio
     has gone), and the batch ready to ship."""
@@ -284,7 +294,8 @@ def plan(proj: P.Project) -> dict:
     rows = []
     for name, text in texts.items():
         f = out / name
-        state = "new" if not f.exists() else "same" if f.read_text() == text else "changed"
+        same = f.exists() and (f.read_text() == text or name == "soundlab.json" and _content(f) == _content(text))
+        state = "new" if not f.exists() else "same" if same else "changed"
         rows.append(dict(path=name, state=state, bytes=len(text.encode())))
     owned = {f for v in old.get("stingers", {}).values() for f in v}  # (audio an older sync wrote that nothing ships now: removed)
     owned_glues = {s.get("glue") for s in old.get("songs", {}).values() if s.get("glue")}  # (the pads the last sync wrote)

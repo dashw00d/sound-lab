@@ -130,9 +130,11 @@ def _make(M: dict, F: dict, model: dict, clips: dict, cues: dict, N: int) -> dic
     return out
 
 
-def with_votes(ways: dict, clips: dict, songs: set[str]) -> dict:
+def with_votes(ways: dict, clips: dict, songs: list[str]) -> dict:
     """The ways among `songs` as the votes stand: none thumbed down, the ones thumbed up marked and always there (a liked
-    transition that isn't a seamless cut). {song: [{after, to, start, fit, liked?}]}."""
+    transition that isn't a seamless cut). {song: [{after, to, start, fit, liked?}]}, in the order of `songs` (so a manifest
+    written twice is the same file)."""
+    order, songs = list(songs), set(songs)
     liked: dict[str, list] = {}
     for k, v in clips.items():
         if v > 0 and k.startswith("join_") and "@" in k and ">" in k and "|" in k:
@@ -142,7 +144,7 @@ def with_votes(ways: dict, clips: dict, songs: set[str]) -> dict:
             if a in songs and b in songs and a != b:
                 liked.setdefault(a, []).append([int(e), b, int(s), 1.0])
     out = {}
-    for a in songs:
+    for a in order:
         seen, rows = set(), []
         for e, b, s, p in liked.get(a, []) + ways.get(a, []):
             v = clips.get(f"join_{a}@{e}>{b}|{s}", 0)
