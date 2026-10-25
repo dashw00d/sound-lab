@@ -6,10 +6,13 @@ and the Stable Audio 3 Medium model (the ungated mirror cocktailpeanut/stable-au
     python install.py --hf-home PATH        # keep (or reuse) the model in another Hugging Face cache
     python install.py --cuda cu128          # a different CUDA build of PyTorch (cu118, cu126, cu128)
     python install.py --no-model            # skip the 10 GB download (doctor will say it is missing)
+    python install.py --no-web              # skip building the web app (web-app/ into soundlab/webapp)
 
 Needs: an NVIDIA GPU with a recent driver (Medium wants about 12 GB of VRAM), ffmpeg on PATH (with the rubberband
 filter, for the music's tempo correction), and git if available (else the code is fetched as a zip). uv, the Python
 manager, is installed for you if missing. Any Python 3.8+ can run this script; the runtime gets its own 3.12.
+Node.js 20.19+ (with npm) builds the web app at /app/ (its build isn't committed); without it, only the older app at
+/ works. Re-run the installer after pulling changes to web-app/: it rebuilds when the sources are newer than the build.
 """
 from __future__ import annotations
 
@@ -36,6 +39,9 @@ SA3_REPO = "https://github.com/Stability-AI/stable-audio-3"
 MODEL_REPO = "cocktailpeanut/stable-audio-3-medium"
 TORCH = "2.7.1"  # what stable-audio-3 pins
 WHEELS = "mjun0812/flash-attention-prebuild-wheels"
+WEB_SRC = ROOT / "web-app"  # the TS + React app's sources
+WEB_OUT = ROOT / "soundlab" / "webapp"  # its build (gitignored), served at /app/
+NODE_MIN = (20, 19)  # what Vite 8 needs (or 22.12+)
 
 
 def say(msg: str) -> None:
@@ -126,12 +132,47 @@ def flash_attn_wheel(cuda: str) -> str | None:
     return best[1] if best else None
 
 
+def web_stale() -> bool:
+    """Whether the web app needs building: no build yet, or a source newer than it (e.g. after a git pull)."""
+    built = WEB_OUT / "index.html"
+    if not built.exists():
+        return True
+    t = built.stat().st_mtime
+    return any(p.stat().st_mtime > t for p in WEB_SRC.rglob("*") if p.is_file() and "node_modules" not in p.parts)
+
+
+def build_web() -> None:
+    """npm ci and npm run build in web-app/, when Node is here and the build is missing or stale. Never fatal: the
+    older app at / works without it."""
+    if not web_stale():
+        say("the web app: already built")
+        return
+    node, npm = shutil.which("node"), shutil.which("npm")
+    ver = subprocess.run([node, "--version"], capture_output=True, text=True).stdout.strip() if node else ""
+    have = tuple(int(x) for x in ver.lstrip("v").split(".")[:2] if x.isdigit())
+    if not (node and npm) or have < NODE_MIN:
+        hint = "winget install OpenJS.NodeJS.LTS" if WIN else "https://nodejs.org, or your distro's nodejs + npm"
+        say("the web app: not built")
+        print(f"   ! needs Node.js {NODE_MIN[0]}.{NODE_MIN[1]}+ with npm ({ver or 'not found'}): install it ({hint}) and run the"
+              " installer again. Until then only the older app at / works, not /app/")
+        return
+    say(f"building the web app (Node {ver}) into {WEB_OUT.relative_to(ROOT)}")
+    try:
+        lock, mods = WEB_SRC / "package-lock.json", WEB_SRC / "node_modules" / ".package-lock.json"
+        if not mods.exists() or lock.stat().st_mtime > mods.stat().st_mtime:
+            run([npm, "ci", "--no-audit", "--no-fund"], cwd=WEB_SRC)
+        run([npm, "run", "build"], cwd=WEB_SRC)
+    except subprocess.CalledProcessError:
+        print("   ! the web app did not build (see above); the older app at / still works")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--hf-home", help="the Hugging Face cache to keep the model in (default: runtime/hf)")
     ap.add_argument("--cuda", default="cu126", choices=["cu118", "cu126", "cu128"])
     ap.add_argument("--no-model", action="store_true")
     ap.add_argument("--no-flash-attn", action="store_true")
+    ap.add_argument("--no-web", action="store_true")
     a = ap.parse_args()
 
     RUNTIME.mkdir(exist_ok=True)
@@ -179,10 +220,13 @@ def main() -> int:
         run([PY, "-c", "from transformers import ClapModel, ClapProcessor as P; m = 'laion/larger_clap_music_and_speech'; "
              "ClapModel.from_pretrained(m); P.from_pretrained(m); from demucs.pretrained import get_model; get_model('htdemucs')"],
             env=dict(env, HF_HOME=str(hf_home)))
+    if not a.no_web:
+        build_web()
     say("checking it all works")
     rc = subprocess.run([str(PY), "-m", "soundlab", "doctor"] + ([] if a.no_model else ["--generate"]),
                         env=dict(env, PYTHONPATH=str(ROOT)), cwd=ROOT).returncode
-    print("\nInstalled. Start the lab with:  " + ("soundlab.cmd" if WIN else "./soundlab.sh") + " --project PATH serve")
+    print("\nInstalled. Start the lab with:  " + ("soundlab.cmd" if WIN else "./soundlab.sh") + " --project PATH serve"
+          + "  (then http://127.0.0.1:7870/app/)")
     return rc
 
 

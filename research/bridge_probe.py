@@ -13,7 +13,7 @@ from soundlab import project as P  # noqa: E402
 from soundlab.music.taste import JOIN_FEATURES, join_features, song_record  # noqa: E402
 from soundlab.store import Store  # noqa: E402
 
-proj = P.load(sys.argv[1] if len(sys.argv) > 1 else "/home/ryan/dev/games/emberhold/tools/audio/soundlab_project.py")
+proj = P.load(sys.argv[1] if len(sys.argv) > 1 else None)  # (a project path, else SOUNDLAB_PROJECT)
 M = Store.read(proj.work / "songs.json", {})
 F = Store.read(proj.work / "families.json", {})
 model = Store.read(proj.work / "join_model.json", {})

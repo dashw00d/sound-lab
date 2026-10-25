@@ -74,6 +74,14 @@ def doctor(generate: bool) -> int:
     have = [isinstance(try_to_load_from_cache(paths.MODEL_REPO, f), str)
             for f in ("model.safetensors", "model_config.json", "t5gemma-b-b-ul2/model.safetensors")]
     line(all(have), "model", f"{paths.MODEL_REPO} in {paths.hf_home()}" if all(have) else "missing: run install.py")
+    built = paths.WEBAPP / "index.html"  # (not a failure: the older app at / works without it)
+    if not built.exists():
+        print("  [--] web app: not built, so /app/ won't load (install Node.js 20.19+ and run install.py again)")
+    elif any(p.stat().st_mtime > built.stat().st_mtime for p in (paths.TOOL / "web-app").rglob("*")
+             if p.is_file() and "node_modules" not in p.parts):
+        print("  [--] web app: older than web-app/ (run install.py again, or npm run build in web-app)")
+    else:
+        line(True, "web app", "built (served at /app/)")
     if generate and ok:
         from .engine import Engine
 

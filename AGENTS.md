@@ -5,7 +5,10 @@ You make game audio with local models: Stable Audio 3 Medium (SA3) by default, a
 ## Setup and health
 
 - Install: `./install.sh` (Linux) or `install.cmd` (Windows). It's idempotent. `--hf-home PATH` reuses an existing model cache.
-- Check: `./soundlab.sh doctor`, or `doctor --generate` to also make one second of real audio. Fix anything marked `!!` before generating.
+- Needs: an NVIDIA GPU with about 12 GB of VRAM, ffmpeg with the rubberband filter, Python 3.8+ or `uv` to run the installer, and Node.js 20.19+ with npm for the web app.
+- The web app (`web-app/`, TypeScript + React, served at `/app/`) isn't committed built: the installer builds it into `soundlab/webapp/` when Node is there, and again whenever `web-app/` is newer than the build. After a `git pull` that touches `web-app/`, or after you change it, run `npm run build` in `web-app/` (or the installer again). The older app at `/` needs no build.
+- Check: `./soundlab.sh doctor`, or `doctor --generate` to also make one second of real audio. Fix anything marked `!!` before generating; `[--]` lines (flash-attn, an unbuilt web app) are optional.
+- **On a new machine** (a clone of this repo and of the game's), git brings the tool and the game, not the lab's work. `work/<project>` is gitignored and starts empty: no takes, index, stems, fills, glues or measurements, so the Music, Mixer and Families pages have little to show until you generate or measure (`music trims`, `music glues`, `music stems`, `music families`). The songs already shipped are in the game's `soundlab/` folder. The data (votes, notes, cues, settings) is copied once, on first run, from the game's folder for it (Emberhold's `tools/audio/soundlab`), so it's whatever was last shared there. Tell the user how old it is (`data status`), and run `data pull` or `data share` only when they ask.
 - Every command takes `--project PATH`: a game folder containing `soundlab_project.py`, or the file itself. `SOUNDLAB_PROJECT` sets a default.
 - Start with `./soundlab.sh --project P status` (or `status --json`). It lists the sounds, takes, decisions, the user's notes, alert sets, music sets, what has shipped and which model makes what.
 - Before writing any prompt, run `./soundlab.sh --project P tuning --task T` and start from it (see "Prompt tuning: start here").
@@ -15,7 +18,7 @@ You make game audio with local models: Stable Audio 3 Medium (SA3) by default, a
 | command | does | time |
 |---|---|---|
 | `tuning [--task T] [--json]` | the prompt tuning for the model each task uses, with this project's evidence: read it before writing prompts | – |
-| `serve [--port 7870]` | the web app (run it in the background; it reads files on every request, and the open page offers new takes as they're generated) | – |
+| `serve [--port 7870]` | the web app at `http://127.0.0.1:7870/app/` (the older app at `/`); run it in the background; it reads files on every request, and the open page offers new takes as they're generated | – |
 | `sounds generate [--seeds N] [--only NAME..] [--variants V..]` | takes for every (or some) sound, prompt variant and seed; existing takes are skipped | ~0.7 s per take |
 | `sounds promote [--apply] [--only NAME..]` | ship the picks into the game (dry run without `--apply`) | seconds |
 | `alerts build` | the alert family: kits (cached) composed into every alert, one row per kit | ~1 min first time |
@@ -130,7 +133,7 @@ Optional sections turn pages on:
 - **`music`**: a dict documented in `soundlab/music.py`. It covers the grid, levels, loudness, profiles, contexts and biomes, the instrument candidates and roles, a `prompts(context, mode, mood, names)` function, and where the manifest and files go. The game plays the manifest: a track per context and biome, each with one file per level, all on one grid.
 - **`balance`**: a dict documented in `soundlab/balance.py`. It names the mix file and the folders holding sound files. Best is a sound table (the mix file at `"version": 2`: every level the game applies, which the game reads and the page edits, so the page shows exactly what the game plays; Emberhold's `assets/audio/mix.json` and `tools/audio/README.md` "The mix" are the example). An older trims-only mix also needs the groups and `call_sites()`/`buses()`, which read the game's own code.
 
-Emberhold's file (`/home/ryan/dev/games/emberhold/tools/audio/soundlab_project.py`) is a complete example.
+Emberhold's file (`tools/audio/soundlab_project.py` in the Emberhold repo, wherever it's cloned) is a complete example.
 
 ## Files in `work`
 
@@ -143,7 +146,7 @@ Emberhold's file (`/home/ryan/dev/games/emberhold/tools/audio/soundlab_project.p
 
 ## Gotchas
 
-- Restart `serve` after changing the server's Python code. The web files are read on every request.
+- Restart `serve` after changing the server's Python code. The web files are read on every request: the older app's as they are, the new app's from its build, so run `npm run build` in `web-app/` after changing it.
 - Never kill processes with `pkill -f PATTERN` or `pgrep -f PATTERN | xargs kill` when the pattern also appears in your own command line. It kills your own shell. List the processes first, then kill by PID.
 - SA3 occasionally produces silence. Generators flag it as `failed` and the app greys it out, so mention silent counts when you report.
 - Music needs ffmpeg's rubberband filter. `doctor` checks for it.

@@ -26,8 +26,9 @@ The installer, `install.py`, does the following, and re-running it only does wha
 2. Creates a Python 3.12 environment in `runtime/`.
 3. Fetches [Stable Audio 3](https://github.com/Stability-AI/stable-audio-3).
 4. Installs CUDA PyTorch, plus a prebuilt flash-attn wheel when one matches your platform (optional; it's faster).
-5. Downloads [cocktailpeanut/stable-audio-3-medium](https://huggingface.co/cocktailpeanut/stable-audio-3-medium), an ungated mirror of Stability's model (about 10 GB).
-6. Ends with a health check that makes one second of audio.
+5. Downloads [cocktailpeanut/stable-audio-3-medium](https://huggingface.co/cocktailpeanut/stable-audio-3-medium), an ungated mirror of Stability's model (about 10 GB), and the small analysis models (Audiobox Aesthetics, CLAP, Demucs).
+6. Builds the web app (`web-app/`, TypeScript + React) into `soundlab/webapp/` with `npm ci && npm run build`, when Node.js 20.19+ is installed. The build isn't committed, so without Node only the older app at `/` works, not the new one at `/app/`.
+7. Ends with a health check that makes one second of audio.
 
 Options:
 
@@ -36,19 +37,30 @@ Options:
 | `--hf-home PATH` | keep the model elsewhere, or reuse an existing cache |
 | `--cuda cu128` | a different PyTorch CUDA build |
 | `--no-model` | skip the download |
+| `--no-web` | skip building the web app |
 
-You also need **ffmpeg** on your PATH, built with the rubberband filter, which the music's tempo correction needs. The full builds for Windows (`winget install Gyan.FFmpeg`) and most Linux packages have it. `./soundlab.sh doctor` checks everything.
+You also need **Node.js 20.19+** with npm for the web app (`winget install OpenJS.NodeJS.LTS` on Windows; nodejs.org or your distro's `nodejs` and `npm` on Linux), and **ffmpeg** on your PATH, built with the rubberband filter, which the music's tempo correction needs. The full builds for Windows (`winget install Gyan.FFmpeg`) and most Linux packages have it. `./soundlab.sh doctor` checks everything.
+
+**After a `git pull`**, run the installer again: it does only what's missing, and rebuilds the web app when `web-app/` is newer than its build (`doctor` says when it is). Or run `npm run build` in `web-app/` yourself.
+
+### Joining a project someone else started
+
+Git carries the tool, not a project's work. On a new machine:
+
+- **The game** is its own repo, with its `soundlab_project.py` (Emberhold's is `tools/audio/soundlab_project.py`). Clone it next to this one, or anywhere, and pass `--project` to its folder.
+- **The work folder** (`work/<project>`: every take, the index, stems, fills, glues, measurements) is gitignored and stays on the machine that made it. A new machine starts with none: generate takes again, or copy the folder over. The songs already shipped are in the game's repo (its `soundlab/` folder).
+- **The data** (votes, picks, cues, notes, prompts, Mixer settings and sessions) lives in the lab's `work/<project>/data`. The first time a project runs, the lab copies it from the game's folder for it (Emberhold's `tools/audio/soundlab`), so a new machine starts from whatever was last shared there. To hand yours on, run `./soundlab.sh --project P data share --apply` (or the Game page's Share button) and commit it in the game. To take someone else's, run `data pull --apply`; your copy is backed up first.
 
 The model is licensed under the Stability AI Community License (commercial use has conditions: https://stability.ai/license), and T5Gemma under the Gemma Terms of Use. The web app bundles the Geist fonts (SIL Open Font License, `soundlab/web/fonts/OFL.txt`).
 
 ## Use
 
 ```sh
-./soundlab.sh --project ~/dev/games/mygame serve     # http://127.0.0.1:7870  (Windows: soundlab.cmd ...)
+./soundlab.sh --project ~/dev/games/mygame serve     # http://127.0.0.1:7870/app/  (Windows: soundlab.cmd ...)
 ./soundlab.sh --project ~/dev/games/mygame status
 ```
 
-A project is a game folder containing `soundlab_project.py`, which describes the game's sounds and how it masters and plays them (see AGENTS.md, "The project file"). The pages:
+A project is a game folder containing `soundlab_project.py`, which describes the game's sounds and how it masters and plays them (see AGENTS.md, "The project file"). The new app is at `/app/` (Library, Families, Mixer, Sessions, Game, Inbox); the older app at `/` still has the pages below:
 
 | page | what it's for |
 |---|---|
@@ -117,7 +129,8 @@ Other useful asks:
 ```
 install.py, install.sh, install.cmd    the installer
 soundlab.sh, soundlab.cmd              run the tool with the installed runtime
-soundlab/                              the tool: engine, generators, server, web app (soundlab/web)
+soundlab/                              the tool: engine, generators, server, the older web app (soundlab/web)
+web-app/                               the new web app (TypeScript + React + Vite), built into soundlab/webapp (gitignored)
 tuning.json                            prompt tuning: a guide per model, which model makes what, your taste
 MODELS_LOG.md                          what we've learned about each model, with the evidence
 research/                              experiments outside the app (the music prompt probe) and their raw results
