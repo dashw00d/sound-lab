@@ -2,8 +2,8 @@
 """Regenerate the README screenshots in docs/screenshots/.
 
 What it does, end to end:
-  1. Writes a small demo game (a soundlab_project.py and a handful of sounds) into a temporary folder.
-  2. Runs the real `sounds generate` pipeline on it (prompt variants x seeds, mastering, the index).
+  1. Writes a small demo game (a soundlab_project.py with a handful of sounds, an alert set and a mix file) into a temporary folder.
+  2. Runs the real `sounds generate`, `alerts build` and `balance measure` pipelines on it (prompt variants x seeds, mastering, the index).
      The model is replaced by a tiny numpy synthesiser, so the takes are STAND-IN AUDIO (beeps, sweeps, noise
      bursts), not Stable Audio 3 output. This needs no GPU and no model download.
   3. Writes some demo votes, starts `serve` on a spare port, and captures the web app with headless Chromium.
@@ -48,8 +48,25 @@ SOUNDS = {
     "explosion_small": ("oneshot", 2.0, "Small explosion, punchy low boom with a crackling debris tail.",
                         {"distant": "A distant explosion, rolling low rumble, muffled."}),
     "wind_loop": ("loop", 4.0, "Steady cold wind over a mountain ridge, seamless loop, soft gusts, no melody.", {}),
+    "alert_low_health": ("oneshot", 1.2, "Urgent descending two-note warning tone, soft synth pulse, dry.", {}),
+    "alert_quest_done": ("oneshot", 1.2, "Cheerful rising three-note chime, glassy and warm, dry.", {}),
+    "alert_danger": ("oneshot", 1.2, "Low insistent double pulse, a dull alarm thud, dry.", {}),
 }
-SHIPPED = ["coin_pickup", "ui_click", "footstep_stone", "sword_hit"]
+SHIPPED = list(SOUNDS)
+ALERTS = ["alert_low_health", "alert_quest_done", "alert_danger"]
+
+# The demo game's mix (the Balance page's "version": 2 sound table): buses, categories and events, each with its own dB.
+MIX = {"version": 2,
+       "buses": {"SFX": 0.0, "UI": -2.0, "Ambience": -4.0, "Alerts": 1.0},
+       "categories": {"reward": {"bus": "UI", "db": 0.0, "space": "2d"}, "ui": {"bus": "UI", "db": -3.0, "space": "2d"},
+                      "combat": {"bus": "SFX", "db": 0.0, "space": "2d"}, "world": {"bus": "SFX", "db": -2.0, "space": "2d"},
+                      "ambience": {"bus": "Ambience", "db": 0.0, "space": "2d"}, "alerts": {"bus": "Alerts", "db": 0.0, "space": "2d"}},
+       "sounds": {"coin_pickup": {"cat": "reward", "db": 1.5}, "ui_click": {"cat": "ui", "db": 0.0}, "jump": {"cat": "world", "db": 0.0},
+                  "footstep_stone": {"cat": "world", "db": -4.0}, "sword_hit": {"cat": "combat", "db": 0.0},
+                  "explosion_small": {"cat": "combat", "db": -1.0}, "wind_loop": {"cat": "ambience", "db": -3.0},
+                  "alert_low_health": {"cat": "alerts", "db": 0.0}, "alert_quest_done": {"cat": "alerts", "db": 0.0},
+                  "alert_danger": {"cat": "alerts", "db": 2.0}},
+       "music": {"levels": {}, "tracks": {}}}
 
 # Votes: take id -> 1 | -1; picks: sound -> take id. Take ids are "<sound>.<variant>.s<seed>".
 THUMBS = {
@@ -58,8 +75,11 @@ THUMBS = {
     "sword_hit.light.s0": -1, "sword_hit.light.s1": -1, "jump.el.s1": 1, "jump.spring.s0": 1, "jump.spring.s2": -1,
     "explosion_small.el.s1": 1, "explosion_small.distant.s0": -1, "footstep_stone.el.s0": 1, "footstep_stone.echo.s1": -1,
     "ui_click.el.s2": 1, "ui_click.el.s0": -1,
+    "alert_low_health.chime.s1": 1, "alert_low_health.chime.s3": -1, "alert_quest_done.chime.s1": 1, "alert_quest_done.chime.s2": 1,
+    "alert_danger.chime.s0": -1, "alert_danger.chime.s1": 1,
 }
-PICKS = {"coin_pickup": "coin_pickup.el.s1", "sword_hit": "sword_hit.heavy.s1", "jump": "jump.spring.s0",
+PICKS = {"alert_low_health": "alert_low_health.chime.s1", "alert_quest_done": "alert_quest_done.chime.s1", "alert_danger": "alert_danger.chime.s1",
+         "coin_pickup": "coin_pickup.el.s1", "sword_hit": "sword_hit.heavy.s1", "jump": "jump.spring.s0",
          "footstep_stone": "footstep_stone.el.s0", "explosion_small": "explosion_small.el.s1"}
 NOTES = {"coin_pickup": "Want it brighter and shorter. The bell takes ring too long.",
          "sword_hit": "Heavy takes are close. Less ring on the tail."}
@@ -95,6 +115,13 @@ def synth(name: str, prompt: str, seed: int, seconds: float) -> np.ndarray:
     elif name == "explosion_small":
         x = lp(noise, 30) * np.exp(-t * 2.2) * 6 + np.sin(2 * np.pi * 48 * j * t) * np.exp(-t * 3)
         x += 0.15 * noise * np.exp(-t * 6)
+    elif name.startswith("alert_"):
+        notes = {"alert_low_health": (660, 494), "alert_quest_done": (523, 659, 784), "alert_danger": (110, 110)}[name]
+        seg = len(t) // len(notes)
+        x = np.zeros(n)
+        for i, f in enumerate(notes):
+            tt = t[:seg]
+            x[i * seg:(i + 1) * seg] = np.sin(2 * np.pi * f * j * tt) * np.exp(-tt * 5) * (1 + 0.4 * np.sin(2 * np.pi * 6 * tt))
     else:  # wind_loop: slowly gusting low-passed noise, faded at the ends so it tiles
         gust = 0.6 + 0.4 * np.sin(2 * np.pi * (0.35 * j) * t + rng.uniform(0, 6))
         x = lp(noise, 14) * gust * 5
@@ -128,6 +155,7 @@ from soundlab.project import Project, Sound
 HERE = Path(__file__).resolve().parent
 SOUNDS = %(sounds)r
 SHIPPED = %(shipped)r
+ALERTS = %(alerts)r
 
 
 def project():
@@ -140,8 +168,18 @@ def project():
                              shipped=f if name in SHIPPED else None))
         return out
 
+    alerts = dict(
+        order=ALERTS,
+        legend={"recordings": "One generated take per alert, used whole."},
+        concepts={"chime": dict(family="recordings", label="Chimes",
+                                prompts={a: [SOUNDS[a][2], SOUNDS[a][1]] for a in ALERTS})},
+        scores={"recordings": {"alert_low_health": dict(what="descending pair: health is low"),
+                               "alert_quest_done": dict(what="rising triad: a quest is done"),
+                               "alert_danger": dict(what="low double pulse: enemies near")}},
+        recording_takes=4, tries=4)
+    balance = dict(mix=HERE / "assets" / "mix.json", dirs=["audio"])
     return Project(name="demo-game", root=HERE, work=HERE.parent / "work" / "demo-game", data=HERE.parent / "data",
-                   assets=HERE / "assets", sounds=sounds)
+                   assets=HERE / "assets", sounds=sounds, alerts=alerts, balance=balance)
 '''
 
 
@@ -149,11 +187,12 @@ def build_demo(game: Path) -> None:
     from soundlab import dsp
 
     game.mkdir(parents=True, exist_ok=True)
-    (game / "soundlab_project.py").write_text(PROJECT_PY % dict(sounds=SOUNDS, shipped=SHIPPED))
+    (game / "soundlab_project.py").write_text(PROJECT_PY % dict(sounds=SOUNDS, shipped=SHIPPED, alerts=ALERTS))
     (game / "assets" / "audio").mkdir(parents=True, exist_ok=True)
     for name in SHIPPED:  # the files the demo game "ships now", for the A/B against a take
         _, secs, p, _ = SOUNDS[name]
         dsp.write(game / "assets" / "audio" / f"{name}.wav", dsp.normalise(synth(name, p, 99, secs), -18.0, -1.0))
+    (game / "assets" / "mix.json").write_text(json.dumps(MIX, indent=1))  # the game's sound table, which the Balance page edits
     (game.parent / "data").mkdir(exist_ok=True)  # outside the game folder, so the lab uses it in place
     (game.parent / "data" / "prompts.json").write_text(json.dumps({n: v[3] for n, v in SOUNDS.items() if v[3]}, indent=1))
 
@@ -167,9 +206,10 @@ def generate(game: Path) -> None:
     engine.Engine = StubEngine
     from soundlab.__main__ import main
 
-    sys.argv = ["soundlab", "--project", str(game), "sounds", "generate", "--seeds", "3"]
-    if main():
-        sys.exit("generate failed")
+    for cmd in (["sounds", "generate", "--seeds", "3"], ["alerts", "build"], ["balance", "measure"]):
+        sys.argv = ["soundlab", "--project", str(game), *cmd]
+        if main():
+            sys.exit(f"{' '.join(cmd)} failed")
 
 
 def write_votes(game: Path) -> None:
@@ -209,7 +249,12 @@ def shots():
         page.wait_for_timeout(1500)  # (it plays once; let the one-second sound finish)
 
     # (file, URL hash, viewport height, what to do on the page first)
-    return [("sounds-page.png", "/#sounds/sword_hit", 1000, pick_take)]
+    def none(page):
+        pass
+
+    return [("sounds-page.png", "/#sounds/sword_hit", 1000, pick_take),
+            ("alerts-page.png", "/#alerts", 800, none),
+            ("balance-page.png", "/#balance", 1150, none)]
 
 
 def terminal_html(game: Path, commands: list[list[str]]) -> str:
