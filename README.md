@@ -201,4 +201,4 @@ runtime/                               installed (gitignored): Python env, Stabl
 
 ## License and third-party terms
 
-The model is licensed under the Stability AI Community License (commercial use has conditions: https://stability.ai/license), and T5Gemma under the Gemma Terms of Use. The web app bundles the Geist fonts (SIL Open Font License, `soundlab/web/fonts/OFL.txt`). This repository does not include a license file for SoundLab's own code.
+The model is licensed under the Stability AI Community License (commercial use has conditions: https://stability.ai/license), and T5Gemma under the Gemma Terms of Use. The web app bundles the Geist fonts (SIL Open Font License, `soundlab/web/fonts/OFL.txt`). SoundLab's own code is released under the [MIT License](LICENSE).
