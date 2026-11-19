@@ -1,23 +1,50 @@
-<img src="soundlab/web/img/soundlab-mark.png" width="64" alt="">
+<img src="soundlab/web/img/soundlab-mark.png" width="64" alt="SoundLab logo">
 
-# SoundLab
+# SoundLab: local AI game audio with Stable Audio 3
 
-Make a game's audio with Stable Audio 3, running locally. SoundLab can:
+**Generate game sound effects and adaptive music on your own NVIDIA GPU with Stable Audio 3, audition and vote on every take in a web app, and ship the winners into your game.** SoundLab runs locally on Windows and Linux (no API, no per-clip fees) and is built to be driven by a coding agent such as Claude Code.
 
-- generate many takes of every sound;
-- audition and vote on them in a web app;
-- build consistent alert families;
-- compose an adaptive music score with intensity levels that crossfade at any moment and tracks that switch on the bar;
-- balance the whole mix live against the running game;
-- ship the winners.
+![SoundLab's Sounds page: a sword_hit sound with three prompt variants, three takes each, thumbs up and down votes, a starred pick, and the waveform player at the bottom](docs/screenshots/sounds-page.png)
 
-It works on Windows and Linux, with an NVIDIA GPU (Stable Audio 3 Medium wants about 12 GB of VRAM).
+*The Sounds page on a small demo project. The screenshots in this README were captured from a demo game whose takes are synthetic stand-in beeps and noise bursts, made by [`scripts/readme_screenshots.py`](scripts/readme_screenshots.py), because that needs no GPU or model download. Real runs use Stable Audio 3 Medium.*
 
-## Install
+## Why SoundLab
+
+Text-to-audio models give you a different result for every seed, and picking the good take out of dozens is the slow part of making game audio. SoundLab is built around that part:
+
+- **Many takes, cheaply.** Every sound is generated in several prompt variants and seeds, so you choose from options instead of tuning one prompt.
+- **Your ears decide.** You listen and vote in the app. Nothing ships until you pick it.
+- **The agent learns from your votes.** Votes feed a per-model prompt-tuning file, so each new round of prompts starts from what already worked.
+- **Local and repeatable.** Takes, votes and notes live in plain files, and shipping is a command.
+
+## Features
+
+- **Sound effect generation:** every sound x prompt variant x seed, mastered the way your game masters its files (default -18 LUFS, -1 dBFS limiter), with silent takes flagged and greyed out. See the [speeds](#speeds).
+- **Audition and vote in a web app:** thumbs up and down, a starred pick per sound, notes on a sound or on one prompt, A/B against the file your game ships now, and `Ctrl Z` to undo.
+- **Waveform and spectrogram player:** hover for time and frequency, click to seek, drag to loop a range.
+- **Alert families:** whole alert sets side by side, one kit per row, to judge consistency instead of single sounds.
+- **Adaptive music score:** intensity levels that crossfade at any moment and tracks that switch on the bar, all on one beat grid. Includes instrument auditions, derived levels, quality checks and tempo correction.
+- **Live mixing:** balance every sound and music level at its in-game loudness against the running game, and save to the game's mix file, which the game reloads live.
+- **Ship it:** `sounds promote` copies the picks into your game with provenance. `ship` and `sync` write a music folder with a manifest and a small engine-agnostic walk (`walk.js`) that plays the score. A [Godot 4 reference player](examples/godot/README.md) is included.
+- **Agent-friendly CLI:** one command surface for generating, measuring and shipping, plus [AGENTS.md](AGENTS.md), which tells a coding agent how to drive it.
+
+## Requirements
+
+- An **NVIDIA GPU** with a recent driver. Stable Audio 3 Medium wants about **12 GB of VRAM**.
+- **Windows or Linux.**
+- Disk space for the model (about 10 GB) plus the Python environment with CUDA PyTorch.
+- **ffmpeg** on your PATH, built with the rubberband filter (the music's tempo correction needs it).
+- **Node.js 20.19+** with npm, to build the web app at `/app/`.
+- Python 3.8+ or [uv](https://docs.astral.sh/uv/) to run the installer. It sets up its own Python 3.12.
+
+## Quick start
 
 ```sh
+git clone https://github.com/dashw00d/sound-lab.git
+cd sound-lab
 ./install.sh            # Linux
 install.cmd             # Windows
+./soundlab.sh doctor    # checks the GPU, ffmpeg and the model  (Windows: soundlab.cmd doctor)
 ```
 
 The installer, `install.py`, does the following, and re-running it only does what's missing:
@@ -39,28 +66,46 @@ Options:
 | `--no-model` | skip the download |
 | `--no-web` | skip building the web app |
 
-You also need **Node.js 20.19+** with npm for the web app (`winget install OpenJS.NodeJS.LTS` on Windows; nodejs.org or your distro's `nodejs` and `npm` on Linux), and **ffmpeg** on your PATH, built with the rubberband filter, which the music's tempo correction needs. The full builds for Windows (`winget install Gyan.FFmpeg`) and most Linux packages have it. `./soundlab.sh doctor` checks everything.
+Install Node.js 20.19+ with `winget install OpenJS.NodeJS.LTS` on Windows, or from nodejs.org or your distro's `nodejs` and `npm` on Linux. ffmpeg's full builds for Windows (`winget install Gyan.FFmpeg`) and most Linux packages include the rubberband filter. `./soundlab.sh doctor` checks everything.
 
 **After a `git pull`**, run the installer again: it does only what's missing, and rebuilds the web app when `web-app/` is newer than its build (`doctor` says when it is). Or run `npm run build` in `web-app/` yourself.
 
-### Joining a project someone else started
+### Point it at a game
 
-Git carries the tool, not a project's work. On a new machine:
+A project is a game folder with a `soundlab_project.py` that describes its sounds. This minimal one is enough to generate, vote and ship one sound:
 
-- **The game** is its own repo, with its `soundlab_project.py` (Emberhold's is `tools/audio/soundlab_project.py`). Clone it next to this one, or anywhere, and pass `--project` to its folder.
-- **The work folder** (`work/<project>`: every take, the index, stems, fills, glues, measurements) is gitignored and stays on the machine that made it. A new machine starts with none: generate takes again, or copy the folder over. The songs already shipped are in the game's repo (its `soundlab/` folder).
-- **The data** (votes, picks, cues, notes, prompts, Mixer settings and sessions) lives in the lab's `work/<project>/data`. The first time a project runs, the lab copies it from the game's folder for it (Emberhold's `tools/audio/soundlab`), so a new machine starts from whatever was last shared there. To hand yours on, run `./soundlab.sh --project P data share --apply` (or the Game page's Share button) and commit it in the game. To take someone else's, run `data pull --apply`; your copy is backed up first.
+```python
+from pathlib import Path
 
-The model is licensed under the Stability AI Community License (commercial use has conditions: https://stability.ai/license), and T5Gemma under the Gemma Terms of Use. The web app bundles the Geist fonts (SIL Open Font License, `soundlab/web/fonts/OFL.txt`).
+from soundlab.project import Project, Sound
 
-## Use
+HERE = Path(__file__).resolve().parent
 
-```sh
-./soundlab.sh --project ~/dev/games/mygame serve     # http://127.0.0.1:7870/app/  (Windows: soundlab.cmd ...)
-./soundlab.sh --project ~/dev/games/mygame status
+
+def project():
+    def sounds():
+        return [Sound(name="coin_pickup", kind="oneshot", seconds=1.0, channels=2,
+                      prompt="Bright two-note coin pickup chime, metallic ping, retro arcade, dry.",
+                      out=HERE / "assets" / "audio" / "coin_pickup.wav")]
+
+    return Project(name="mygame", root=HERE, work=HERE / "work" / "mygame", data=HERE / "soundlab_data",
+                   assets=HERE / "assets", sounds=sounds)
 ```
 
-A project is a game folder containing `soundlab_project.py`, which describes the game's sounds and how it masters and plays them (see AGENTS.md, "The project file"). The new app is at `/app/` (Library, Families, Mixer, Sessions, Game, Inbox); the older app at `/` still has the pages below:
+```sh
+./soundlab.sh --project ~/dev/games/mygame sounds generate --seeds 3
+./soundlab.sh --project ~/dev/games/mygame serve     # http://127.0.0.1:7870/  (the older app); the newer one is at /app/
+```
+
+Vote in the browser, then ship the picks with `sounds promote --apply`. Music, alerts and the Balance page switch on when the project file has `music`, `alerts` and `balance` sections (see AGENTS.md, "The project file"). The newer app at `/app/` is built around music projects.
+
+![Terminal output of soundlab status and sounds promote against the demo game: 7 sounds, 42 takes, 5 decided, with the dry-run list of picks that would ship](docs/screenshots/cli-status.png)
+
+*`status` and a dry-run `sounds promote` on the demo game. Shipping overwrites your game's files, so it only happens with `--apply`.*
+
+## Usage: pages and commands
+
+The newer app at `/app/` has Library, Families, Mixer, Sessions, Game and Inbox pages. The older app at `/` has the pages below:
 
 | page | what it's for |
 |---|---|
@@ -95,7 +140,9 @@ Generating and shipping happen on the command line:
 ./soundlab.sh --project P tuning --task sfx                 # how to prompt the model that makes sound effects
 ```
 
-Rough speeds on a 4070 Ti SUPER:
+### Speeds
+
+Rough speeds on an RTX 4070 Ti SUPER:
 
 | job | time |
 |---|---|
@@ -103,7 +150,14 @@ Rough speeds on a 4070 Ti SUPER:
 | one music set (a spine plus derived levels, several takes) | 1–3 min |
 | a whole game's sound list at 3 seeds | about 20 min |
 
-## Working with an agent
+## How it works
+
+1. **Generate.** `soundlab.engine` loads Stable Audio 3 Medium once and writes takes for every sound, prompt variant and seed. Takes are mastered the way the game masters its files and indexed in `work/<project>/index.json`.
+2. **Decide.** The web app (a small standard-library Python server plus a TypeScript and React front end) reads those files on every request. Your votes, picks and notes are written to the project's `data` folder.
+3. **Learn.** `tuning.json` holds a guide per model: its prompt rules, good and bad examples, and your taste. Agents read it before writing prompts and add what your votes teach them.
+4. **Ship.** `sounds promote` installs the picked takes where the game reads them. Music goes out as a folder the game plays with the walk in `walk.js`.
+
+## Working with a coding agent
 
 SoundLab is made to be driven by a coding agent: the agent writes prompts, generates and ships, and you listen and decide in the app. [AGENTS.md](AGENTS.md) tells it how.
 
@@ -124,6 +178,14 @@ Other useful asks:
 - *"Review the tuning: drop agent rules the evidence no longer supports, and tell me which ones my votes contradict."*
 - *"Show me what will change if we ship, then ship the picks."* (Shipping overwrites the game's files, so agents only do it when you ask.)
 
+## Joining a project someone else started
+
+Git carries the tool, not a project's work. On a new machine:
+
+- **The game** is its own repo, with its `soundlab_project.py` (Emberhold's is `tools/audio/soundlab_project.py`). Clone it next to this one, or anywhere, and pass `--project` to its folder.
+- **The work folder** (`work/<project>`: every take, the index, stems, fills, glues, measurements) is gitignored and stays on the machine that made it. A new machine starts with none: generate takes again, or copy the folder over. The songs already shipped are in the game's repo (its `soundlab/` folder).
+- **The data** (votes, picks, cues, notes, prompts, Mixer settings and sessions) lives in the lab's `work/<project>/data`. The first time a project runs, the lab copies it from the game's folder for it (Emberhold's `tools/audio/soundlab`), so a new machine starts from whatever was last shared there. To hand yours on, run `./soundlab.sh --project P data share --apply` (or the Game page's Share button) and commit it in the game. To take someone else's, run `data pull --apply`; your copy is backed up first.
+
 ## Layout
 
 ```
@@ -136,3 +198,7 @@ MODELS_LOG.md                          what we've learned about each model, with
 research/                              experiments outside the app (the music prompt probe) and their raw results
 runtime/                               installed (gitignored): Python env, Stable Audio 3, the model cache
 ```
+
+## License and third-party terms
+
+The model is licensed under the Stability AI Community License (commercial use has conditions: https://stability.ai/license), and T5Gemma under the Gemma Terms of Use. The web app bundles the Geist fonts (SIL Open Font License, `soundlab/web/fonts/OFL.txt`). This repository does not include a license file for SoundLab's own code.
