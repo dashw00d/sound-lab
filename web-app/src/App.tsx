@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect } from 'react'
+import type { ProjectInfo } from './api/types'
 import { go, useRoute } from './data/route'
-import { useFamilies, useProject, useSongs } from './data/resources'
+import { PROJECT, useFamilies, useProject, useSongs } from './data/resources'
+import { useResource } from './data/live'
 import InboxPage, { useInboxCount } from './pages/inbox/InboxPage'
 import LibraryPage from './pages/library/LibraryPage'
 import { Shell } from './shell/Shell'
@@ -12,7 +14,29 @@ const SessionsPage = lazy(() => import('./pages/sessions/SessionsPage'))
 const MixerPage = lazy(() => import('./pages/mixer/MixerPage'))
 const GamePage = lazy(() => import('./pages/game/GamePage'))
 
+/** A project with no `music` section: the app's sections are all about music, so they're hidden. What the project does
+ * have (sounds, alerts, balance, tuning) is in the older app. */
+function NoMusic({ project, features }: { project?: string; features: ProjectInfo['features'] }) {
+  const has = [['Sounds', true], ['Alerts', features.alerts], ['Balance', features.balance], ['Tuning', true]].filter(x => x[1]).map(x => x[0]).join(', ')
+  return (
+    <Shell pages={[]} current="" project={project}>
+      <div className="empty-state"><div>
+        <b>{project ?? 'This project'} has no music</b>
+        This app is for music: songs, scenes and the Mixer. Its pages show once the project file has a <code>music</code> section.
+        <p>What this project does have ({has}) is in the older app.</p>
+        <a className="btn primary" href="/" style={{ marginTop: 14, textDecoration: 'none' }}>Open the older app</a>
+      </div></div>
+    </Shell>
+  )
+}
+
 export default function App() {
+  const { data: info, error } = useResource<ProjectInfo>(PROJECT)
+  if (!info && !error) return <div className="empty-state"><div className="lib-loading" /></div>  // (before the sections ask for songs the project may not have)
+  return info && !info.features.music ? <NoMusic project={info.name} features={info.features} /> : <MusicApp />
+}
+
+function MusicApp() {
   const route = useRoute(), songs = useSongs().data, fams = useFamilies().data, inbox = useInboxCount(), project = useProject()?.name
   useEffect(() => { if (!route.section) go('library', null, true) }, [route.section])
   const pages = [
@@ -20,7 +44,7 @@ export default function App() {
       tip: 'New takes waiting for your ear: keep one, call it a bad take, start a new family with it, or say which scene it belongs with' },
     { id: 'library', title: 'Library', icon: 'list' as const, count: songs ? songs.tracks.filter(t => !t.candidate).length : null, view: () => <LibraryPage />,
       tip: "Every song the game has, by scene: hear it whole from any bar, set its loop, its levels and stems, and how it's fared in your sessions" },
-    { id: 'scenes', title: 'Scenes', icon: 'graph' as const, count: fams ? Object.values(fams.families).filter(f => f.members.length > 1).length : null, view: () => <FamiliesPage />,
+    { id: 'scenes', title: 'Scenes', icon: 'graph' as const, count: fams ? Object.values(fams.families ?? {}).filter(f => f.members.length > 1).length : null, view: () => <FamiliesPage />,
       tip: 'The music graph: songs in scenes that pass as one piece, each with its energy, and the seamless cuts the walk takes between them' },
     { id: 'sessions', title: 'Sessions', icon: 'history' as const, view: () => <SessionsPage />,
       tip: 'Your listening sessions: every block you rated and every transition you thumbed, to hear again exactly as it played' },

@@ -7,6 +7,9 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
   if (!r.ok) throw new Error(`${r.status} ${url}`)
   return r.json() as Promise<T>
 }
+// (GET /api/families is only {"bridges": {}} until `soundlab music families` has written work/families.json: a project
+// with no music, or music not sorted yet. Every part the pages read is filled in, so they see an empty graph, not undefined.)
+const EMPTY_FAMILIES: Families = { made: '', items: {}, families: {}, queue: [] }
 const post = <T>(url: string, body: unknown) =>
   json<T>(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 
@@ -15,7 +18,7 @@ export const api = {
   state: () => json<{ project: ProjectInfo; votes: Votes }>('/api/state'),
   project: () => json<ProjectInfo>('/api/project'),
   votes: () => json<Votes>('/api/votes'),
-  families: () => json<Families>('/api/families'),
+  families: async () => ({ ...EMPTY_FAMILIES, ...(await json<Partial<Families>>('/api/families')) }),
   rebuildFamilies: () => post<{ started: boolean; busy?: boolean }>('/api/families/rebuild', {}),
   /** Every shipped track with its measures, plus the scored new takes (the Mixer's library). */
   songs: () => json<Library>('/api/songs'),
