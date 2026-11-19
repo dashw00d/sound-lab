@@ -25,6 +25,15 @@ Text-to-audio models give you a different result for every seed, and picking the
 - **Alert families:** whole alert sets side by side, one kit per row, to judge consistency instead of single sounds.
 - **Adaptive music score:** intensity levels that crossfade at any moment and tracks that switch on the bar, all on one beat grid. Includes instrument auditions, derived levels, quality checks and tempo correction.
 - **Live mixing:** balance every sound and music level at its in-game loudness against the running game, and save to the game's mix file, which the game reloads live.
+
+![SoundLab's Alerts page: three alerts across the top, a shipped reference row and four kits of takes below, each cell a small waveform with thumbs and a starred kit](docs/screenshots/alerts-page.png)
+
+*The Alerts page: every kit renders the whole alert set, one kit per row, so you judge the family rather than one sound.*
+
+![SoundLab's Balance page: bus and category faders above a table of events with each file's loudness, its dB trim and the effective level as a bar](docs/screenshots/balance-page.png)
+
+*The Balance page: each event's effective level is its file's loudness plus the event, category and bus dB, as the game plays it.*
+
 - **Ship it:** `sounds promote` copies the picks into your game with provenance. `ship` and `sync` write a music folder with a manifest and a small engine-agnostic walk (`walk.js`) that plays the score. A [Godot 4 reference player](examples/godot/README.md) is included.
 - **Agent-friendly CLI:** one command surface for generating, measuring and shipping, plus [AGENTS.md](AGENTS.md), which tells a coding agent how to drive it.
 
@@ -97,9 +106,9 @@ def project():
 ./soundlab.sh --project ~/dev/games/mygame serve     # http://127.0.0.1:7870/  (the older app); the newer one is at /app/
 ```
 
-Vote in the browser, then ship the picks with `sounds promote --apply`. Music, alerts and the Balance page switch on when the project file has `music`, `alerts` and `balance` sections (see AGENTS.md, "The project file"). The newer app at `/app/` is built around music projects.
+Vote in the browser, then ship the picks with `sounds promote --apply`. Music, alerts and the Balance page switch on when the project file has `music`, `alerts` and `balance` sections (see AGENTS.md, "The project file"). The newer app at `/app/` is for music projects: on a project without a `music` section it says so and points to the older app.
 
-![Terminal output of soundlab status and sounds promote against the demo game: 7 sounds, 42 takes, 5 decided, with the dry-run list of picks that would ship](docs/screenshots/cli-status.png)
+![Terminal output of soundlab status and sounds promote against the demo game: 10 sounds, 63 takes, 8 decided, with the dry-run list of picks that would ship](docs/screenshots/cli-status.png)
 
 *`status` and a dry-run `sounds promote` on the demo game. Shipping overwrites your game's files, so it only happens with `--apply`.*
 
